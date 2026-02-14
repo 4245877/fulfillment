@@ -7,15 +7,22 @@ export default function Nav() {
 
   return (
     <nav className={s.nav}>
+      <NavLink to="/" end className={cls}>
+        Дошка
+      </NavLink>
+
       <NavLink to="/orders" className={cls}>
         Замовлення
       </NavLink>
+
       <NavLink to="/shipments" className={cls}>
         Відправлення
       </NavLink>
+
       <NavLink to="/audit" className={cls}>
         Журнал подій
       </NavLink>
+
       <NavLink to="/settings" className={cls}>
         Налаштування
       </NavLink>

@@ -1,8 +1,8 @@
 import React, { Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 
-import Login from "./pages/Login.jsx";
+import Board from "./pages/Board.jsx";
 import Orders from "./pages/Orders.jsx";
 import Print from "./pages/Print.jsx";
 import Shipments from "./pages/Shipments.jsx";
@@ -14,10 +14,9 @@ export default function App() {
   return (
     <Suspense fallback={<div style={{ padding: 16 }}>Loading…</div>}>
       <Routes>
-        <Route path="/login" element={<Login />} />
-
         <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/orders" replace />} />
+          <Route index element={<Board />} />
+          <Route path="board" element={<Board />} />
           <Route path="orders" element={<Orders />} />
           <Route path="prints/:id" element={<Print />} />
           <Route path="shipments" element={<Shipments />} />

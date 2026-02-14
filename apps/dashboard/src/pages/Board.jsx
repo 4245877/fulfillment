@@ -3,7 +3,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import Widget from "../components/wallboard/Widget.jsx";
 import Bar from "../components/wallboard/Bar.jsx";
 
-import { api } from "../api/wallboardApi.js";
+import { apiWB as api } from "../api/wallboardApi.js";
+
 import { useSSE } from "../hooks/useSSE.js";
 
 import "../styles/wallboard.css";

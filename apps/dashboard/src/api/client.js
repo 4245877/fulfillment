@@ -1,55 +1,76 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+const RAW_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_BASE || // обратная совместимость
+  "";
 
-function toUrl(path) {
-  if (!path) return API_BASE || "/";
-  // абсолютный URL — не трогаем
-  if (/^https?:\/\//i.test(path)) return path;
-  // относительный к API_BASE (если задан), иначе как было
-  if (!API_BASE) return path;
-  if (path.startsWith("/")) return `${API_BASE}${path}`;
-  return `${API_BASE}/${path}`;
+const API_BASE = String(RAW_BASE).replace(/\/+$/, "");
+
+export function apiUrl(path) {
+  const p = String(path || "");
+  if (!p) return API_BASE || "/";
+  if (/^https?:\/\//i.test(p)) return p;
+
+  if (!API_BASE) {
+    return p.startsWith("/") ? p : `/${p}`;
+  }
+  return p.startsWith("/") ? `${API_BASE}${p}` : `${API_BASE}/${p}`;
 }
 
-async function request(path, { method = "GET", headers, body, expect = "json" } = {}) {
-  const url = toUrl(path);
+async function request(
+  path,
+  {
+    method = "GET",
+    headers,
+    body,
+    expect = "json",
+    timeoutMs = 15000,
+    signal,
+    credentials = "same-origin",
+  } = {}
+) {
+  const url = apiUrl(path);
 
-  const res = await fetch(url, {
-    method,
-    headers: {
-      ...(body ? { "Content-Type": "application/json" } : {}),
-      ...(headers || {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const ctrl = !signal ? new AbortController() : null;
+  const usedSignal = signal || ctrl?.signal;
 
-  const ct = (res.headers.get("content-type") || "").toLowerCase();
-  const text = await res.text(); // читаем один раз
+  const t =
+    timeoutMs && ctrl
+      ? setTimeout(() => ctrl.abort(new Error("timeout")), timeoutMs)
+      : null;
 
-  // Любой не-OK — ошибка с телом (если есть)
-  if (!res.ok) {
-    const snippet = text ? `\n\n${text.slice(0, 300)}` : "";
-    throw new Error(`${res.status} ${res.statusText} @ ${url}${snippet}`);
-  }
+  try {
+    const res = await fetch(url, {
+      method,
+      credentials,
+      signal: usedSignal,
+      headers: {
+        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(headers || {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
 
-  // ВАЖНО: если ожидали JSON, а пришёл HTML/текст — это тоже ошибка
-  if (expect === "json") {
-    if (!ct.includes("json")) {
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    const text = await res.text();
+
+    if (!res.ok) {
       const snippet = text ? `\n\n${text.slice(0, 300)}` : "";
-      throw new Error(
-        `Expected JSON but got "${ct || "unknown"}" @ ${url}${snippet}\n\n` +
-          `Підказка: якщо API ще не запущений — це нормально. UI не має падати.`
-      );
+      throw new Error(`${res.status} ${res.statusText} @ ${url}${snippet}`);
     }
-    if (!text) return null;
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      throw new Error(`Invalid JSON @ ${url}\n\n${text.slice(0, 300)}`);
-    }
-  }
 
-  // Для редких случаев текста
-  return text;
+    if (expect === "json") {
+      if (!ct.includes("json")) {
+        const snippet = text ? `\n\n${text.slice(0, 300)}` : "";
+        throw new Error(`Expected JSON but got "${ct || "unknown"}" @ ${url}${snippet}`);
+      }
+      if (!text) return null;
+      return JSON.parse(text);
+    }
+
+    return text;
+  } finally {
+    if (t) clearTimeout(t);
+  }
 }
 
 export const api = {
@@ -58,6 +79,5 @@ export const api = {
   put: (path, body, opts) => request(path, { ...(opts || {}), method: "PUT", body, expect: "json" }),
   del: (path, opts) => request(path, { ...(opts || {}), method: "DELETE", expect: "json" }),
 
-  // если когда-нибудь понадобится текст:
   getText: (path, opts) => request(path, { ...(opts || {}), method: "GET", expect: "text" }),
 };
