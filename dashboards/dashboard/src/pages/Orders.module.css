@@ -1,0 +1,382 @@
+/* Orders.module.css — сучасний, динамічний дизайн */
+
+/* === Top Row === */
+.topRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  animation: slideDown 0.4s ease-out;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  flex: 1;
+  min-width: 200px;
+}
+
+.topRow button {
+  padding: 10px 18px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.topRow button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.topRow button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.topRow button:disabled {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* === Controls === */
+.controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 280px;
+  animation: fadeIn 0.5s ease-out 0.1s backwards;
+}
+
+.search {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 14px;
+  font-size: 14px;
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.search:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.search::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.controls select {
+  min-width: 160px;
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236A564A' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.controls select:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* === Meta Info === */
+.meta {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+  animation: fadeIn 0.5s ease-out 0.2s backwards;
+}
+
+/* === List Container === */
+.list {
+  display: grid;
+  gap: 16px;
+  animation: fadeIn 0.6s ease-out 0.3s backwards;
+}
+
+/* === Card === */
+.list .card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.list .card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(to bottom, var(--primary), var(--accent));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.list .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+.list .card:hover::before {
+  opacity: 1;
+}
+
+/* Stagger animation для карток */
+.list .card:nth-child(1) { animation: slideUp 0.4s ease-out 0s backwards; }
+.list .card:nth-child(2) { animation: slideUp 0.4s ease-out 0.05s backwards; }
+.list .card:nth-child(3) { animation: slideUp 0.4s ease-out 0.1s backwards; }
+.list .card:nth-child(4) { animation: slideUp 0.4s ease-out 0.15s backwards; }
+.list .card:nth-child(5) { animation: slideUp 0.4s ease-out 0.2s backwards; }
+.list .card:nth-child(n+6) { animation: slideUp 0.4s ease-out 0.25s backwards; }
+
+/* === Card Header === */
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.primaryLine {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+
+.subLine {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.subLine span {
+  display: inline-block;
+  padding: 2px 8px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  transition: background 0.2s ease;
+}
+
+.cardHeader > div:last-child {
+  font-size: 14px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* === Details === */
+.details {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  transition: all 0.3s ease;
+}
+
+.details summary {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 0;
+  transition: color 0.2s ease;
+  user-select: none;
+}
+
+.details summary:hover {
+  color: var(--primary);
+}
+
+.details[open] summary {
+  margin-bottom: 8px;
+  color: var(--primary);
+}
+
+.pre {
+  margin: 0;
+  padding: 12px;
+  background: color-mix(in srgb, var(--text) 3%, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  color: var(--text);
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+  animation: expandIn 0.3s ease-out;
+}
+
+/* === Empty State === */
+.empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--muted);
+  font-size: 15px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 50%, transparent);
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* === Animations === */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    transform: scaleY(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+  .topRow {
+    gap: 12px;
+  }
+
+  .title {
+    font-size: 24px;
+    min-width: 100%;
+  }
+
+  .topRow button {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .controls {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .search {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .controls select {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cardHeader > div:last-child {
+    text-align: left;
+    align-self: flex-start;
+  }
+
+  .list {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 22px;
+  }
+
+  .primaryLine {
+    font-size: 15px;
+  }
+
+  .pre {
+    font-size: 11px;
+    padding: 10px;
+  }
+}
+
+/* === Accessibility === */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* === Dark mode support (optional, якщо захочете додати) === */
+@media (prefers-color-scheme: dark) {
+  /* Можна додати dark mode змінні в майбутньому */
+}
+
+/* === Print styles === */
+@media print {
+  .topRow button,
+  .controls {
+    display: none;
+  }
+
+  .list .card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+
+  .details[open] {
+    page-break-inside: avoid;
+  }
+}

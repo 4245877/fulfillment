@@ -1,0 +1,437 @@
+/* Audit.module.css */
+
+/* Контейнер */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--pad);
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Заголовок */
+.header {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.title {
+  font-size: clamp(24px, 4vw, 32px);
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--primary);
+  color: #ffffff;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+/* Фильтры/действия */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filterButton {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filterButton:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  transform: translateY(-1px);
+}
+
+.filterButton.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+/* Сетка событий */
+.eventsGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+}
+
+/* Карточка события */
+.eventCard {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--surface);
+  transition: all var(--transition-base);
+  overflow: hidden;
+  animation: slideInUp 0.3s ease-out backwards;
+}
+
+.eventCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--primary);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform var(--transition-base);
+}
+
+.eventCard:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 12%, transparent);
+  transform: translateY(-2px);
+}
+
+.eventCard:hover::before {
+  transform: scaleY(1);
+}
+
+/* Заголовок карточки */
+.eventHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.eventType {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eventTime {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.eventCard:hover .eventTime {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+/* Метаданные */
+.eventMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.entityBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.eventCard:hover .entityBadge {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  transform: scale(1.02);
+}
+
+/* Данные (JSON) */
+.eventData {
+  background: color-mix(in srgb, var(--text) 3%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  transition: all var(--transition-base);
+}
+
+.eventCard:hover .eventData {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--text) 5%, var(--bg));
+}
+
+.eventDataPre {
+  margin: 0;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Пустое состояние */
+.emptyState {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--muted);
+}
+
+.emptyIcon {
+  font-size: 64px;
+  opacity: 0.3;
+  margin-bottom: 16px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.emptyTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.emptyDescription {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* Анимации появления */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Стилизация для разных типов событий */
+.eventCard[data-type*="order"] .eventType {
+  color: var(--primary);
+}
+
+.eventCard[data-type*="print"] .eventType {
+  color: var(--secondary);
+}
+
+.eventCard[data-type*="shipment"] .eventType {
+  color: var(--accent);
+}
+
+.eventCard[data-type*="error"] {
+  border-color: var(--danger-border);
+}
+
+.eventCard[data-type*="error"]:hover {
+  border-color: var(--secondary);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--secondary) 12%, transparent);
+}
+
+.eventCard[data-type*="error"]::before {
+  background: var(--secondary);
+}
+
+.eventCard[data-type*="success"] {
+  border-color: var(--success);
+}
+
+.eventCard[data-type*="success"]:hover {
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.eventCard[data-type*="success"]::before {
+  background: var(--success);
+}
+
+/* Скроллбар для данных */
+.eventData::-webkit-scrollbar {
+  height: 6px;
+}
+
+.eventData::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.eventData::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.eventData::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Индикатор загрузки */
+.loadingIndicator {
+  text-align: center;
+  padding: 40px;
+  color: var(--muted);
+}
+
+.loadingSpinner {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .eventsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .eventHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .eventTime {
+    align-self: flex-start;
+  }
+}
+
+/* Анимация для новых событий */
+@keyframes highlight {
+  0% {
+    background: color-mix(in srgb, var(--primary) 20%, var(--surface));
+  }
+  100% {
+    background: var(--surface);
+  }
+}
+
+.eventCard.new {
+  animation: slideInUp 0.3s ease-out backwards, highlight 2s ease-out;
+}
+
+/* Стилизация задержки анимации для последовательного появления */
+.eventCard:nth-child(1) { animation-delay: 0ms; }
+.eventCard:nth-child(2) { animation-delay: 40ms; }
+.eventCard:nth-child(3) { animation-delay: 80ms; }
+.eventCard:nth-child(4) { animation-delay: 120ms; }
+.eventCard:nth-child(5) { animation-delay: 160ms; }
+.eventCard:nth-child(n+6) { animation-delay: 200ms; }
+
+/* Темы для доступности */
+@media (prefers-reduced-motion: reduce) {
+  .eventCard,
+  .badge,
+  .emptyIcon {
+    animation: none !important;
+  }
+
+  .eventCard:hover {
+    transform: none;
+  }
+}
+
+/* Высокая контрастность */
+@media (prefers-contrast: high) {
+  .eventCard {
+    border-width: 2px;
+  }
+
+  .eventType {
+    font-weight: 800;
+  }
+}

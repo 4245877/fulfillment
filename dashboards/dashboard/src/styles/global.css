@@ -1,0 +1,344 @@
+/* src/styles/global.css — Enhanced */
+
+/* База */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  /* theme tokens (Raphtalia light) */
+  --bg: #F7F0E6;
+  --surface: #FFF9F2;
+  --text: #24160F;
+  --muted: #6A564A;
+  --border: #D7C4B4;
+  --primary: #A26940;
+  --primary-hover: #8C5B38;
+  --secondary: #8E2E3B;
+  --secondary-hover: #732432;
+  --accent: #C6A15A;
+  --link: #A34757;
+  --link-hover: #8E2E3B;
+  /* semantic */
+  --danger-border: #B85C5C;
+  --danger-text: #8E2E3B;
+  --success: #4A7C59;
+  --warning: #B8935C;
+  /* layout */
+  --radius: 12px;
+  --radius-sm: 10px;
+  --pad: 16px;
+  --gap: 12px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans",
+    "Liberation Sans", sans-serif;
+  /* transitions */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Тексти/ссылки */
+a {
+  color: var(--link);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  position: relative;
+}
+
+a:hover {
+  color: var(--link-hover);
+}
+
+a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Формы */
+input,
+select,
+button,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  outline: none;
+  transition: all var(--transition-base);
+  width: 100%;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+/* Кнопки */
+button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  font-weight: 500;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, var(--border));
+  outline-offset: 2px;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+/* Варианты кнопок */
+.buttonPrimary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.buttonPrimary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.buttonSecondary {
+  background: var(--secondary);
+  border-color: var(--secondary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.buttonSecondary:hover:not(:disabled) {
+  background: var(--secondary-hover);
+  border-color: var(--secondary-hover);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--secondary) 25%, transparent);
+}
+
+/* Общие "утилиты" */
+.muted {
+  color: var(--muted);
+}
+
+.tag {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: transparent;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.tag:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--surface);
+  transition: all var(--transition-base);
+}
+
+/* Ошибки */
+.errorBox {
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: color-mix(in srgb, var(--secondary) 8%, var(--surface));
+  animation: slideIn 0.3s ease-out;
+}
+
+.errorTitle {
+  font-weight: 700;
+  color: var(--danger-text);
+  margin-bottom: 4px;
+}
+
+.errorText {
+  color: var(--danger-text);
+  margin-top: 6px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* Success/Warning states */
+.successBox {
+  border: 1px solid var(--success);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: color-mix(in srgb, var(--success) 8%, var(--surface));
+  color: var(--success);
+  animation: slideIn 0.3s ease-out;
+}
+
+.warningBox {
+  border: 1px solid var(--warning);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+  color: var(--warning);
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Loading spinner (optional utility) */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+  transition: background var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Selection */
+::selection {
+  background: color-mix(in srgb, var(--primary) 25%, transparent);
+  color: var(--text);
+}
+
+/* Focus visible ring for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  :root {
+    --pad: 12px;
+    --gap: 10px;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  .card {
+    border: 1px solid #ccc;
+  }
+
+  button,
+  input,
+  select {
+    display: none;
+  }
+}
