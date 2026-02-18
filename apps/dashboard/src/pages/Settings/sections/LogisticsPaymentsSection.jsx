@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui";   
 import { safeParseJSON } from "../utils";
+import { Card, FieldRow, Toggle, NumberInput } from "../ui";
 
 export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
   // ----- редактор statusMapping (чернетка) -----
