@@ -1,9 +1,7 @@
 // apps/dashboard/src/pages/settings/sections/LogisticsPaymentsSection.jsx
 import React, { useEffect, useState } from "react";
-import Card from "../atoms/Card";
-import FieldRow from "../atoms/FieldRow";
-import Toggle from "../atoms/Toggle";
-import { NumberInput, TextArea, TextInput } from "../atoms/inputs";
+import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui";
+
 import { safeParseJSON } from "../utils";
 
 export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {

@@ -1,9 +1,7 @@
 // apps/dashboard/src/pages/settings/sections/CatalogSection.jsx
 import React from "react";
-import Card from "../atoms/Card";
-import FieldRow from "../atoms/FieldRow";
-import Toggle from "../atoms/Toggle";
-import { ChipsEditor, NumberInput, Select, TextInput } from "../atoms/inputs";
+import { Card, FieldRow, Toggle, ChipsEditor, NumberInput, Select, TextInput } from "../ui";
+
 
 export default function CatalogSection({ cfg, patch }) {
   return (

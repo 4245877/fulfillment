@@ -1,9 +1,7 @@
 // apps/dashboard/src/pages/settings/sections/AlertsSection.jsx
 import React from "react";
-import Card from "../atoms/Card";
-import FieldRow from "../atoms/FieldRow";
-import Toggle from "../atoms/Toggle";
-import { NumberInput, TextInput } from "../atoms/inputs";
+import { Card, FieldRow, Toggle, NumberInput, TextInput } from "../ui";
+
 
 export default function AlertsSection({ cfg, patch }) {
   return (

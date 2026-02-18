@@ -1,8 +1,7 @@
 // apps/dashboard/src/pages/settings/sections/SecuritySection.jsx
 import React from "react";
-import Card from "../atoms/Card";
-import FieldRow from "../atoms/FieldRow";
-import { ChipsEditor } from "../atoms/inputs";
+import { Card, FieldRow, ChipsEditor } from "../ui";
+
 
 export default function SecuritySection({ cfg, patch }) {
   return (
