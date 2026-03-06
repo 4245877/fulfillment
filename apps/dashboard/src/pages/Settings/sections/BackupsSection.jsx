@@ -1,6 +1,6 @@
 // apps/dashboard/src/pages/settings/sections/BackupsSection.jsx
 import React from "react";
-import { Card, FieldRow, Toggle, NumberInput, Select, TextInput } from "../ui";
+import { Card, FieldRow, Toggle, NumberInput, Select, TextInput } from "../ui.jsx";
 
 
 export default function BackupsSection({ cfg, patch, doAction }) {

@@ -1,6 +1,6 @@
 export const STORAGE_KEY = "fulfillment.settings.v1";
 
-const DEFAULTS = {
+export const DEFAULTS = {
   ui: {
     sseEnabled: true,
     sseTopics: ["orders", "prints", "shipments", "ops"],

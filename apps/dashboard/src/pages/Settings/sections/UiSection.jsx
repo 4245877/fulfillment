@@ -1,6 +1,6 @@
 // apps/dashboard/src/pages/settings/sections/UiSection.jsx
 import React from "react";
-import { Card, FieldRow, Toggle, ChipsEditor, NumberInput, Select, TextInput } from "../ui";
+import { Card, FieldRow, Toggle, ChipsEditor, NumberInput, Select, TextInput } from "../ui.jsx";
 
 
 export default function UiSection({ cfg, patch }) {

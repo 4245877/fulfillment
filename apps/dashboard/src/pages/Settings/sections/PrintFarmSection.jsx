@@ -1,7 +1,6 @@
 // apps/dashboard/src/pages/settings/sections/PrintFarmSection.jsx
 import React from "react";
-import { Card, FieldRow, Toggle, ChipsEditor, NumberInput } from "../ui";
-import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui.jsx";
+import { Card, FieldRow, Toggle, ChipsEditor, NumberInput } from "../ui.jsx";
 
 export default function PrintFarmSection({ cfg, patch }) {
   return (

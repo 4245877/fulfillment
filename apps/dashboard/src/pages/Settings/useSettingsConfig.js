@@ -1,26 +1,49 @@
-// apps/dashboard/src/pages/settings/useSettingsConfig.js
-import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULTS, STORAGE_KEY } from "./defaults";
-import { cloneDeep, mergeDefaults, safeParseJSON, setByPath } from "./utils";
-import { postJson } from "./api";
+import { useEffect, useRef, useState } from "react";
+import { DEFAULTS, STORAGE_KEY } from "./defaults.js";
+import { safeParseJSON, mergeDefaults, cloneDeep, setByPath } from "./utils.js";
+
+async function postJson(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+
+  const text = await res.text();
+
+  if (!res.ok) {
+    const snippet = text ? `\n\n${text.slice(0, 300)}` : "";
+    throw new Error(`${res.status} ${res.statusText} @ ${url}${snippet}`);
+  }
+
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function useSettingsConfig() {
   const [cfg, setCfg] = useState(() => {
-    const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
+    const raw = typeof window !== "undefined"
+      ? window.localStorage.getItem(STORAGE_KEY)
+      : null;
+
     const parsed = raw ? safeParseJSON(raw) : null;
     return mergeDefaults(DEFAULTS, parsed || {});
   });
 
   const [toast, setToast] = useState(null);
-
   const toastTimerRef = useRef(null);
   const saveTimerRef = useRef(null);
 
-  const showToast = useCallback((nextToast, ms = 1500) => {
+  const showToast = (nextToast, ms = 1500) => {
     setToast(nextToast);
 
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = null;
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
 
     if (ms != null) {
       toastTimerRef.current = setTimeout(() => {
@@ -28,7 +51,7 @@ export function useSettingsConfig() {
         toastTimerRef.current = null;
       }, ms);
     }
-  }, []);
+  };
 
   useEffect(() => {
     return () => {
@@ -37,11 +60,11 @@ export function useSettingsConfig() {
     };
   }, []);
 
-  // автозбереження (локально) — безшумно; toast лише при помилці
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+
     saveTimerRef.current = setTimeout(() => {
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
@@ -53,62 +76,66 @@ export function useSettingsConfig() {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [cfg, showToast]);
+  }, [cfg]);
 
-  const patch = useCallback((path, value) => {
+  const patch = (path, value) => {
     setCfg((cur) => setByPath(cur, path, value));
-  }, []);
+  };
 
-  const exportJson = useCallback(() => {
-    const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: "application/json" });
+  const exportJson = () => {
+    const blob = new Blob([JSON.stringify(cfg, null, 2)], {
+      type: "application/json",
+    });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "fulfillment-settings.json";
     a.click();
+
     setTimeout(() => URL.revokeObjectURL(url), 1500);
-  }, [cfg]);
+  };
 
-  const importJson = useCallback(
-    async (file) => {
-      const text = await file.text();
-      const parsed = safeParseJSON(text);
-      if (!parsed) {
-        showToast({ kind: "error", text: "Файл не схожий на JSON." }, 2500);
-        return;
-      }
-      setCfg(mergeDefaults(DEFAULTS, parsed));
-      showToast({ kind: "success", text: "Імпортовано ✅" }, 1500);
-    },
-    [showToast]
-  );
+  const importJson = async (file) => {
+    const text = await file.text();
+    const parsed = safeParseJSON(text);
 
-  const resetAll = useCallback(() => {
-    if (!window.confirm("Скинути всі налаштування до значень за замовчуванням?")) return;
+    if (!parsed) {
+      showToast({ kind: "error", text: "Файл не схожий на JSON." }, 2500);
+      return;
+    }
+
+    setCfg(mergeDefaults(DEFAULTS, parsed));
+    showToast({ kind: "success", text: "Імпортовано ✅" }, 1500);
+  };
+
+  const resetAll = () => {
+    if (!window.confirm("Скинути всі налаштування до значень за замовчуванням?")) {
+      return;
+    }
+
     setCfg(cloneDeep(DEFAULTS));
     showToast({ kind: "success", text: "Скинуто ✅" }, 1200);
-  }, [showToast]);
+  };
 
-  const doAction = useCallback(
-    async ({ title, description, url, body }) => {
-      const ok = window.confirm(`${title}\n\n${description || ""}\n\nПідтвердити?`);
-      if (!ok) return;
+  const doAction = async ({ title, description, url, body }) => {
+    const ok = window.confirm(`${title}\n\n${description || ""}\n\nПідтвердити?`);
+    if (!ok) return;
 
-      try {
-        await postJson(url, body);
-        showToast({ kind: "success", text: `${title}: OK` }, 2500);
-      } catch (e) {
-        showToast({ kind: "error", text: `${title}: ${String(e.message || e)}` }, 3500);
-      }
-    },
-    [showToast]
-  );
+    try {
+      await postJson(url, body);
+      showToast({ kind: "success", text: `${title}: OK` }, 2500);
+    } catch (e) {
+      showToast({ kind: "error", text: `${title}: ${String(e.message || e)}` }, 3500);
+    }
+  };
 
   return {
     cfg,
     setCfg,
     patch,
     toast,
+    setToast,
     showToast,
     exportJson,
     importJson,
@@ -116,3 +143,5 @@ export function useSettingsConfig() {
     doAction,
   };
 }
+
+export default useSettingsConfig;
