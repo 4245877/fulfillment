@@ -1,6 +1,6 @@
 // apps/dashboard/src/pages/settings/sections/InfraSection.jsx
 import React from "react";
-import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui";
+import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui.jsx";
 
 
 export default function InfraSection({ cfg, patch }) {

@@ -1,8 +1,7 @@
-// apps/dashboard/src/pages/settings/sections/LogisticsPaymentsSection.jsx
+// apps/dashboard/src/pages/Settings/sections/LogisticsPaymentsSection.jsx
 import React, { useEffect, useState } from "react";
-import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui";   
+import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui.jsx";
 import { safeParseJSON } from "../utils";
-import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui";
 
 export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
   // ----- редактор statusMapping (чернетка) -----
