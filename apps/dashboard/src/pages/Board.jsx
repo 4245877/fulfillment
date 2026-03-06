@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiWB as api } from "../api/wallboardApi.js";
 import { useSSE } from "../hooks/useSSE.js";
@@ -35,6 +35,15 @@ const QUEUE_ROWS = [
   { key: "notify", label: "Сповіщення", readyKey: "backlog", runningKey: null },
 ];
 
+const SERVICE_ROWS = [
+  ["API магазину", "shop"],
+  ["API фулфілменту", "fulfillment"],
+  ["Мережа принтерів", "printers"],
+  ["PostgreSQL", "db"],
+  ["Redis", "redis"],
+  ["Індексатор пошуку", "indexer"],
+];
+
 function asNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -42,6 +51,37 @@ function asNumber(value, fallback = 0) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function deepMerge(current, next) {
+  if (!isPlainObject(next)) {
+    return next === undefined ? current : next;
+  }
+
+  const result = { ...(isPlainObject(current) ? current : {}) };
+
+  Object.keys(next).forEach((key) => {
+    const currentValue = result[key];
+    const nextValue = next[key];
+
+    if (Array.isArray(nextValue)) {
+      result[key] = nextValue;
+      return;
+    }
+
+    if (isPlainObject(nextValue)) {
+      result[key] = deepMerge(currentValue, nextValue);
+      return;
+    }
+
+    result[key] = nextValue;
+  });
+
+  return result;
 }
 
 function formatInt(value) {
@@ -136,6 +176,14 @@ function getAlertTone(level) {
   return "info";
 }
 
+function getAlertLabel(level) {
+  const v = String(level || "").toLowerCase();
+  if (v === "error") return "Помилка";
+  if (v === "warn" || v === "warning") return "Попередження";
+  if (v === "ok" || v === "success") return "Добре";
+  return "Інфо";
+}
+
 function getPrinterTone(state) {
   const v = String(state || "").toLowerCase();
   if (v === "printing" || v === "ready") return "ok";
@@ -177,28 +225,17 @@ function getServiceLabel(status) {
 }
 
 function mergeOps(current, next) {
-  if (!next || typeof next !== "object") return current;
-
-  return {
-    ...current,
-    ...next,
-    stats: {
-      ...(current.stats || {}),
-      ...(next.stats || {}),
-    },
-  };
+  if (!isPlainObject(next)) return current;
+  return deepMerge(current, next);
 }
 
 function mergePrints(current, next) {
-  if (!next || typeof next !== "object") return current;
+  if (!isPlainObject(next)) return current;
 
   return {
     ...current,
     ...next,
-    stats: {
-      ...(current.stats || {}),
-      ...(next.stats || {}),
-    },
+    stats: deepMerge(current.stats || {}, next.stats || {}),
     printers: Array.isArray(next.printers) ? next.printers : current.printers,
     jobs: Array.isArray(next.jobs) ? next.jobs : current.jobs,
   };
@@ -292,7 +329,7 @@ function SectionPrintFarm({ printers = [], jobs = [] }) {
               <div className="wb-printerName">{printer.name || "Принтер без назви"}</div>
               <div className="wb-small">
                 {printer.model || "Модель не вказана"}
-                {printer.nozzle ? ` • Сопло ${printer.nozzle}` : ""}
+                {printer.nozzle ? ` • Діаметр сопла ${printer.nozzle}` : ""}
               </div>
             </div>
 
@@ -324,21 +361,19 @@ function SectionPrintFarm({ printers = [], jobs = [] }) {
               <th>SKU × кількість</th>
               <th>Принтер</th>
               <th>Прогрес</th>
-              <th>ETA</th>
+              <th>Час завершення</th>
             </tr>
           </thead>
           <tbody>
             {jobs.map((job) => (
               <tr key={job.id}>
                 <td>{job.order_number || "—"}</td>
-                <td>
-                  {(job.sku || "—") + " ×" + formatInt(job.qty || 0)}
-                </td>
+                <td>{(job.sku || "—") + " ×" + formatInt(job.qty || 0)}</td>
                 <td>{job.printer_name || "—"}</td>
                 <td>
                   <ProgressBar value={job.progress || 0} />
                 </td>
-                <td>{job.eta || "—"}</td>
+                <td>{formatDateTime(job.eta)}</td>
               </tr>
             ))}
 
@@ -535,15 +570,6 @@ function SectionPayments({ p = {} }) {
 }
 
 function SectionServices({ s = {} }) {
-  const rows = [
-    ["Shop API", s.shop],
-    ["Fulfillment API", s.fulfillment],
-    ["Printers Net", s.printers],
-    ["PostgreSQL", s.db],
-    ["Redis", s.redis],
-    ["Search Indexer", s.indexer],
-  ];
-
   return (
     <WallboardWidget title="Сервіси та здоровʼя" sub="Стан ключових систем">
       <div className="wb-tableWrap">
@@ -559,11 +585,11 @@ function SectionServices({ s = {} }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map(([name, value]) => (
-              <tr key={name}>
+            {SERVICE_ROWS.map(([name, key]) => (
+              <tr key={key}>
                 <td>{name}</td>
                 <td>
-                  <Badge tone={getServiceTone(value)}>{getServiceLabel(value)}</Badge>
+                  <Badge tone={getServiceTone(s[key])}>{getServiceLabel(s[key])}</Badge>
                 </td>
               </tr>
             ))}
@@ -588,7 +614,9 @@ function SectionIndexer({ idx = {} }) {
 
         <div className="wb-kpiBox">
           <div className="wb-kpiLabel">Останнє оновлення</div>
-          <div className="wb-kpiValue">{formatDateTime(idx.lastIndexedAt)}</div>
+          <div className="wb-kpiValue wb-kpiValue--compact">
+            {formatDateTime(idx.lastIndexedAt)}
+          </div>
         </div>
 
         <div className="wb-kpiBox">
@@ -671,7 +699,9 @@ function SectionIngester({ ing = {} }) {
 
         <div className="wb-kpiBox">
           <div className="wb-kpiLabel">Версія pricing.yml</div>
-          <div className="wb-kpiValue">{ing.pricingVersion || "—"}</div>
+          <div className="wb-kpiValue wb-kpiValue--text">
+            {ing.pricingVersion || "—"}
+          </div>
         </div>
       </div>
     </WallboardWidget>
@@ -737,9 +767,7 @@ function SectionAlerts({ alerts = [] }) {
       <div className="wb-list">
         {alerts.slice(0, 10).map((alert, index) => (
           <div key={`${alert.ts || "alert"}-${index}`} className="wb-listRow">
-            <Badge tone={getAlertTone(alert.level)}>
-              {String(alert.level || "info").toUpperCase()}
-            </Badge>
+            <Badge tone={getAlertTone(alert.level)}>{getAlertLabel(alert.level)}</Badge>
 
             <div className="wb-listPrimary">
               <div className="wb-small">{alert.title || "Без назви"}</div>
@@ -789,44 +817,51 @@ export default function Board() {
     };
   }, []);
 
-  useSSE("/api/events/stream?topics=orders,prints,shipments,ops", {
-    onEvent: (event) => {
-      setUpdatedAt(new Date());
+  const handleSSEEvent = useCallback((event) => {
+    setUpdatedAt(new Date());
 
-      if (event.type === "print.progress") {
-        setPrints((current) => ({
-          ...current,
-          jobs: current.jobs.map((job) =>
-            job.id === event.entity_id
-              ? {
-                  ...job,
-                  progress: event.data?.progress,
-                  eta: event.data?.eta,
-                }
-              : job
-          ),
-        }));
-      }
+    if (event.type === "print.progress") {
+      setPrints((current) => ({
+        ...current,
+        jobs: current.jobs.map((job) =>
+          job.id === event.entity_id
+            ? {
+                ...job,
+                progress: event.data?.progress,
+                eta: event.data?.eta,
+              }
+            : job
+        ),
+      }));
+    }
 
-      if (event.type === "printer.state") {
-        setPrints((current) => ({
-          ...current,
-          printers: current.printers.map((printer) =>
-            printer.id === event.entity_id
-              ? {
-                  ...printer,
-                  state: event.data?.state,
-                }
-              : printer
-          ),
-        }));
-      }
+    if (event.type === "printer.state") {
+      setPrints((current) => ({
+        ...current,
+        printers: current.printers.map((printer) =>
+          printer.id === event.entity_id
+            ? {
+                ...printer,
+                state: event.data?.state,
+              }
+            : printer
+        ),
+      }));
+    }
 
-      if (event.domain === "ops") {
-        setOps((current) => mergeOps(current, event.payload));
-      }
-    },
-  });
+    if (event.domain === "ops") {
+      setOps((current) => mergeOps(current, event.payload));
+    }
+  }, []);
+
+  const sseOptions = useMemo(
+    () => ({
+      onEvent: handleSSEEvent,
+    }),
+    [handleSSEEvent]
+  );
+
+  useSSE("/api/events/stream?topics=orders,prints,shipments,ops", sseOptions);
 
   const headerStats = useMemo(
     () => ({
