@@ -3,71 +3,6 @@
    Modern Professional Dashboard Styles
    ====================================== */
 
-/* Root Variables & Color System */
-:root {
-  /* Brand Colors */
-  --raphtalia-auburn: #B25634;
-  --leather-brown: #5A3A26;
-  --cream-linen: #F6EFE7;
-  --burgundy-scarf: #8E2F3A;
-  --fox-gold: #D7A24A;
-  --forest-edge: #2F5D43;
-  
-  /* Neutrals */
-  --ink: #1F1712;
-  --neutral-800: #4E4037;
-  --neutral-600: #7A6A60;
-  --neutral-400: #B9ADA5;
-  --neutral-200: #E5DED8;
-  --neutral-50: #FBF8F6;
-  
-  /* Theme Roles */
-  --bg: #F6EFE7;
-  --surface: #FFFFFF;
-  --primary: #B25634;
-  --on-primary: #FFF7F3;
-  --secondary: #5A3A26;
-  --on-secondary: #F6EFE7;
-  --accent: #8E2F3A;
-  --on-accent: #FFF2F3;
-  --border: #E5DED8;
-  --muted: #B9ADA5;
-  --link: #8E2F3A;
-  --link-hover: #B25634;
-  
-  /* Semantic */
-  --success: #2F5D43;
-  --on-success: #F6EFE7;
-  --warning: #D7A24A;
-  --on-warning: #1F1712;
-  --error: #8E2F3A;
-  --on-error: #FFF2F3;
-  --info: #6E8CA5;
-  --on-info: #F6EFE7;
-  
-  /* Gradients */
-  --gradient-hair: linear-gradient(135deg, #7E3F25 0%, #B25634 50%, #C97852 100%);
-  --gradient-leather: linear-gradient(135deg, #5A3A26 0%, #8E2F3A 100%);
-  --gradient-surface: linear-gradient(180deg, #F6EFE7 0%, #FBF8F6 100%);
-  
-  /* Shadows & Effects */
-  --shadow-sm: 0 1px 3px rgba(31, 23, 18, 0.08);
-  --shadow-md: 0 4px 6px rgba(31, 23, 18, 0.08), 0 1px 3px rgba(31, 23, 18, 0.06);
-  --shadow-lg: 0 10px 15px rgba(31, 23, 18, 0.08), 0 4px 6px rgba(31, 23, 18, 0.05);
-  --shadow-xl: 0 20px 25px rgba(31, 23, 18, 0.08), 0 10px 10px rgba(31, 23, 18, 0.04);
-  
-  /* Spacing */
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2rem;
-  
-  /* Transitions */
-  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* Base Reset & Typography */
 * {
   margin: 0;
@@ -82,7 +17,7 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: var(--font);
   background: var(--gradient-surface);
   color: var(--ink);
   line-height: 1.6;
@@ -131,7 +66,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
   gap: var(--space-lg);
-  align-items: start; /* карточки начинаются строго с одной линии */
+  align-items: start;
   animation: fadeInUp 0.5s ease-out 0.1s backwards;
 }
 
@@ -144,9 +79,9 @@ body {
   border: 1px solid var(--border);
   transition: var(--transition);
   position: relative;
-  overflow: visible; /* было hidden — не обрезаем содержимое */
-  display: flex;           /* единая шапка и тело */
-  flex-direction: column;  /* вертикальная компоновка */
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
 }
 
 .widget::before {
@@ -170,11 +105,10 @@ body {
   opacity: 1;
 }
 
-/* --- Widget Head & Body: фикс высоты шапки, ровный ритм --- */
+/* Widget Head & Body */
 .widget .w-head {
   display: grid;
   gap: var(--space-xs);
-  /* Минимальная высота под 2 строки заголовка + 1 строку сабтайтла */
   min-height: 64px;
   margin-bottom: var(--space-md);
 }
@@ -184,19 +118,16 @@ body {
 
 .widget .w-body {
   display: grid;
-  gap: var(--space-md); /* единый вертикальный ритм */
-  min-width: 0; /* внутренние сетки не распирают карточку */
+  gap: var(--space-md);
+  min-width: 0;
 }
 
-/* Снимем разнобой верхних отступов у первых блоков внутри виджета */
 .widget .w-body > .kpi,
 .widget .w-body > .list,
 .widget .w-body > .table {
   margin-top: 0;
 }
 
-/* Заголовки внутри виджета — без лишних внешних отступов.
-   Отступ вниз даёт .w-head через gap/margin-bottom */
 .widget h3 { margin: 0; }
 .widget .sub { margin: 0; }
 
@@ -295,9 +226,8 @@ body {
   border-collapse: separate;
   border-spacing: 0;
   margin-top: var(--space-md);
-  table-layout: fixed; /* предсказуемые ширины колонок */
-  /* Адаптивность и защита от переполнения */
-  display: block;         /* при избытке ширины позволяем горизонтальный скролл */
+  table-layout: fixed;
+  display: block;
   max-width: 100%;
   overflow-x: auto;
 }
@@ -319,7 +249,7 @@ body {
 
 .table th,
 .table td {
-  overflow-wrap: anywhere; /* ломаем длинные токены (URL, SKU) */
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
@@ -342,21 +272,17 @@ body {
   border-bottom: none;
 }
 
-/* Бейджи и пиллы внутри ячеек не распирают таблицу */
 .table td .badge,
 .table td .pill {
   white-space: nowrap;
 }
 
-/* --- Эластичные ширины для ключевых таблиц (через clamp) --- */
-/* Джобы на принт-ферме: ожидается <colgroup> с классами col-* */
 .table--jobs col.col-order   { width: clamp(8rem, 18vw, 10rem); }
 .table--jobs col.col-sku     { width: clamp(8rem, 22vw, 12rem); }
 .table--jobs col.col-printer { width: clamp(8rem, 18vw, 10rem); }
 .table--jobs col.col-prog    { width: clamp(8rem, 22vw, 12rem); }
 .table--jobs col.col-eta     { width: clamp(6rem, 12vw, 8rem); }
 
-/* Черги */
 .table--queues col.col-name  { width: clamp(8rem, 22vw, 10rem); }
 .table--queues col.col-ready { width: clamp(5rem, 12vw, 7rem);  }
 .table--queues col.col-run   { width: clamp(5rem, 12vw, 7rem);  }
@@ -377,7 +303,6 @@ body {
   background: linear-gradient(90deg, rgba(251, 248, 246, 0.5) 0%, transparent 100%);
   border-radius: 6px;
   transition: var(--transition);
-  /* Адаптивность текста */
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -389,14 +314,13 @@ body {
 
 .list .row > * { min-width: 0; }
 .list .row > .small:nth-of-type(1) {
-  flex: 1 1 240px; /* текст получает место и может переноситься */
+  flex: 1 1 240px;
 }
 .list .row > .small:last-child {
-  white-space: nowrap; /* хвосты (время и т.п.) не ломаем */
+  white-space: nowrap;
 }
 
 /* Progress Bar Components */
-/* Совместимость со старой разметкой */
 .progress-bar {
   width: 100%;
   height: 8px;
@@ -424,7 +348,6 @@ body {
   animation: shimmer 2s infinite;
 }
 
-/* Новая разметка под <div class="progress"><i style="width:..."></i></div> */
 .progress {
   width: 100%;
   height: 8px;
@@ -452,9 +375,9 @@ body {
 .row {
   display: flex;
   align-items: center;
-  gap: var(--space-sm); /* единая величина */
+  gap: var(--space-sm);
 }
-.row--tight { gap: 0.5rem; } /* если где-то нужно теснее */
+.row--tight { gap: 0.5rem; }
 
 /* Typography Utilities */
 strong {

@@ -7,70 +7,6 @@
   box-sizing: border-box;
 }
 
-:root {
-  /* Brand Colors */
-  --raphtalia-auburn: #B25634;
-  --leather-brown: #5A3A26;
-  --cream-linen: #F6EFE7;
-  --burgundy-scarf: #8E2F3A;
-  --fox-gold: #D7A24A;
-  --forest-edge: #2F5D43;
-  
-  /* Neutrals */
-  --ink: #1F1712;
-  --neutral-800: #4E4037;
-  --neutral-600: #7A6A60;
-  --neutral-400: #B9ADA5;
-  --neutral-200: #E5DED8;
-  --neutral-50: #FBF8F6;
-  
-  /* Theme Roles */
-  --bg: #F6EFE7;
-  --surface: #FFFFFF;
-  --primary: #B25634;
-  --on-primary: #FFF7F3;
-  --secondary: #5A3A26;
-  --on-secondary: #F6EFE7;
-  --accent: #8E2F3A;
-  --on-accent: #FFF2F3;
-  --border: #E5DED8;
-  --muted: #B9ADA5;
-  --link: #8E2F3A;
-  --link-hover: #B25634;
-  
-  /* Semantic */
-  --success: #2F5D43;
-  --on-success: #F6EFE7;
-  --warning: #D7A24A;
-  --on-warning: #1F1712;
-  --error: #8E2F3A;
-  --on-error: #FFF2F3;
-  --info: #6E8CA5;
-  --on-info: #F6EFE7;
-  
-  /* Gradients */
-  --gradient-hair: linear-gradient(135deg, #7E3F25 0%, #B25634 50%, #C97852 100%);
-  --gradient-leather: linear-gradient(135deg, #5A3A26 0%, #8E2F3A 100%);
-  --gradient-surface: linear-gradient(180deg, #F6EFE7 0%, #FBF8F6 100%);
-  
-  /* Shadows & Effects */
-  --shadow-sm: 0 1px 3px rgba(31, 23, 18, 0.08);
-  --shadow-md: 0 4px 6px rgba(31, 23, 18, 0.08), 0 1px 3px rgba(31, 23, 18, 0.06);
-  --shadow-lg: 0 10px 15px rgba(31, 23, 18, 0.08), 0 4px 6px rgba(31, 23, 18, 0.05);
-  --shadow-xl: 0 20px 25px rgba(31, 23, 18, 0.08), 0 10px 10px rgba(31, 23, 18, 0.04);
-  
-  /* Spacing */
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2rem;
-  
-  /* Transitions */
-  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 html {
   scroll-behavior: smooth;
 }
@@ -335,14 +271,6 @@ button:disabled {
 *:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
-}
-
-/* Responsive utilities */
-@media (max-width: 768px) {
-  :root {
-    --pad: 12px;
-    --gap: 10px;
-  }
 }
 
 /* Accessibility */
