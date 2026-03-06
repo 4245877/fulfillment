@@ -1,6 +1,6 @@
 // apps/dashboard/src/pages/settings/sections/WebhooksSection.jsx
 import React from "react";
-import { Card, FieldRow, Toggle, NumberInput } from "../ui";
+import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui";
 
 
 export default function WebhooksSection({ cfg, patch, doAction }) {

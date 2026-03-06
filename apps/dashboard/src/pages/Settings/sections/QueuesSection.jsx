@@ -1,6 +1,6 @@
 // apps/dashboard/src/pages/settings/sections/QueuesSection.jsx
 import React from "react";
-import { Card, FieldRow, Toggle, NumberInput } from "../ui";
+import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui";
 
 
 export default function QueuesSection({ cfg, patch }) {

@@ -1,6 +1,6 @@
 // apps/dashboard/src/pages/settings/SettingsPage.jsx
 import React, { useMemo } from "react";
-import styles from "./Settings.module.css";
+import styles from "../Settings.module.css";
 
 import { useSettingsConfig } from "./useSettingsConfig";
 

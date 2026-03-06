@@ -7,7 +7,7 @@ import Orders from "./pages/Orders.jsx";
 import Print from "./pages/Print.jsx";
 import Shipments from "./pages/Shipments.jsx";
 import Audit from "./pages/Audit.jsx";
-import Settings from "./pages/Settings.jsx";
+import SettingsPage from "./pages/Settings/SettingsPage.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
 export default function App() {
@@ -21,7 +21,7 @@ export default function App() {
           <Route path="prints/:id" element={<Print />} />
           <Route path="shipments" element={<Shipments />} />
           <Route path="audit" element={<Audit />} />
-          <Route path="settings" element={<Settings />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

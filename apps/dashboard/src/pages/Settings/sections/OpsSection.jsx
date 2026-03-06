@@ -1,7 +1,7 @@
 // apps/dashboard/src/pages/settings/sections/OpsSection.jsx
 import React from "react";
 import { Card, FieldRow, DangerZone, NumberInput } from "../ui";
-import { Card, FieldRow, Toggle, NumberInput } from "../ui";
+import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui";
 
 export default function OpsSection({ cfg, patch, doAction }) {
   return (
