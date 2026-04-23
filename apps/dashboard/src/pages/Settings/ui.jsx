@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import styles from "../Settings.module.css";
 
 export function Card({ title, sub, children, right }) {
   return (
@@ -37,14 +38,14 @@ export function FieldRow({ label, hint, children }) {
 
 export function Toggle({ value, onChange, label }) {
   return (
-    <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <label className={styles.toggle}>
       <input
+        className={styles.toggleInput}
         type="checkbox"
         checked={!!value}
         onChange={(e) => onChange(e.target.checked)}
-        style={{ width: 18, height: 18 }}
       />
-      <span>{label}</span>
+      <span className={styles.toggleLabel}>{label}</span>
     </label>
   );
 }
@@ -52,6 +53,7 @@ export function Toggle({ value, onChange, label }) {
 export function NumberInput({ value, onChange, min, max, step }) {
   return (
     <input
+      className="input"
       type="number"
       value={Number.isFinite(value) ? value : 0}
       min={min}
@@ -63,12 +65,19 @@ export function NumberInput({ value, onChange, min, max, step }) {
 }
 
 export function TextInput({ value, onChange, placeholder }) {
-  return <input value={value ?? ""} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />;
+  return (
+    <input
+      className="input"
+      value={value ?? ""}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
 }
 
 export function Select({ value, onChange, options }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}>
+    <select className="select" value={value} onChange={(e) => onChange(e.target.value)}>
       {options.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
@@ -81,6 +90,7 @@ export function Select({ value, onChange, options }) {
 export function TextArea({ value, onChange, placeholder, rows = 3, onBlur, onKeyDown }) {
   return (
     <textarea
+      className="textarea"
       rows={rows}
       value={value ?? ""}
       placeholder={placeholder}
@@ -115,6 +125,7 @@ export function ChipsEditor({ value, onChange, placeholder = "Введи та н
       </div>
 
       <input
+        className="input"
         value={draft}
         placeholder={placeholder}
         onChange={(e) => setDraft(e.target.value)}

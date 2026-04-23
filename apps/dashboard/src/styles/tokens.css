@@ -12,8 +12,8 @@
   /* Neutrals */
   --ink: #1F1712;
   --neutral-800: #4E4037;
-  --neutral-600: #7A6A60;
-  --neutral-400: #B9ADA5;
+  --neutral-600: #6F6158;
+  --neutral-400: #9D8D84;
   --neutral-200: #E5DED8;
   --neutral-50: #FBF8F6;
   
@@ -21,15 +21,16 @@
   --bg: #F6EFE7;
   --surface: #FFFFFF;
   --text: var(--ink);
+  --text-muted: var(--neutral-600);
   --muted: var(--neutral-400);
   --border: var(--neutral-200);
   
   /* Primary & Secondary */
   --primary: #B25634;
-  --primary-hover: #8C5B38;
+  --primary-hover: #9A4B2D;
   --on-primary: #FFF7F3;
   --secondary: #5A3A26;
-  --secondary-hover: #732432;
+  --secondary-hover: #6B4630;
   --on-secondary: #F6EFE7;
   
   /* Accents & Links */
@@ -73,13 +74,18 @@
   --space-xl: 2rem;
   
   /* Typography */
-  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font: 'DM Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   
   /* Transitions */
   --transition-fast: 0.15s ease;
   --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Legacy aliases for old dashboard styles */
+  --panel: var(--surface);
+  --warn: var(--warning);
+  --danger: var(--error);
 }
 
 /* Responsive utilities */
