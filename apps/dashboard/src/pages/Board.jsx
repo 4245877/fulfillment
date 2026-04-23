@@ -84,6 +84,23 @@ function deepMerge(current, next) {
   return result;
 }
 
+function mergeOps(current, next) {
+  if (!isPlainObject(next)) return current;
+  return deepMerge(current, next);
+}
+
+function mergePrints(current, next) {
+  if (!isPlainObject(next)) return current;
+
+  return {
+    ...current,
+    ...next,
+    stats: deepMerge(current.stats || {}, next.stats || {}),
+    printers: Array.isArray(next.printers) ? next.printers : current.printers,
+    jobs: Array.isArray(next.jobs) ? next.jobs : current.jobs,
+  };
+}
+
 function formatInt(value) {
   return asNumber(value, 0).toLocaleString("uk-UA");
 }
@@ -125,6 +142,20 @@ function formatHeaderTime(value) {
   });
 }
 
+function formatHeroDate(value) {
+  if (!value) return "—";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleDateString("uk-UA", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  });
+}
+
 function formatLag(value) {
   const ms = asNumber(value, 0);
 
@@ -153,10 +184,6 @@ function normalizePercent(value) {
   return clamp(percent, 0, 100);
 }
 
-function normalizeProgress(value) {
-  return normalizePercent(value);
-}
-
 function formatPercent(value) {
   return `${Math.round(normalizePercent(value))}%`;
 }
@@ -164,16 +191,16 @@ function formatPercent(value) {
 function getLagTone(value) {
   const ms = asNumber(value, 0);
   if (ms > 60000) return "danger";
-  if (ms > 5000) return "warn";
-  return "ok";
+  if (ms > 5000) return "warning";
+  return "success";
 }
 
 function getAlertTone(level) {
   const v = String(level || "").toLowerCase();
   if (v === "error") return "danger";
-  if (v === "warn" || v === "warning") return "warn";
-  if (v === "ok" || v === "success") return "ok";
-  return "info";
+  if (v === "warn" || v === "warning") return "warning";
+  if (v === "ok" || v === "success") return "success";
+  return "primary";
 }
 
 function getAlertLabel(level) {
@@ -186,10 +213,10 @@ function getAlertLabel(level) {
 
 function getPrinterTone(state) {
   const v = String(state || "").toLowerCase();
-  if (v === "printing" || v === "ready") return "ok";
-  if (v === "paused" || v === "maintenance") return "warn";
+  if (v === "printing" || v === "ready") return "success";
+  if (v === "paused" || v === "maintenance") return "warning";
   if (v === "error" || v === "offline") return "danger";
-  return "info";
+  return "primary";
 }
 
 function getPrinterStateLabel(state) {
@@ -211,8 +238,8 @@ function getPrinterStateLabel(state) {
 
 function getServiceTone(status) {
   const v = String(status || "").toLowerCase();
-  if (v === "up" || v === "ok" || v === "healthy") return "ok";
-  if (v === "degraded" || v === "warning") return "warn";
+  if (v === "up" || v === "ok" || v === "healthy") return "success";
+  if (v === "degraded" || v === "warning") return "warning";
   return "danger";
 }
 
@@ -224,174 +251,235 @@ function getServiceLabel(status) {
   return status ? String(status) : "Недоступний";
 }
 
-function mergeOps(current, next) {
-  if (!isPlainObject(next)) return current;
-  return deepMerge(current, next);
+function getProgressClass(value) {
+  const percent = normalizePercent(value);
+  if (percent >= 80) return "row-progress-fill--success";
+  if (percent >= 35) return "row-progress-fill--warning";
+  return "row-progress-fill--danger";
 }
 
-function mergePrints(current, next) {
-  if (!isPlainObject(next)) return current;
-
-  return {
-    ...current,
-    ...next,
-    stats: deepMerge(current.stats || {}, next.stats || {}),
-    printers: Array.isArray(next.printers) ? next.printers : current.printers,
-    jobs: Array.isArray(next.jobs) ? next.jobs : current.jobs,
+function toTagClass(tone = "primary") {
+  const map = {
+    primary: "tag--primary",
+    info: "tag--primary",
+    success: "tag--success",
+    ok: "tag--success",
+    warning: "tag--warning",
+    warn: "tag--warning",
+    danger: "tag--danger",
+    error: "tag--danger",
   };
+
+  return map[tone] || "";
 }
 
-function Badge({ children, tone = "info" }) {
-  return <span className={`wb-badge wb-badge--${tone}`}>{children}</span>;
-}
-
-function WallboardWidget({ title, sub, children }) {
+function Panel({ title, subtitle, children, footer = null, loading = false, flush = false }) {
   return (
-    <section className="wb-widget">
-      <div className="wb-widgetHead">
-        <h2 className="wb-widgetTitle">{title}</h2>
-        {sub ? <p className="wb-widgetSub">{sub}</p> : null}
+    <section className={`panel${loading ? " panel-loading" : ""}`}>
+      <div className="panel-header">
+        <div>
+          <h2 className="panel-title">
+            <span className="panel-title-dot" />
+            {title}
+          </h2>
+          {subtitle ? (
+            <div className="panel-footer-meta" style={{ marginTop: "0.25rem" }}>
+              {subtitle}
+            </div>
+          ) : null}
+        </div>
       </div>
-      <div className="wb-widgetBody">{children}</div>
+
+      <div className={`panel-body${flush ? " panel-body--flush" : ""}`}>{children}</div>
+
+      {footer ? <div className="panel-footer">{footer}</div> : null}
     </section>
   );
 }
 
-function ProgressBar({ value }) {
-  const percent = normalizeProgress(value);
+function StatusTag({ children, tone = "primary" }) {
+  const toneClass = toTagClass(tone);
+  return <span className={`tag${toneClass ? ` ${toneClass}` : ""}`}>{children}</span>;
+}
 
+function EmptyState({ title = "Немає даних", desc = "Зараз тут порожньо." }) {
   return (
-    <div className="wb-row wb-row--tight">
-      <div
-        className="wb-progress"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(percent)}
-        aria-label={`Прогрес ${Math.round(percent)}%`}
-      >
-        <span className="wb-progressFill" style={{ width: `${percent}%` }} />
+    <div className="wboard-empty">
+      <div className="wboard-empty-icon" aria-hidden="true">
+        •
       </div>
-      <span className="wb-small wb-listMeta">{Math.round(percent)}%</span>
+      <h3 className="wboard-empty-title">{title}</h3>
+      <p className="wboard-empty-desc">{desc}</p>
     </div>
   );
 }
 
-function Header({ stats, updatedAt }) {
+function KpiCard({ label, value, context, icon = "•", variant = "primary" }) {
   return (
-    <header className="wb-header">
-      <div className="wb-headerTop">
-        <div className="wb-headerTitleBlock">
-          <h1 className="wb-headerTitle">DRUKARNYA • Операційна панель</h1>
-          <p className="wb-headerMeta">Оновлено: {formatHeaderTime(updatedAt)}</p>
+    <div className={`kpi-card kpi-card--${variant}`}>
+      <div className="kpi-card-top">
+        <div className="kpi-card-icon" aria-hidden="true">
+          <span>{icon}</span>
+        </div>
+      </div>
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value">{value}</div>
+      {context ? <div className="kpi-context">{context}</div> : null}
+    </div>
+  );
+}
+
+function RowProgress({ value }) {
+  const percent = normalizePercent(value);
+
+  return (
+    <div className="row-progress">
+      <div className="row-progress-bar-track" aria-hidden="true">
+        <div
+          className={`row-progress-fill ${getProgressClass(percent)}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className="row-progress-pct">{Math.round(percent)}%</span>
+    </div>
+  );
+}
+
+function HeroHeader({ updatedAt, loading }) {
+  return (
+    <header className="wallboard-hero">
+      <div className="wallboard-hero-inner">
+        <div>
+          <div className="wallboard-hero-greeting">DRUKARNYA</div>
+          <h1>Операційна панель</h1>
+          <p className="wallboard-hero-sub">
+            Замовлення, друк, логістика та стан сервісів в одному місці.
+          </p>
         </div>
 
-        <div className="wb-row">
-          <Badge tone="ok">Друк: {formatInt(stats?.printing ?? 0)}</Badge>
-          <Badge tone="info">У черзі: {formatInt(stats?.queued ?? 0)}</Badge>
-          <Badge tone="ok">Готово: {formatInt(stats?.done ?? 0)}</Badge>
+        <div className="wallboard-hero-meta">
+          <div className="wallboard-hero-date">{formatHeroDate(updatedAt)}</div>
+          <div className="wallboard-hero-time">{formatHeaderTime(updatedAt)}</div>
+          <div className="wallboard-hero-status">
+            <span className="wallboard-hero-status-dot" />
+            {loading ? "Оновлення даних" : "Синхронізація активна"}
+          </div>
         </div>
       </div>
     </header>
   );
 }
 
-function SectionOrders({ data = {} }) {
+function SectionOrders({ data = {}, loading = false }) {
   const orders = data.orders || {};
+  const total = ORDER_STAGES.reduce((sum, [key]) => sum + asNumber(orders[key], 0), 0);
 
   return (
-    <WallboardWidget
+    <Panel
+      loading={loading}
       title="Замовлення — конвеєр"
-      sub="Кількість замовлень на кожному етапі"
+      subtitle="Кількість замовлень на кожному етапі"
+      footer={<span className="panel-footer-meta">Разом у конвеєрі: {formatInt(total)}</span>}
     >
-      <div className="wb-kpi">
+      <div className="kpi-grid">
         {ORDER_STAGES.map(([key, label]) => (
-          <div key={key} className="wb-kpiBox">
-            <div className="wb-kpiLabel">{label}</div>
-            <div className="wb-kpiValue">{formatInt(orders[key] || 0)}</div>
-          </div>
+          <KpiCard
+            key={key}
+            label={label}
+            value={formatInt(orders[key] || 0)}
+            icon="◦"
+            variant={orders[key] ? "primary" : "info"}
+          />
         ))}
       </div>
-    </WallboardWidget>
+    </Panel>
   );
 }
 
-function SectionPrintFarm({ printers = [], jobs = [] }) {
+function SectionPrintFarm({ printers = [], jobs = [], loading = false }) {
   return (
-    <WallboardWidget
+    <Panel
+      loading={loading}
       title="3D-ферма — принтери та завдання"
-      sub="Стан обладнання та прогрес активних робіт"
+      subtitle="Стан обладнання та прогрес активних робіт"
+      footer={
+        <>
+          <span className="panel-footer-meta">Принтерів: {formatInt(printers.length)}</span>
+          <span className="panel-footer-meta">Активних робіт: {formatInt(jobs.length)}</span>
+        </>
+      }
     >
-      <div className="wb-list">
-        {printers.map((printer) => (
-          <div key={printer.id} className="wb-listRow">
-            <div className="wb-listPrimary">
-              <div className="wb-printerName">{printer.name || "Принтер без назви"}</div>
-              <div className="wb-small">
-                {printer.model || "Модель не вказана"}
-                {printer.nozzle ? ` • Діаметр сопла ${printer.nozzle}` : ""}
+      {printers.length ? (
+        <div className="activity-feed" style={{ marginBottom: "var(--space-lg)" }}>
+          {printers.map((printer) => (
+            <div key={printer.id} className="activity-item">
+              <div className="activity-avatar" aria-hidden="true">
+                {(printer.name || "P").slice(0, 1).toUpperCase()}
+              </div>
+
+              <div className="activity-content">
+                <div className="activity-name">{printer.name || "Принтер без назви"}</div>
+                <div className="activity-desc">
+                  <strong>{printer.model || "Модель не вказана"}</strong>
+                  {printer.nozzle ? ` • Сопло ${printer.nozzle}` : ""}
+                  {printer.material_color ? ` • ${printer.material_color}` : ""}
+                </div>
+              </div>
+
+              <div className="activity-time">
+                <StatusTag tone={getPrinterTone(printer.state)}>
+                  {getPrinterStateLabel(printer.state)}
+                </StatusTag>
               </div>
             </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="Немає даних про принтери"
+          desc="Список принтерів зʼявиться після першої синхронізації ферми."
+        />
+      )}
 
-            <Badge tone={getPrinterTone(printer.state)}>
-              {getPrinterStateLabel(printer.state)}
-            </Badge>
-
-            <span className="wb-small wb-listMeta">
-              {printer.material_color || "Матеріал не вказано"}
-            </span>
-          </div>
-        ))}
-
-        {!printers.length && <div className="wb-small">Дані про принтери відсутні.</div>}
-      </div>
-
-      <div className="wb-tableWrap">
-        <table className="wb-table wb-table--jobs">
-          <colgroup>
-            <col className="wb-col-order" />
-            <col className="wb-col-sku" />
-            <col className="wb-col-printer" />
-            <col className="wb-col-prog" />
-            <col className="wb-col-eta" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Замовлення</th>
-              <th>SKU × кількість</th>
-              <th>Принтер</th>
-              <th>Прогрес</th>
-              <th>Час завершення</th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.map((job) => (
-              <tr key={job.id}>
-                <td>{job.order_number || "—"}</td>
-                <td>{(job.sku || "—") + " ×" + formatInt(job.qty || 0)}</td>
-                <td>{job.printer_name || "—"}</td>
-                <td>
-                  <ProgressBar value={job.progress || 0} />
-                </td>
-                <td>{formatDateTime(job.eta)}</td>
-              </tr>
-            ))}
-
-            {!jobs.length && (
+      {jobs.length ? (
+        <div className="wboard-table-wrap">
+          <table className="wboard-table">
+            <thead>
               <tr>
-                <td colSpan={5} className="wb-small">
-                  Немає активних завдань.
-                </td>
+                <th>Замовлення</th>
+                <th>SKU × кількість</th>
+                <th>Принтер</th>
+                <th>Прогрес</th>
+                <th>Час завершення</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </WallboardWidget>
+            </thead>
+            <tbody>
+              {jobs.map((job) => (
+                <tr key={job.id}>
+                  <td>
+                    <div className="col-name">{job.order_number || "—"}</div>
+                  </td>
+                  <td>
+                    <div className="col-amount">
+                      {(job.sku || "—") + " ×" + formatInt(job.qty || 0)}
+                    </div>
+                  </td>
+                  <td>{job.printer_name || "—"}</td>
+                  <td>
+                    <RowProgress value={job.progress || 0} />
+                  </td>
+                  <td>{formatDateTime(job.eta)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </Panel>
   );
 }
 
-function SectionQueues({ q = {} }) {
+function SectionQueues({ q = {}, loading = false }) {
   const rows = QUEUE_ROWS.map(({ key, label, readyKey, runningKey }) => ({
     key,
     label,
@@ -401,15 +489,9 @@ function SectionQueues({ q = {} }) {
   }));
 
   return (
-    <WallboardWidget title="Черги та відставання" sub="Розмір черг і час затримки">
-      <div className="wb-tableWrap">
-        <table className="wb-table wb-table--queues">
-          <colgroup>
-            <col className="wb-col-name" />
-            <col className="wb-col-ready" />
-            <col className="wb-col-run" />
-            <col className="wb-col-lag" />
-          </colgroup>
+    <Panel loading={loading} title="Черги та відставання" subtitle="Розмір черг і час затримки">
+      <div className="wboard-table-wrap">
+        <table className="wboard-table">
           <thead>
             <tr>
               <th>Черга</th>
@@ -421,94 +503,95 @@ function SectionQueues({ q = {} }) {
           <tbody>
             {rows.map((row) => (
               <tr key={row.key}>
-                <td>{row.label}</td>
+                <td className="col-name">{row.label}</td>
                 <td>{formatInt(row.ready)}</td>
                 <td>{typeof row.running === "number" ? formatInt(row.running) : row.running}</td>
                 <td>
-                  <Badge tone={getLagTone(row.lag)}>{formatLag(row.lag)}</Badge>
+                  <StatusTag tone={getLagTone(row.lag)}>{formatLag(row.lag)}</StatusTag>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </WallboardWidget>
+    </Panel>
   );
 }
 
-function SectionMaterials({ m = {} }) {
+function SectionMaterials({ m = {}, loading = false }) {
   const low = Array.isArray(m.low) ? m.low : [];
 
   return (
-    <WallboardWidget
+    <Panel
+      loading={loading}
       title="Матеріали"
-      sub="Запаси філаменту, смоли та позиції з ризиком дефіциту"
+      subtitle="Запаси філаменту, смоли та позиції з ризиком дефіциту"
     >
-      <div className="wb-kpi">
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Філамент</div>
-          <div className="wb-kpiValue">{formatFixed(m.filamentKg ?? 0, 1)} кг</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Смола</div>
-          <div className="wb-kpiValue">{formatFixed(m.resinL ?? 0, 1)} л</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Котушки в роботі</div>
-          <div className="wb-kpiValue">{formatInt(m.reelsInUse ?? 0)}</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Поріг дефіциту</div>
-          <div className="wb-kpiValue">{formatFixed(m.lowThresholdKg ?? 1, 1)} кг</div>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-md)" }}>
+        <KpiCard label="Філамент" value={`${formatFixed(m.filamentKg ?? 0, 1)} кг`} icon="◔" variant="primary" />
+        <KpiCard label="Смола" value={`${formatFixed(m.resinL ?? 0, 1)} л`} icon="◑" variant="accent" />
+        <KpiCard label="Котушки в роботі" value={formatInt(m.reelsInUse ?? 0)} icon="◎" variant="info" />
+        <KpiCard
+          label="Поріг дефіциту"
+          value={`${formatFixed(m.lowThresholdKg ?? 1, 1)} кг`}
+          icon="!"
+          variant="warning"
+        />
       </div>
 
-      <div className="wb-list">
-        {low.map((item, index) => (
-          <div key={`${item.material || "material"}-${index}`} className="wb-listRow">
-            <div className="wb-listPrimary">
-              <div className="wb-small">{item.material || "Матеріал без назви"}</div>
-            </div>
-            <Badge tone="warn">{formatFixed(item.remainKg ?? 0, 1)} кг</Badge>
+      <div style={{ marginTop: "var(--space-lg)" }}>
+        {low.length ? (
+          <div className="activity-feed">
+            {low.map((item, index) => (
+              <div key={`${item.material || "material"}-${index}`} className="activity-item">
+                <div className="activity-avatar" aria-hidden="true">
+                  {(item.material || "M").slice(0, 1).toUpperCase()}
+                </div>
+                <div className="activity-content">
+                  <div className="activity-name">{item.material || "Матеріал без назви"}</div>
+                  <div className="activity-desc">Потрібне поповнення складу.</div>
+                </div>
+                <div className="activity-time">
+                  <StatusTag tone="warning">{formatFixed(item.remainKg ?? 0, 1)} кг</StatusTag>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-
-        {!low.length && <div className="wb-small">Дефіцитних матеріалів не виявлено.</div>}
+        ) : (
+          <EmptyState
+            title="Дефіцитних матеріалів не знайдено"
+            desc="Усі позиції зараз вище заданого порогу." 
+          />
+        )}
       </div>
-    </WallboardWidget>
+    </Panel>
   );
 }
 
-function SectionLogistics({ l = {} }) {
+function SectionLogistics({ l = {}, loading = false }) {
   const byCarrier = l.byCarrier && typeof l.byCarrier === "object" ? l.byCarrier : null;
 
   return (
-    <WallboardWidget
+    <Panel
+      loading={loading}
       title="Логістика"
-      sub="Статуси відправлень та розподіл за перевізниками"
+      subtitle="Статуси відправлень та розподіл за перевізниками"
     >
-      <div className="wb-kpi">
+      <div className="kpi-grid" style={{ marginBottom: "var(--space-lg)" }}>
         {LOGISTICS_STATUSES.map(([key, label]) => (
-          <div key={key} className="wb-kpiBox">
-            <div className="wb-kpiLabel">{label}</div>
-            <div className="wb-kpiValue">{formatInt(l[key] || 0)}</div>
-          </div>
+          <KpiCard
+            key={key}
+            label={label}
+            value={formatInt(l[key] || 0)}
+            icon={key === "problem" ? "!" : "◦"}
+            variant={key === "problem" ? "danger" : "primary"}
+          />
         ))}
       </div>
 
       {byCarrier ? (
-        <div className="wb-tableWrap">
-          <table className="wb-table wb-table--logistics">
-            <colgroup>
-              <col className="wb-col-carrier" />
-              <col className="wb-col-new" />
-              <col className="wb-col-transit" />
-              <col className="wb-col-delivered" />
-              <col className="wb-col-problem" />
-            </colgroup>
+        <div className="wboard-table-wrap">
+          <table className="wboard-table">
             <thead>
               <tr>
                 <th>Перевізник</th>
@@ -521,63 +604,62 @@ function SectionLogistics({ l = {} }) {
             <tbody>
               {Object.entries(byCarrier).map(([carrier, stats]) => (
                 <tr key={carrier}>
-                  <td>{carrier}</td>
+                  <td className="col-name">{carrier}</td>
                   <td>{formatInt(stats?.new || 0)}</td>
                   <td>{formatInt(stats?.inTransit || 0)}</td>
                   <td>{formatInt(stats?.delivered || 0)}</td>
-                  <td>{formatInt(stats?.problem || 0)}</td>
+                  <td>
+                    <StatusTag tone={(stats?.problem || 0) > 0 ? "danger" : "success"}>
+                      {formatInt(stats?.problem || 0)}
+                    </StatusTag>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       ) : (
-        <div className="wb-small">Дані по перевізниках відсутні.</div>
+        <EmptyState
+          title="Немає даних по перевізниках"
+          desc="Статистика за службами доставки зʼявиться після імпорту відправлень."
+        />
       )}
-    </WallboardWidget>
+    </Panel>
   );
 }
 
-function SectionPayments({ p = {} }) {
+function SectionPayments({ p = {}, loading = false }) {
   return (
-    <WallboardWidget
+    <Panel
+      loading={loading}
       title="Оплати"
-      sub="Передоплата, доплати та спірні платежі перед відвантаженням"
+      subtitle="Передоплата, доплати та спірні платежі перед відвантаженням"
     >
-      <div className="wb-kpi">
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Очікує 25%</div>
-          <div className="wb-kpiValue">{formatInt(p.awaitingPrepay || 0)}</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Очікує доплату</div>
-          <div className="wb-kpiValue">{formatInt(p.awaitingRest || 0)}</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Спори</div>
-          <div className="wb-kpiValue">{formatInt(p.disputes || 0)}</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Середній чек</div>
-          <div className="wb-kpiValue">{formatInt(p.avgCheckUAH || 0)} ₴</div>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-md)" }}>
+        <KpiCard label="Очікує 25%" value={formatInt(p.awaitingPrepay || 0)} icon="₴" variant="warning" />
+        <KpiCard label="Очікує доплату" value={formatInt(p.awaitingRest || 0)} icon="₴" variant="primary" />
+        <KpiCard label="Спори" value={formatInt(p.disputes || 0)} icon="!" variant="danger" />
+        <KpiCard label="Середній чек" value={`${formatInt(p.avgCheckUAH || 0)} ₴`} icon="◌" variant="success" />
       </div>
-    </WallboardWidget>
+    </Panel>
   );
 }
 
-function SectionServices({ s = {} }) {
+function SectionServices({ s = {}, loading = false }) {
+  const downCount = SERVICE_ROWS.reduce((count, [, key]) => {
+    const status = String(s[key] || "").toLowerCase();
+    return status && status !== "up" && status !== "ok" && status !== "healthy" ? count + 1 : count;
+  }, 0);
+
   return (
-    <WallboardWidget title="Сервіси та здоровʼя" sub="Стан ключових систем">
-      <div className="wb-tableWrap">
-        <table className="wb-table wb-table--services">
-          <colgroup>
-            <col className="wb-col-service" />
-            <col className="wb-col-status" />
-          </colgroup>
+    <Panel
+      loading={loading}
+      title="Сервіси та здоровʼя"
+      subtitle="Стан ключових систем"
+      footer={<span className="panel-footer-meta">Проблемних сервісів: {formatInt(downCount)}</span>}
+    >
+      <div className="wboard-table-wrap">
+        <table className="wboard-table">
           <thead>
             <tr>
               <th>Сервіс</th>
@@ -587,199 +669,211 @@ function SectionServices({ s = {} }) {
           <tbody>
             {SERVICE_ROWS.map(([name, key]) => (
               <tr key={key}>
-                <td>{name}</td>
+                <td className="col-name">{name}</td>
                 <td>
-                  <Badge tone={getServiceTone(s[key])}>{getServiceLabel(s[key])}</Badge>
+                  <StatusTag tone={getServiceTone(s[key])}>{getServiceLabel(s[key])}</StatusTag>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </WallboardWidget>
+    </Panel>
   );
 }
 
-function SectionIndexer({ idx = {} }) {
+function SectionIndexer({ idx = {}, loading = false }) {
   return (
-    <WallboardWidget
+    <Panel
+      loading={loading}
       title="Пошуковий індекс"
-      sub="Стан індексації каталогу та швидкість оновлення"
+      subtitle="Стан індексації каталогу та швидкість оновлення"
     >
-      <div className="wb-kpi">
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Беклог</div>
-          <div className="wb-kpiValue">{formatInt(idx.backlog || 0)}</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Останнє оновлення</div>
-          <div className="wb-kpiValue wb-kpiValue--compact">
-            {formatDateTime(idx.lastIndexedAt)}
-          </div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Швидкість</div>
-          <div className="wb-kpiValue">{formatInt(idx.ratePerMin || 0)}/хв</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Шарди</div>
-          <div className="wb-kpiValue">{formatInt(idx.shards || 1)}</div>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-md)" }}>
+        <KpiCard label="Беклог" value={formatInt(idx.backlog || 0)} icon="◦" variant="warning" />
+        <KpiCard label="Швидкість" value={`${formatInt(idx.ratePerMin || 0)}/хв`} icon="→" variant="success" />
+        <KpiCard label="Шарди" value={formatInt(idx.shards || 1)} icon="≡" variant="primary" />
+        <KpiCard
+          label="Останнє оновлення"
+          value={formatDateTime(idx.lastIndexedAt)}
+          icon="◷"
+          variant="info"
+        />
       </div>
-    </WallboardWidget>
+    </Panel>
   );
 }
 
-function SectionIngester({ ing = {} }) {
+function SectionIngester({ ing = {}, loading = false }) {
   const batches = Array.isArray(ing.batches) ? ing.batches : [];
 
   return (
-    <WallboardWidget
+    <Panel
+      loading={loading}
       title="Імпорт"
-      sub="CSV, медіа, нормалізація та результат останніх пакетів"
+      subtitle="CSV, медіа, нормалізація та результат останніх пакетів"
     >
-      <div className="wb-tableWrap">
-        <table className="wb-table wb-table--ingester">
-          <colgroup>
-            <col className="wb-col-batch" />
-            <col className="wb-col-rows" />
-            <col className="wb-col-ok" />
-            <col className="wb-col-fail" />
-            <col className="wb-col-duration" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Пакет</th>
-              <th>Рядків</th>
-              <th>Успішно</th>
-              <th>Помилки</th>
-              <th>Тривалість</th>
-            </tr>
-          </thead>
-          <tbody>
-            {batches.map((batch) => (
-              <tr key={batch.id}>
-                <td>{batch.id || "—"}</td>
-                <td>{formatInt(batch.rows || 0)}</td>
-                <td>{formatInt(batch.ok || 0)}</td>
-                <td>{formatInt(batch.fail || 0)}</td>
-                <td>{batch.duration || "—"}</td>
-              </tr>
-            ))}
-
-            {!batches.length && (
+      {batches.length ? (
+        <div className="wboard-table-wrap">
+          <table className="wboard-table">
+            <thead>
               <tr>
-                <td colSpan={5} className="wb-small">
-                  Немає даних про останні пакети.
-                </td>
+                <th>Пакет</th>
+                <th>Рядків</th>
+                <th>Успішно</th>
+                <th>Помилки</th>
+                <th>Тривалість</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {batches.map((batch) => (
+                <tr key={batch.id}>
+                  <td className="col-id">{batch.id || "—"}</td>
+                  <td>{formatInt(batch.rows || 0)}</td>
+                  <td>{formatInt(batch.ok || 0)}</td>
+                  <td>{formatInt(batch.fail || 0)}</td>
+                  <td>{batch.duration || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState
+          title="Пакетов імпорту поки немає"
+          desc="Останні завантаження CSV і медіа зʼявляться тут після запуску імпортера."
+        />
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "var(--space-md)", marginTop: "var(--space-lg)" }}>
+        <KpiCard label="Беклог медіа" value={formatInt(ing.mediaBacklog || 0)} icon="◫" variant="warning" />
+        <KpiCard label="Трансформацій / хв" value={formatInt(ing.mediaRatePerMin || 0)} icon="⇄" variant="success" />
+        <KpiCard label="Помилки за 1 год" value={formatInt(ing.errors1h || 0)} icon="!" variant="danger" />
+        <KpiCard label="Версія pricing.yml" value={ing.pricingVersion || "—"} icon="⌘" variant="primary" />
       </div>
-
-      <div className="wb-kpi">
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Беклог медіа</div>
-          <div className="wb-kpiValue">{formatInt(ing.mediaBacklog || 0)}</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Трансформацій / хв</div>
-          <div className="wb-kpiValue">{formatInt(ing.mediaRatePerMin || 0)}</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Помилки за 1 год</div>
-          <div className="wb-kpiValue">{formatInt(ing.errors1h || 0)}</div>
-        </div>
-
-        <div className="wb-kpiBox">
-          <div className="wb-kpiLabel">Версія pricing.yml</div>
-          <div className="wb-kpiValue wb-kpiValue--text">
-            {ing.pricingVersion || "—"}
-          </div>
-        </div>
-      </div>
-    </WallboardWidget>
+    </Panel>
   );
 }
 
-function SectionWebhooks({ wh = {} }) {
+function SectionWebhooks({ wh = {}, loading = false }) {
   const providers = wh.providers && typeof wh.providers === "object" ? wh.providers : {};
   const items = Object.entries(providers);
 
   return (
-    <WallboardWidget
+    <Panel
+      loading={loading}
       title="Вебхуки"
-      sub="Платіжні провайдери, перевізники та останні помилки"
+      subtitle="Платіжні провайдери, перевізники та останні помилки"
     >
-      <div className="wb-tableWrap">
-        <table className="wb-table wb-table--webhooks">
-          <colgroup>
-            <col className="wb-col-source" />
-            <col className="wb-col-rate" />
-            <col className="wb-col-fail" />
-            <col className="wb-col-error" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Джерело</th>
-              <th>Успішність</th>
-              <th>Збої за 5 хв</th>
-              <th>Остання помилка</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map(([name, value]) => (
-              <tr key={name}>
-                <td>{name}</td>
-                <td>{formatPercent(value?.successRate || 0)}</td>
-                <td>
-                  <Badge tone={(value?.failed5m || 0) > 0 ? "warn" : "ok"}>
-                    {formatInt(value?.failed5m || 0)}
-                  </Badge>
-                </td>
-                <td className="wb-small">{value?.lastError || "—"}</td>
-              </tr>
-            ))}
-
-            {!items.length && (
+      {items.length ? (
+        <div className="wboard-table-wrap">
+          <table className="wboard-table">
+            <thead>
               <tr>
-                <td colSpan={4} className="wb-small">
-                  Дані по вебхуках відсутні.
-                </td>
+                <th>Джерело</th>
+                <th>Успішність</th>
+                <th>Збої за 5 хв</th>
+                <th>Остання помилка</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </WallboardWidget>
+            </thead>
+            <tbody>
+              {items.map(([name, value]) => (
+                <tr key={name}>
+                  <td className="col-name">{name}</td>
+                  <td>{formatPercent(value?.successRate || 0)}</td>
+                  <td>
+                    <StatusTag tone={(value?.failed5m || 0) > 0 ? "warning" : "success"}>
+                      {formatInt(value?.failed5m || 0)}
+                    </StatusTag>
+                  </td>
+                  <td className="col-sub">{value?.lastError || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState
+          title="Немає даних по вебхуках"
+          desc="Після першої активности провайдерів тут зʼявиться статистика доставок і помилок."
+        />
+      )}
+    </Panel>
   );
 }
 
-function SectionAlerts({ alerts = [] }) {
+function SectionAlerts({ alerts = [], loading = false }) {
   return (
-    <WallboardWidget title="Оповіщення" sub="Останні 10 подій">
-      <div className="wb-list">
-        {alerts.slice(0, 10).map((alert, index) => (
-          <div key={`${alert.ts || "alert"}-${index}`} className="wb-listRow">
-            <Badge tone={getAlertTone(alert.level)}>{getAlertLabel(alert.level)}</Badge>
+    <Panel
+      loading={loading}
+      title="Оповіщення"
+      subtitle="Останні 10 подій"
+      flush
+    >
+      {alerts.length ? (
+        <div className="activity-feed">
+          {alerts.slice(0, 10).map((alert, index) => (
+            <div key={`${alert.ts || "alert"}-${index}`} className={`activity-item${index === 0 ? " activity-item--unread" : ""}`}>
+              <div className="activity-avatar" aria-hidden="true">
+                {getAlertLabel(alert.level).slice(0, 1)}
+              </div>
 
-            <div className="wb-listPrimary">
-              <div className="wb-small">{alert.title || "Без назви"}</div>
+              <div className="activity-content">
+                <div className="activity-name">{alert.title || "Без назви"}</div>
+                <div className="activity-desc">
+                  <strong>{getAlertLabel(alert.level)}</strong>
+                  {alert.message ? ` • ${alert.message}` : " • Системне сповіщення"}
+                </div>
+              </div>
+
+              <div className="activity-time">
+                <StatusTag tone={getAlertTone(alert.level)}>{formatDateTime(alert.ts)}</StatusTag>
+              </div>
             </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="Немає активних оповіщень"
+          desc="Коли система зафіксує подію або проблему, вона зʼявиться тут."
+        />
+      )}
+    </Panel>
+  );
+}
 
-            <div className="wb-small wb-listMeta">{formatDateTime(alert.ts)}</div>
-          </div>
-        ))}
-
-        {!alerts.length && <div className="wb-small">Немає активних оповіщень.</div>}
-      </div>
-    </WallboardWidget>
+function TopSummary({ prints, stats, alertsCount }) {
+  return (
+    <div className="kpi-grid">
+      <KpiCard
+        label="Друкується зараз"
+        value={formatInt(prints.stats?.printing || 0)}
+        context={`Активних завдань: ${formatInt(prints.jobs?.length || 0)}`}
+        icon="◔"
+        variant="success"
+      />
+      <KpiCard
+        label="У черзі"
+        value={formatInt(prints.stats?.queued || 0)}
+        context={`Черга друку: ${formatInt(stats.queues?.prints?.ready || 0)}`}
+        icon="≡"
+        variant="warning"
+      />
+      <KpiCard
+        label="Завершено"
+        value={formatInt(prints.stats?.done || 0)}
+        context={`Доставлено: ${formatInt(stats.logistics?.delivered || 0)}`}
+        icon="✓"
+        variant="primary"
+      />
+      <KpiCard
+        label="Проблеми / алерти"
+        value={formatInt(alertsCount + asNumber(stats.logistics?.problem, 0))}
+        context={`Оповіщень: ${formatInt(alertsCount)}`}
+        icon="!"
+        variant={alertsCount > 0 || asNumber(stats.logistics?.problem, 0) > 0 ? "danger" : "info"}
+      />
+    </div>
   );
 }
 
@@ -817,7 +911,7 @@ export default function Board() {
     };
   }, []);
 
-  const handleSSEEvent = useCallback((event) => {
+  const handleSSEEvent = useCallback((event = {}) => {
     setUpdatedAt(new Date());
 
     if (event.type === "print.progress") {
@@ -849,8 +943,12 @@ export default function Board() {
       }));
     }
 
+    if (event.domain === "prints" || event.domain === "print") {
+      setPrints((current) => mergePrints(current, event.payload || event.data));
+    }
+
     if (event.domain === "ops") {
-      setOps((current) => mergeOps(current, event.payload));
+      setOps((current) => mergeOps(current, event.payload || event.data));
     }
   }, []);
 
@@ -863,33 +961,51 @@ export default function Board() {
 
   useSSE("/api/events/stream?topics=orders,prints,shipments,ops", sseOptions);
 
-  const headerStats = useMemo(
-    () => ({
-      printing: prints.stats?.printing || 0,
-      queued: prints.stats?.queued || 0,
-      done: prints.stats?.done || 0,
-    }),
-    [prints.stats]
-  );
-
   const stats = ops.stats || {};
+  const alerts = Array.isArray(stats.alerts) ? stats.alerts : [];
 
   return (
-    <div className={`wb-wallboard${loading ? " wb-loading" : ""}`}>
-      <Header stats={headerStats} updatedAt={updatedAt} />
+    <div className="wallboard">
+      <HeroHeader updatedAt={updatedAt} loading={loading} />
 
-      <div className="wb-grid">
-        <SectionOrders data={stats} />
-        <SectionPrintFarm printers={prints.printers} jobs={prints.jobs} />
-        <SectionQueues q={stats.queues} />
-        <SectionMaterials m={stats.materials} />
-        <SectionLogistics l={stats.logistics} />
-        <SectionPayments p={stats.payments} />
-        <SectionIndexer idx={stats.indexer} />
-        <SectionIngester ing={stats.ingester} />
-        <SectionWebhooks wh={stats.webhooks} />
-        <SectionServices s={stats.services} />
-        <SectionAlerts alerts={stats.alerts || []} />
+      {loading ? (
+        <div className="alert-strip alert-strip--info">
+          <div className="alert-strip-icon" aria-hidden="true">
+            ⟳
+          </div>
+          <div className="alert-strip-text">Завантажую зведення операцій та друкарської ферми…</div>
+        </div>
+      ) : null}
+
+      <TopSummary prints={prints} stats={stats} alertsCount={alerts.length} />
+
+      <div style={{ display: "grid", gap: "var(--space-md)" }}>
+        <div className="wallboard-row">
+          <SectionPrintFarm printers={prints.printers} jobs={prints.jobs} loading={loading} />
+          <SectionAlerts alerts={alerts} loading={loading} />
+        </div>
+
+        <div className="wallboard-row">
+          <SectionOrders data={stats} loading={loading} />
+          <SectionServices s={stats.services} loading={loading} />
+        </div>
+
+        <div className="wallboard-row">
+          <SectionQueues q={stats.queues} loading={loading} />
+          <SectionPayments p={stats.payments} loading={loading} />
+        </div>
+
+        <div className="wallboard-row">
+          <SectionLogistics l={stats.logistics} loading={loading} />
+          <SectionMaterials m={stats.materials} loading={loading} />
+        </div>
+
+        <div className="wallboard-row">
+          <SectionWebhooks wh={stats.webhooks} loading={loading} />
+          <SectionIndexer idx={stats.indexer} loading={loading} />
+        </div>
+
+        <SectionIngester ing={stats.ingester} loading={loading} />
       </div>
     </div>
   );
