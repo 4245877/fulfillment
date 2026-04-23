@@ -83,7 +83,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
           />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>
+              <div className="text-muted" style={{ fontSize: 12 }}>
                 начало
               </div>
               <TextInput
@@ -93,7 +93,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
               />
             </div>
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>
+              <div className="text-muted" style={{ fontSize: 12 }}>
                 конец
               </div>
               <TextInput
@@ -109,7 +109,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
       <FieldRow label="Хранение" hint="Сколько хранить ежедневных, еженедельных и ежемесячных копий.">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, maxWidth: 520 }}>
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               ежедневно
             </div>
             <NumberInput
@@ -120,7 +120,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
             />
           </div>
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               еженедельно
             </div>
             <NumberInput
@@ -131,7 +131,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
             />
           </div>
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               ежемесячно
             </div>
             <NumberInput
@@ -161,7 +161,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>
+              <div className="text-muted" style={{ fontSize: 12 }}>
                 Бакет (bucket)
               </div>
               <TextInput
@@ -171,7 +171,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
               />
             </div>
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>
+              <div className="text-muted" style={{ fontSize: 12 }}>
                 Путь (path)
               </div>
               <TextInput
@@ -184,7 +184,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>
+              <div className="text-muted" style={{ fontSize: 12 }}>
                 Профиль шифрования
               </div>
               <TextInput
@@ -194,7 +194,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
               />
             </div>
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>
+              <div className="text-muted" style={{ fontSize: 12 }}>
                 Профиль ключа
               </div>
               <TextInput
@@ -213,7 +213,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
       >
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
-            className="buttonPrimary"
+            className="btn btn-primary btn-sm"
             type="button"
             onClick={() =>
               doAction({
@@ -228,6 +228,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
           </button>
 
           <button
+            className="btn btn-secondary btn-sm"
             type="button"
             onClick={() =>
               doAction({

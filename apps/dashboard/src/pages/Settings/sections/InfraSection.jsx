@@ -42,6 +42,7 @@ export default function InfraSection({ cfg, patch }) {
                   <tr key={`${n.name}-${i}`}>
                     <td>
                       <input
+                        className="input"
                         value={n.name}
                         onChange={(e) => {
                           const next = [...nodes];
@@ -52,6 +53,7 @@ export default function InfraSection({ cfg, patch }) {
                     </td>
                     <td>
                       <select
+                        className="select"
                         value={n.role}
                         onChange={(e) => {
                           const next = [...nodes];
@@ -68,6 +70,7 @@ export default function InfraSection({ cfg, patch }) {
                     </td>
                     <td>
                       <input
+                        className="input"
                         value={n.host}
                         onChange={(e) => {
                           const next = [...nodes];
@@ -78,6 +81,7 @@ export default function InfraSection({ cfg, patch }) {
                     </td>
                     <td>
                       <input
+                        className="input"
                         value={n.notes || ""}
                         onChange={(e) => {
                           const next = [...nodes];
@@ -88,6 +92,7 @@ export default function InfraSection({ cfg, patch }) {
                     </td>
                     <td style={{ width: 1, whiteSpace: "nowrap" }}>
                       <button
+                        className="btn btn-secondary btn-sm"
                         type="button"
                         onClick={() => {
                           const next = nodes.filter((_, idx) => idx !== i);
@@ -104,6 +109,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <button
+            className="btn btn-primary btn-sm"
             type="button"
             onClick={() =>
               patch("infra.nodes", [
@@ -130,7 +136,7 @@ export default function InfraSection({ cfg, patch }) {
           }}
         >
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               Макс. воркеров печати
             </div>
             <NumberInput
@@ -142,7 +148,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               Макс. воркеров импорта
             </div>
             <NumberInput
@@ -154,7 +160,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               Макс. воркеров медиа
             </div>
             <NumberInput
@@ -166,7 +172,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               Макс. воркеров вебхуков
             </div>
             <NumberInput
@@ -178,7 +184,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               Лимит запросов к внешнему API (RPS)
             </div>
             <NumberInput

@@ -42,7 +42,14 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
         <div style={{ display: "grid", gap: 12 }}>
           {Object.entries(cfg.logisticsPayments.providers).map(([name, p]) => (
             <div key={name} className="card" style={{ padding: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
                 <div style={{ fontWeight: 800 }}>{name}</div>
                 <Toggle
                   value={p.enabled}
@@ -61,7 +68,9 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
                 }}
               >
                 <div>
-                  <div className="muted" style={{ fontSize: 12 }}>rateLimitRps</div>
+                  <div className="text-muted" style={{ fontSize: 12 }}>
+                    rateLimitRps
+                  </div>
                   <NumberInput
                     value={p.rateLimitRps}
                     min={0}
@@ -70,7 +79,9 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
                   />
                 </div>
                 <div>
-                  <div className="muted" style={{ fontSize: 12 }}>профиль</div>
+                  <div className="text-muted" style={{ fontSize: 12 }}>
+                    профиль
+                  </div>
                   <TextInput
                     value={p.profile}
                     onChange={(v) => patch(`logisticsPayments.providers.${name}.profile`, v)}
@@ -106,13 +117,17 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
           />
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-            <button type="button" className="buttonPrimary" onClick={applyStatusMappingDraft}>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={applyStatusMappingDraft}
+            >
               Применить
             </button>
 
             <button
               type="button"
-              className="buttonSecondary"
+              className="btn btn-secondary btn-sm"
               onClick={() => {
                 setStatusMappingDraft(JSON.stringify(cfg.logisticsPayments.statusMapping, null, 2));
                 setStatusMappingError(null);
@@ -121,7 +136,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
               Откатить
             </button>
 
-            <div className="muted" style={{ fontSize: 12, alignSelf: "center" }}>
+            <div className="text-muted" style={{ fontSize: 12, alignSelf: "center" }}>
               Подсказка: Ctrl/⌘ + Enter — применить.
             </div>
           </div>
@@ -143,7 +158,9 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
           />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>maxOrderValueUAH</div>
+              <div className="text-muted" style={{ fontSize: 12 }}>
+                maxOrderValueUAH
+              </div>
               <NumberInput
                 value={cfg.logisticsPayments.antifraud.maxOrderValueUAH}
                 min={0}
@@ -153,7 +170,9 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
               />
             </div>
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>requireManualReviewAboveUAH</div>
+              <div className="text-muted" style={{ fontSize: 12 }}>
+                requireManualReviewAboveUAH
+              </div>
               <NumberInput
                 value={cfg.logisticsPayments.antifraud.requireManualReviewAboveUAH}
                 min={0}

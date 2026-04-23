@@ -1,4 +1,3 @@
-// apps/dashboard/src/pages/settings/sections/PrintFarmSection.jsx
 import React from "react";
 import { Card, FieldRow, Toggle, ChipsEditor, NumberInput } from "../ui.jsx";
 
@@ -29,6 +28,7 @@ export default function PrintFarmSection({ cfg, patch }) {
                 <tr key={`${p.id}-${i}`}>
                   <td>
                     <input
+                      className="input"
                       value={p.id}
                       onChange={(e) => {
                         const next = [...cfg.printFarm.printers];
@@ -39,6 +39,7 @@ export default function PrintFarmSection({ cfg, patch }) {
                   </td>
                   <td>
                     <input
+                      className="input"
                       value={p.name}
                       onChange={(e) => {
                         const next = [...cfg.printFarm.printers];
@@ -49,6 +50,7 @@ export default function PrintFarmSection({ cfg, patch }) {
                   </td>
                   <td>
                     <input
+                      className="input"
                       value={p.profile}
                       onChange={(e) => {
                         const next = [...cfg.printFarm.printers];
@@ -59,6 +61,7 @@ export default function PrintFarmSection({ cfg, patch }) {
                   </td>
                   <td>
                     <input
+                      className="input"
                       value={p.material}
                       onChange={(e) => {
                         const next = [...cfg.printFarm.printers];
@@ -69,6 +72,7 @@ export default function PrintFarmSection({ cfg, patch }) {
                   </td>
                   <td>
                     <input
+                      className="checkbox"
                       type="checkbox"
                       checked={!!p.enabled}
                       onChange={(e) => {
@@ -76,11 +80,11 @@ export default function PrintFarmSection({ cfg, patch }) {
                         next[i] = { ...next[i], enabled: e.target.checked };
                         patch("printFarm.printers", next);
                       }}
-                      style={{ width: 18, height: 18 }}
                     />
                   </td>
                   <td style={{ width: 1, whiteSpace: "nowrap" }}>
                     <button
+                      className="btn btn-secondary btn-sm"
                       type="button"
                       onClick={() => {
                         const next = cfg.printFarm.printers.filter((_, idx) => idx !== i);
@@ -95,23 +99,26 @@ export default function PrintFarmSection({ cfg, patch }) {
             </tbody>
           </table>
 
-          <button
-            type="button"
-            onClick={() =>
-              patch("printFarm.printers", [
-                ...(cfg.printFarm.printers || []),
-                {
-                  id: "new",
-                  name: "Новый принтер",
-                  profile: "fdm-0.4",
-                  material: "PLA",
-                  enabled: true,
-                },
-              ])
-            }
-          >
-            Добавить принтер
-          </button>
+          <div style={{ marginTop: 10 }}>
+            <button
+              className="btn btn-primary btn-sm"
+              type="button"
+              onClick={() =>
+                patch("printFarm.printers", [
+                  ...(cfg.printFarm.printers || []),
+                  {
+                    id: "new",
+                    name: "Новый принтер",
+                    profile: "fdm-0.4",
+                    material: "PLA",
+                    enabled: true,
+                  },
+                ])
+              }
+            >
+              Добавить принтер
+            </button>
+          </div>
         </div>
       </FieldRow>
 
@@ -120,7 +127,7 @@ export default function PrintFarmSection({ cfg, patch }) {
         hint="Простые правила: какая группа принтеров подходит для какого материала."
       >
         <div style={{ display: "grid", gap: 8 }}>
-          <div className="muted" style={{ fontSize: 12 }}>
+          <div className="text-muted" style={{ fontSize: 12 }}>
             Правила
           </div>
           <ChipsEditor
@@ -159,7 +166,7 @@ export default function PrintFarmSection({ cfg, patch }) {
             />
           </div>
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               Уведомление о простое (мин.)
             </div>
             <NumberInput
@@ -170,7 +177,7 @@ export default function PrintFarmSection({ cfg, patch }) {
             />
           </div>
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               Уведомление об ошибке (мин.)
             </div>
             <NumberInput
