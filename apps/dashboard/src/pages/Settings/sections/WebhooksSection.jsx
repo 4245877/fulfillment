@@ -1,38 +1,73 @@
 // apps/dashboard/src/pages/settings/sections/WebhooksSection.jsx
 import React from "react";
-import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui.jsx";
-
+import { Card, FieldRow, Toggle, NumberInput } from "../ui.jsx";
 
 export default function WebhooksSection({ cfg, patch, doAction }) {
   return (
-    <Card title="9) Вебхуки" sub="Retries/backoff, ідемпотентність, підписи, останні помилки, тестова подія">
-      <FieldRow label="Політики" hint="Основні важелі надійності та безпеки вебхуків.">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 720 }}>
+    <Card
+      title="9) Вебхуки"
+      sub="Повторные попытки/backoff, идемпотентность, подписи, последние ошибки, тестовое событие"
+    >
+      <FieldRow label="Политики" hint="Основные рычаги надежности и безопасности вебхуков.">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12,
+            maxWidth: 720,
+          }}
+        >
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>retries</div>
-            <NumberInput value={cfg.webhooks.policy.retries} min={0} max={100} onChange={(v) => patch("webhooks.policy.retries", v)} />
+            <div className="muted" style={{ fontSize: 12 }}>
+              retries
+            </div>
+            <NumberInput
+              value={cfg.webhooks.policy.retries}
+              min={0}
+              max={100}
+              onChange={(v) => patch("webhooks.policy.retries", v)}
+            />
           </div>
+
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>backoffMs</div>
-            <NumberInput value={cfg.webhooks.policy.backoffMs} min={0} max={3600000} step={100} onChange={(v) => patch("webhooks.policy.backoffMs", v)} />
+            <div className="muted" style={{ fontSize: 12 }}>
+              backoffMs
+            </div>
+            <NumberInput
+              value={cfg.webhooks.policy.backoffMs}
+              min={0}
+              max={3600000}
+              step={100}
+              onChange={(v) => patch("webhooks.policy.backoffMs", v)}
+            />
           </div>
+
           <div style={{ display: "flex", alignItems: "center" }}>
-            <Toggle value={cfg.webhooks.policy.idempotencyEnabled} onChange={(v) => patch("webhooks.policy.idempotencyEnabled", v)} label="idempotencyEnabled" />
+            <Toggle
+              value={cfg.webhooks.policy.idempotencyEnabled}
+              onChange={(v) => patch("webhooks.policy.idempotencyEnabled", v)}
+              label="idempotencyEnabled"
+            />
           </div>
+
           <div style={{ display: "flex", alignItems: "center" }}>
-            <Toggle value={cfg.webhooks.policy.signatureVerification} onChange={(v) => patch("webhooks.policy.signatureVerification", v)} label="signatureVerification" />
+            <Toggle
+              value={cfg.webhooks.policy.signatureVerification}
+              onChange={(v) => patch("webhooks.policy.signatureVerification", v)}
+              label="signatureVerification"
+            />
           </div>
         </div>
       </FieldRow>
 
-      <FieldRow label="Останні помилки" hint="Плейсхолдер (можна підключити до /api/webhooks/errors).">
+      <FieldRow label="Последние ошибки" hint="Плейсхолдер (можно подключить к /api/webhooks/errors).">
         <div style={{ overflowX: "auto" }}>
           <table className="table">
             <thead>
               <tr>
-                <th>час</th>
-                <th>джерело</th>
-                <th>повідомлення</th>
+                <th>время</th>
+                <th>источник</th>
+                <th>сообщение</th>
               </tr>
             </thead>
             <tbody>
@@ -47,7 +82,7 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
               ) : (
                 <tr>
                   <td colSpan="3" className="muted">
-                    Даних поки немає.
+                    Данных пока нет.
                   </td>
                 </tr>
               )}
@@ -56,19 +91,22 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
         </div>
       </FieldRow>
 
-      <FieldRow label="Надіслати тестову подію" hint="Опціонально: надіслати тестовий вебхук (якщо API реалізовано).">
+      <FieldRow
+        label="Отправить тестовое событие"
+        hint="Опционально: отправить тестовый вебхук (если API реализовано)."
+      >
         <button
           type="button"
           onClick={() =>
             doAction({
-              title: "Надіслати тестову подію",
-              description: "Надіслати тестову подію для перевірки траси.",
+              title: "Отправить тестовое событие",
+              description: "Отправить тестовое событие для проверки трассировки.",
               url: "/api/ops/webhooks/send-test",
               body: { kind: "ping" },
             })
           }
         >
-          надіслати тест
+          отправить тест
         </button>
       </FieldRow>
     </Card>

@@ -4,17 +4,23 @@ import { Card, FieldRow, Toggle, ChipsEditor, NumberInput } from "../ui.jsx";
 
 export default function PrintFarmSection({ cfg, patch }) {
   return (
-    <Card title="7) Виробництво / Print Farm" sub="Принтери, профілі, маршрутизація, SLA/тайм-аути">
-      <FieldRow label="Принтери" hint="Маппінг принтерів, профілі сопел/матеріалів.">
+    <Card
+      title="7) Производство / Печатная ферма"
+      sub="Принтеры, профили, маршрутизация, SLA/тайм-ауты"
+    >
+      <FieldRow
+        label="Принтеры"
+        hint="Сопоставление принтеров, профили сопел и материалов."
+      >
         <div style={{ overflowX: "auto" }}>
           <table className="table">
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Назва</th>
-                <th>Профіль</th>
-                <th>Матеріал</th>
-                <th>Увімкнено</th>
+                <th>Название</th>
+                <th>Профиль</th>
+                <th>Материал</th>
+                <th>Включено</th>
                 <th />
               </tr>
             </thead>
@@ -81,7 +87,7 @@ export default function PrintFarmSection({ cfg, patch }) {
                         patch("printFarm.printers", next);
                       }}
                     >
-                      Видалити
+                      Удалить
                     </button>
                   </td>
                 </tr>
@@ -91,21 +97,39 @@ export default function PrintFarmSection({ cfg, patch }) {
 
           <button
             type="button"
-            onClick={() => patch("printFarm.printers", [...(cfg.printFarm.printers || []), { id: "new", name: "New printer", profile: "fdm-0.4", material: "PLA", enabled: true }])}
+            onClick={() =>
+              patch("printFarm.printers", [
+                ...(cfg.printFarm.printers || []),
+                {
+                  id: "new",
+                  name: "Новый принтер",
+                  profile: "fdm-0.4",
+                  material: "PLA",
+                  enabled: true,
+                },
+              ])
+            }
           >
-            Додати принтер
+            Добавить принтер
           </button>
         </div>
       </FieldRow>
 
-      <FieldRow label="Маршрутизація задач" hint="Прості правила: яка група принтерів для якого матеріалу.">
+      <FieldRow
+        label="Маршрутизация задач"
+        hint="Простые правила: какая группа принтеров подходит для какого материала."
+      >
         <div style={{ display: "grid", gap: 8 }}>
-          <div className="muted" style={{ fontSize: 12 }}>правила</div>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Правила
+          </div>
           <ChipsEditor
             value={(cfg.printFarm.routing.rules || []).map((r) => `${r.when} -> ${r.then}`)}
             onChange={(arr) => {
               const rules = arr.map((line) => {
-                const [a, b] = String(line).split("->").map((x) => x.trim());
+                const [a, b] = String(line)
+                  .split("->")
+                  .map((x) => x.trim());
                 return { when: a || "", then: b || "" };
               });
               patch("printFarm.routing.rules", rules);
@@ -115,18 +139,46 @@ export default function PrintFarmSection({ cfg, patch }) {
         </div>
       </FieldRow>
 
-      <FieldRow label="SLA / тайм-аути" hint="Автопауза при error, сповіщення про простій/помилки.">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, maxWidth: 720 }}>
+      <FieldRow
+        label="SLA / тайм-ауты"
+        hint="Автопауза при ошибке, уведомления о простое и ошибках."
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: 12,
+            maxWidth: 720,
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center" }}>
-            <Toggle value={cfg.printFarm.sla.autoPauseOnError} onChange={(v) => patch("printFarm.sla.autoPauseOnError", v)} label="autoPauseOnError" />
+            <Toggle
+              value={cfg.printFarm.sla.autoPauseOnError}
+              onChange={(v) => patch("printFarm.sla.autoPauseOnError", v)}
+              label="Автопауза при ошибке"
+            />
           </div>
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>idleNotifyMinutes</div>
-            <NumberInput value={cfg.printFarm.sla.idleNotifyMinutes} min={0} max={100000} onChange={(v) => patch("printFarm.sla.idleNotifyMinutes", v)} />
+            <div className="muted" style={{ fontSize: 12 }}>
+              Уведомление о простое (мин.)
+            </div>
+            <NumberInput
+              value={cfg.printFarm.sla.idleNotifyMinutes}
+              min={0}
+              max={100000}
+              onChange={(v) => patch("printFarm.sla.idleNotifyMinutes", v)}
+            />
           </div>
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>errorNotifyMinutes</div>
-            <NumberInput value={cfg.printFarm.sla.errorNotifyMinutes} min={0} max={100000} onChange={(v) => patch("printFarm.sla.errorNotifyMinutes", v)} />
+            <div className="muted" style={{ fontSize: 12 }}>
+              Уведомление об ошибке (мин.)
+            </div>
+            <NumberInput
+              value={cfg.printFarm.sla.errorNotifyMinutes}
+              min={0}
+              max={100000}
+              onChange={(v) => patch("printFarm.sla.errorNotifyMinutes", v)}
+            />
           </div>
         </div>
       </FieldRow>
