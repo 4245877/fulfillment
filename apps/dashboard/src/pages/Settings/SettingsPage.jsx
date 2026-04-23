@@ -1,5 +1,4 @@
-// apps/dashboard/src/pages/settings/SettingsPage.jsx
-import React, { useMemo } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import styles from "../Settings.module.css";
 
 import { useSettingsConfig } from "./useSettingsConfig";
@@ -16,125 +15,301 @@ import WebhooksSection from "./sections/WebhooksSection";
 import AlertsSection from "./sections/AlertsSection";
 import SecuritySection from "./sections/SecuritySection";
 
-const cls = (...xs) => xs.filter(Boolean).join(" ");
+const SECTION_OFFSET_PX = 80;
+const OBSERVER_THRESHOLDS = [0, 0.1, 0.25, 0.5, 0.75, 1];
+
+const SECTIONS = [
+  {
+    id: "ui",
+    navTitle: "Загальне",
+    render: ({ cfg, patch }) => <UiSection cfg={cfg} patch={patch} />,
+  },
+  {
+    id: "backups",
+    navTitle: "Резервні копії",
+    render: ({ cfg, patch, doAction }) => (
+      <BackupsSection cfg={cfg} patch={patch} doAction={doAction} />
+    ),
+  },
+  {
+    id: "infra",
+    navTitle: "Інфраструктура",
+    render: ({ cfg, patch }) => <InfraSection cfg={cfg} patch={patch} />,
+  },
+  {
+    id: "ops",
+    navTitle: "Операції",
+    render: ({ cfg, patch, doAction }) => (
+      <OpsSection cfg={cfg} patch={patch} doAction={doAction} />
+    ),
+  },
+  {
+    id: "queues",
+    navTitle: "Черги",
+    render: ({ cfg, patch }) => <QueuesSection cfg={cfg} patch={patch} />,
+  },
+  {
+    id: "catalog",
+    navTitle: "Каталог",
+    render: ({ cfg, patch }) => <CatalogSection cfg={cfg} patch={patch} />,
+  },
+  {
+    id: "printFarm",
+    navTitle: "Print Farm",
+    render: ({ cfg, patch }) => <PrintFarmSection cfg={cfg} patch={patch} />,
+  },
+  {
+    id: "logisticsPayments",
+    navTitle: "Логістика й оплати",
+    render: ({ cfg, patch, showToast }) => (
+      <LogisticsPaymentsSection cfg={cfg} patch={patch} showToast={showToast} />
+    ),
+  },
+  {
+    id: "webhooks",
+    navTitle: "Вебхуки",
+    render: ({ cfg, patch, doAction }) => (
+      <WebhooksSection cfg={cfg} patch={patch} doAction={doAction} />
+    ),
+  },
+  {
+    id: "alerts",
+    navTitle: "Алерти",
+    render: ({ cfg, patch }) => <AlertsSection cfg={cfg} patch={patch} />,
+  },
+  {
+    id: "security",
+    navTitle: "Безпека",
+    render: ({ cfg, patch }) => <SecuritySection cfg={cfg} patch={patch} />,
+  },
+];
+
+function getInitialActiveSection() {
+  if (typeof window === "undefined") {
+    return SECTIONS[0].id;
+  }
+
+  const hashSectionId = window.location.hash.replace(/^#/, "");
+
+  return SECTIONS.some((section) => section.id === hashSectionId)
+    ? hashSectionId
+    : SECTIONS[0].id;
+}
+
+function resolveActiveSection() {
+  const activationLine = SECTION_OFFSET_PX + 1;
+
+  let current = SECTIONS[0].id;
+  let closest = SECTIONS[0].id;
+  let closestDistance = Number.POSITIVE_INFINITY;
+
+  for (const section of SECTIONS) {
+    const node = document.getElementById(section.id);
+
+    if (!node) {
+      continue;
+    }
+
+    const { top } = node.getBoundingClientRect();
+    const distance = Math.abs(top - activationLine);
+
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closest = section.id;
+    }
+
+    if (top <= activationLine) {
+      current = section.id;
+    } else {
+      break;
+    }
+  }
+
+  return current === SECTIONS[0].id ? closest : current;
+}
 
 export default function SettingsPage() {
-  const { cfg, patch, toast, exportJson, importJson, resetAll, showToast, doAction } = useSettingsConfig();
+  const {
+    cfg,
+    patch,
+    toast,
+    exportJson,
+    importJson,
+    resetAll,
+    showToast,
+    doAction,
+  } = useSettingsConfig();
 
-  const nav = useMemo(
-    () => [
-      { id: "ui", title: "1) Загальне (UI/Wallboard)" },
-      { id: "backups", title: "2) Резервні копії та зберігання" },
-      { id: "infra", title: "3) Інфраструктура (Servers/Topology)" },
-      { id: "ops", title: "4) Стан сервісів і дії оператора" },
-      { id: "queues", title: "5) Черги та воркери (Queues)" },
-      { id: "catalog", title: "6) Каталог 3M SKU: Indexer / Ingester / Import" },
-      { id: "printFarm", title: "7) Виробництво / Print Farm" },
-      { id: "logisticsPayments", title: "8) Логістика та оплати" },
-      { id: "webhooks", title: "9) Вебхуки" },
-      { id: "alerts", title: "10) Алерти та сповіщення" },
-      { id: "security", title: "11) Безпека та доступ" },
-    ],
-    []
-  );
+  const fileInputRef = useRef(null);
+  const [activeSection, setActiveSection] = useState(getInitialActiveSection);
+
+  useEffect(() => {
+    let frameId = 0;
+
+    const updateActiveSection = () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0;
+
+        const current = resolveActiveSection();
+
+        setActiveSection((prev) => (prev === current ? prev : current));
+      });
+    };
+
+    const observer = new IntersectionObserver(updateActiveSection, {
+      root: null,
+      rootMargin: `-${SECTION_OFFSET_PX}px 0px -55% 0px`,
+      threshold: OBSERVER_THRESHOLDS,
+    });
+
+    const sectionNodes = SECTIONS.map((section) =>
+      document.getElementById(section.id)
+    ).filter(Boolean);
+
+    sectionNodes.forEach((node) => observer.observe(node));
+
+    updateActiveSection();
+
+    window.addEventListener("hashchange", updateActiveSection);
+    window.addEventListener("resize", updateActiveSection);
+
+    return () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      observer.disconnect();
+      window.removeEventListener("hashchange", updateActiveSection);
+      window.removeEventListener("resize", updateActiveSection);
+    };
+  }, []);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      importJson(file);
+    }
+
+    event.target.value = "";
+  };
+
+  const handleResetClick = () => {
+    const confirmed = window.confirm(
+      "Скинути всі локальні налаштування до значень за замовчуванням?"
+    );
+
+    if (confirmed) {
+      resetAll();
+    }
+  };
 
   return (
-    <div className={cls(styles.root)} style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 16, alignItems: "start" }}>
-      {/* Ліва навігація */}
-      <div className="card" style={{ position: "sticky", top: 16 }}>
-        <div style={{ fontWeight: 900, fontSize: 16 }}>Налаштування</div>
-        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-          Зміни зберігаються локально в браузері. Пізніше можна підключити збереження на сервері.
+    <div
+      className={styles.container}
+      style={{ "--section-offset": `${SECTION_OFFSET_PX}px` }}
+    >
+      <aside className={styles.sidebar} aria-label="Панель навігації та дій">
+        <div>
+          <h1 className={styles.sidebarTitle}>Налаштування</h1>
+          <p className={styles.sidebarSubtitle}>
+            Зміни зберігаються локально в браузері. Синхронізація з сервером
+            буде додана пізніше.
+          </p>
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+        <div className={styles.sidebarActions}>
           <button className="buttonSecondary" type="button" onClick={exportJson}>
             Експорт JSON
           </button>
 
-          <label className="buttonSecondary" style={{ cursor: "pointer" }}>
+          <button
+            className="buttonSecondary"
+            type="button"
+            onClick={handleImportClick}
+            aria-label="Імпорт налаштувань з JSON"
+          >
             Імпорт JSON
-            <input
-              type="file"
-              accept="application/json"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) importJson(f);
-                e.target.value = "";
-              }}
-            />
-          </label>
+          </button>
 
-          <button type="button" onClick={resetAll}>
+          <input
+            ref={fileInputRef}
+            className={styles.visuallyHiddenInput}
+            type="file"
+            accept=".json,application/json"
+            tabIndex={-1}
+            onChange={handleImportChange}
+          />
+
+          <button type="button" onClick={handleResetClick}>
             Скинути
           </button>
         </div>
 
-        <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0" }} />
+        <hr className={styles.sidebarDivider} />
 
-        <div style={{ display: "grid", gap: 6 }}>
-          {nav.map((x) => (
-            <a
-              key={x.id}
-              href={`#${x.id}`}
-              style={{
-                padding: "6px 8px",
-                borderRadius: 10,
-                background: "color-mix(in srgb, var(--primary) 3%, transparent)",
-              }}
-            >
-              {x.title}
-            </a>
-          ))}
-        </div>
+        <nav className={styles.navMenu} aria-label="Розділи налаштувань">
+          {SECTIONS.map((section) => {
+            const isActive = activeSection === section.id;
+
+            return (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                className={
+                  isActive
+                    ? `${styles.navLink} ${styles.navLinkActive}`
+                    : styles.navLink
+                }
+                aria-current={isActive ? "location" : undefined}
+              >
+                {section.navTitle}
+              </a>
+            );
+          })}
+        </nav>
 
         {toast ? (
-          <div style={{ marginTop: 12 }}>
-            <div className={toast.kind === "error" ? "errorBox" : "successBox"}>{toast.text}</div>
+          <div className={styles.toastWrapper}>
+            <div
+              className={`${styles.toast} ${
+                toast.kind === "error"
+                  ? styles.toastError
+                  : styles.toastSuccess
+              }`}
+              role={toast.kind === "error" ? "alert" : "status"}
+            >
+              {toast.text}
+            </div>
           </div>
         ) : null}
-      </div>
+      </aside>
 
-      {/* Контент */}
-      <div>
-        <div id="ui" />
-        <UiSection cfg={cfg} patch={patch} />
+      <main className={styles.content}>
+        {SECTIONS.map((section) => (
+          <section
+            key={section.id}
+            id={section.id}
+            className={styles.sectionAnchor}
+          >
+            {section.render({ cfg, patch, doAction, showToast })}
+          </section>
+        ))}
 
-        <div id="backups" />
-        <BackupsSection cfg={cfg} patch={patch} doAction={doAction} />
-
-        <div id="infra" />
-        <InfraSection cfg={cfg} patch={patch} />
-
-        <div id="ops" />
-        <OpsSection cfg={cfg} patch={patch} doAction={doAction} />
-
-        <div id="queues" />
-        <QueuesSection cfg={cfg} patch={patch} />
-
-        <div id="catalog" />
-        <CatalogSection cfg={cfg} patch={patch} />
-
-        <div id="printFarm" />
-        <PrintFarmSection cfg={cfg} patch={patch} />
-
-        <div id="logisticsPayments" />
-        <LogisticsPaymentsSection cfg={cfg} patch={patch} showToast={showToast} />
-
-        <div id="webhooks" />
-        <WebhooksSection cfg={cfg} patch={patch} doAction={doAction} />
-
-        <div id="alerts" />
-        <AlertsSection cfg={cfg} patch={patch} />
-
-        <div id="security" />
-        <SecuritySection cfg={cfg} patch={patch} />
-
-        <div className="muted" style={{ fontSize: 12, paddingBottom: 16 }}>
-          Примітка: зараз це “локальні” налаштування для UI. Коли будеш готовий — я підключу синхронізацію з API (GET/PUT) і застосування до Board/ops.
-        </div>
-      </div>
+        <p className={styles.footerNote}>
+          Примітка: налаштування зберігаються локально в браузері.
+          Синхронізація з сервером і застосування до Board/Ops буде додана
+          пізніше.
+        </p>
+      </main>
     </div>
   );
 }
