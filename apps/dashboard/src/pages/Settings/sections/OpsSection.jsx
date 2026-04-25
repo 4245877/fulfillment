@@ -8,10 +8,22 @@ export default function OpsSection({ cfg, patch, doAction }) {
       title="4) Состояние сервисов и действия оператора"
       sub="Пороги деградации + кнопки оператора (с подтверждением)"
     >
-      <FieldRow label="Пороги деградации" hint="% ошибок, p95 latency, тайм-ауты.">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 720 }}>
+      <FieldRow
+        label="Пороги деградации"
+        hint="% ошибок, p95 latency, тайм-ауты."
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12,
+            maxWidth: 720,
+          }}
+        >
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>errorRateWarnPct</div>
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              errorRateWarnPct
+            </div>
             <NumberInput
               value={cfg.ops.degradation.errorRateWarnPct}
               min={0}
@@ -20,8 +32,11 @@ export default function OpsSection({ cfg, patch, doAction }) {
               onChange={(v) => patch("ops.degradation.errorRateWarnPct", v)}
             />
           </div>
+
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>errorRateDangerPct</div>
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              errorRateDangerPct
+            </div>
             <NumberInput
               value={cfg.ops.degradation.errorRateDangerPct}
               min={0}
@@ -32,7 +47,9 @@ export default function OpsSection({ cfg, patch, doAction }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>p95LatencyWarnMs</div>
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              p95LatencyWarnMs
+            </div>
             <NumberInput
               value={cfg.ops.degradation.p95LatencyWarnMs}
               min={0}
@@ -41,8 +58,11 @@ export default function OpsSection({ cfg, patch, doAction }) {
               onChange={(v) => patch("ops.degradation.p95LatencyWarnMs", v)}
             />
           </div>
+
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>p95LatencyDangerMs</div>
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              p95LatencyDangerMs
+            </div>
             <NumberInput
               value={cfg.ops.degradation.p95LatencyDangerMs}
               min={0}
@@ -53,7 +73,9 @@ export default function OpsSection({ cfg, patch, doAction }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>timeoutWarnPct</div>
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              timeoutWarnPct
+            </div>
             <NumberInput
               value={cfg.ops.degradation.timeoutWarnPct}
               min={0}
@@ -62,8 +84,11 @@ export default function OpsSection({ cfg, patch, doAction }) {
               onChange={(v) => patch("ops.degradation.timeoutWarnPct", v)}
             />
           </div>
+
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>timeoutDangerPct</div>
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              timeoutDangerPct
+            </div>
             <NumberInput
               value={cfg.ops.degradation.timeoutDangerPct}
               min={0}
@@ -82,6 +107,7 @@ export default function OpsSection({ cfg, patch, doAction }) {
         <div style={{ display: "grid", gap: 10 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
+              className="btn btn-primary btn-sm"
               type="button"
               disabled={!cfg.ops.actions.allowed.restartService}
               onClick={() =>
@@ -93,10 +119,11 @@ export default function OpsSection({ cfg, patch, doAction }) {
                 })
               }
             >
-              перезапустить api
+              Перезапустить API
             </button>
 
             <button
+              className="btn btn-primary btn-sm"
               type="button"
               disabled={!cfg.ops.actions.allowed.reloadConfig}
               onClick={() =>
@@ -108,10 +135,11 @@ export default function OpsSection({ cfg, patch, doAction }) {
                 })
               }
             >
-              перечитать конфиг
+              Перечитать конфиг
             </button>
 
             <button
+              className="btn btn-primary btn-sm"
               type="button"
               disabled={!cfg.ops.actions.allowed.pauseQueue}
               onClick={() =>
@@ -123,10 +151,11 @@ export default function OpsSection({ cfg, patch, doAction }) {
                 })
               }
             >
-              пауза prints
+              Пауза prints
             </button>
 
             <button
+              className="btn btn-primary btn-sm"
               type="button"
               disabled={!cfg.ops.actions.allowed.drainQueue}
               onClick={() =>
@@ -138,16 +167,18 @@ export default function OpsSection({ cfg, patch, doAction }) {
                 })
               }
             >
-              очистить webhooks
+              Очистить webhooks
             </button>
           </div>
 
           <DangerZone title="Опасная зона">
-            <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
-              Rebuild search index может остановить поиск и создать нагрузку на инфраструктуру.
-              Включай только если это действительно нужно.
+            <div className="text-muted" style={{ fontSize: 12, marginBottom: 8 }}>
+              Rebuild search index может остановить поиск и создать нагрузку на
+              инфраструктуру. Включай только если это действительно нужно.
             </div>
+
             <button
+              className="btn btn-primary btn-sm"
               type="button"
               disabled={!cfg.ops.actions.allowed.rebuildSearchIndex}
               onClick={() =>
@@ -159,7 +190,7 @@ export default function OpsSection({ cfg, patch, doAction }) {
                 })
               }
             >
-              перестроить индекс
+              Перестроить индекс
             </button>
           </DangerZone>
         </div>

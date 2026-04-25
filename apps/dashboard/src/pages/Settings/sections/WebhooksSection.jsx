@@ -8,7 +8,10 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
       title="9) Вебхуки"
       sub="Повторные попытки/backoff, идемпотентность, подписи, последние ошибки, тестовое событие"
     >
-      <FieldRow label="Политики" hint="Основные рычаги надежности и безопасности вебхуков.">
+      <FieldRow
+        label="Политики"
+        hint="Основные рычаги надежности и безопасности вебхуков."
+      >
         <div
           style={{
             display: "grid",
@@ -18,7 +21,7 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
           }}
         >
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               retries
             </div>
             <NumberInput
@@ -30,7 +33,7 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12 }}>
               backoffMs
             </div>
             <NumberInput
@@ -53,14 +56,19 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
           <div style={{ display: "flex", alignItems: "center" }}>
             <Toggle
               value={cfg.webhooks.policy.signatureVerification}
-              onChange={(v) => patch("webhooks.policy.signatureVerification", v)}
+              onChange={(v) =>
+                patch("webhooks.policy.signatureVerification", v)
+              }
               label="signatureVerification"
             />
           </div>
         </div>
       </FieldRow>
 
-      <FieldRow label="Последние ошибки" hint="Плейсхолдер (можно подключить к /api/webhooks/errors).">
+      <FieldRow
+        label="Последние ошибки"
+        hint="Плейсхолдер (можно подключить к /api/webhooks/errors)."
+      >
         <div style={{ overflowX: "auto" }}>
           <table className="table">
             <thead>
@@ -74,14 +82,14 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
               {(cfg.webhooks.recentErrors || []).length ? (
                 (cfg.webhooks.recentErrors || []).slice(0, 20).map((e, i) => (
                   <tr key={i}>
-                    <td className="muted">{e.ts || "—"}</td>
+                    <td className="text-muted">{e.ts || "—"}</td>
                     <td>{e.source || "—"}</td>
                     <td>{e.message || "—"}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="3" className="muted">
+                  <td colSpan="3" className="text-muted">
                     Данных пока нет.
                   </td>
                 </tr>
@@ -96,6 +104,7 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
         hint="Опционально: отправить тестовый вебхук (если API реализовано)."
       >
         <button
+          className="btn btn-primary btn-sm"
           type="button"
           onClick={() =>
             doAction({
@@ -106,7 +115,7 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
             })
           }
         >
-          отправить тест
+          Отправить тест
         </button>
       </FieldRow>
     </Card>
