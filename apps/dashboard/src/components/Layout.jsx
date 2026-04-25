@@ -7,7 +7,7 @@ export default function Layout() {
   return (
     <div className={s.shell}>
       <aside className={s.sidebar}>
-        <div className={s.brand}>DRUKARNYA • Fulfillment</div>
+        <div className={s.brand}>Lite Forest • Fulfillment</div>
         <Nav />
         <div className={s.sidebarFooter}>Безпека: RBAC • 2FA • Audit</div>
       </aside>

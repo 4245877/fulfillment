@@ -350,7 +350,7 @@ function HeroHeader({ updatedAt, loading }) {
     <header className="wallboard-hero">
       <div className="wallboard-hero-inner">
         <div>
-          <div className="wallboard-hero-greeting">DRUKARNYA</div>
+          <div className="wallboard-hero-greeting">Lite Forest</div>
           <h1>Операційна панель</h1>
           <p className="wallboard-hero-sub">
             Замовлення, друк, логістика та стан сервісів в одному місці.

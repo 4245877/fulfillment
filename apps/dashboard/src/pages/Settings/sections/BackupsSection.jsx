@@ -1,6 +1,7 @@
 // apps/dashboard/src/pages/settings/sections/BackupsSection.jsx
 import React from "react";
 import { Card, FieldRow, Toggle, NumberInput, Select, TextInput } from "../ui.jsx";
+import styles from "../../Settings.module.css";
 
 const includeLabels = {
   database: "База данных",
@@ -11,7 +12,185 @@ const includeLabels = {
   cache: "Кэш",
 };
 
+const backupStages = [
+  { key: "queued", label: "В очереди", percent: 5 },
+  { key: "preparing", label: "Подготовка", percent: 15 },
+  { key: "database", label: "База данных", percent: 35 },
+  { key: "files", label: "Файлы", percent: 55 },
+  { key: "uploading", label: "Загрузка", percent: 75 },
+  { key: "verifying", label: "Проверка", percent: 90 },
+  { key: "done", label: "Готово", percent: 100 },
+];
+
+const restoreStages = [
+  { key: "queued", label: "В очереди", percent: 5 },
+  { key: "preparing", label: "Подготовка", percent: 15 },
+  { key: "downloading", label: "Загрузка копии", percent: 30 },
+  { key: "sandbox", label: "Песочница", percent: 50 },
+  { key: "restoring", label: "Восстановление", percent: 70 },
+  { key: "verifying", label: "Проверка", percent: 90 },
+  { key: "done", label: "Готово", percent: 100 },
+];
+
+const statusLabels = {
+  idle: "Нет активного процесса",
+  queued: "Ожидает запуска",
+  running: "Выполняется",
+  success: "Завершено",
+  error: "Ошибка",
+};
+
+function clampPercent(value) {
+  const num = Number(value);
+
+  if (!Number.isFinite(num)) return 0;
+  if (num < 0) return 0;
+  if (num > 100) return 100;
+
+  return Math.round(num);
+}
+
+function formatProgressTime(value) {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
+function BackupProgressPanel({ progress }) {
+  const safeProgress = progress || {
+    type: "backup",
+    status: "idle",
+    stage: null,
+    percent: 0,
+    message: "Резервное копирование сейчас не выполняется.",
+    updatedAt: null,
+  };
+
+  const type = safeProgress.type === "restore" ? "restore" : "backup";
+  const stages = type === "restore" ? restoreStages : backupStages;
+  const currentStageKey = safeProgress.stage;
+
+  const currentIndex = stages.findIndex((stage) => stage.key === currentStageKey);
+  const currentStage = currentIndex >= 0 ? stages[currentIndex] : null;
+
+  const percent = clampPercent(
+    safeProgress.percent ?? currentStage?.percent ?? 0
+  );
+
+  const status = safeProgress.status || "idle";
+  const statusLabel = statusLabels[status] || status;
+  const updatedAt = formatProgressTime(safeProgress.updatedAt);
+
+  return (
+    <div className={styles.backupProgressCard}>
+      <div className={styles.backupProgressHeader}>
+        <div>
+          <div className={styles.backupProgressEyebrow}>
+            {type === "restore" ? "Тестовое восстановление" : "Резервное копирование"}
+          </div>
+
+          <div className={styles.backupProgressTitle}>
+            {currentStage ? currentStage.label : statusLabel}
+          </div>
+
+          <div className={styles.backupProgressMeta}>
+            {safeProgress.message || "Ожидание статуса от сервера."}
+            {updatedAt ? ` Обновлено: ${updatedAt}` : ""}
+          </div>
+        </div>
+
+        <div
+          className={[
+            styles.backupProgressBadge,
+            status === "error" ? styles.backupProgressBadgeError : "",
+            status === "success" ? styles.backupProgressBadgeSuccess : "",
+          ].join(" ")}
+        >
+          {percent}%
+        </div>
+      </div>
+
+      <div
+        className={styles.backupProgressTrack}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+      >
+        <div
+          className={styles.backupProgressFill}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+
+      <ol className={styles.backupProgressSteps}>
+        {stages.map((stage, index) => {
+          const isDone = currentIndex >= 0 && index < currentIndex;
+          const isActive = index === currentIndex;
+
+          return (
+            <li
+              key={stage.key}
+              className={[
+                styles.backupProgressStep,
+                isDone ? styles.backupProgressStepDone : "",
+                isActive ? styles.backupProgressStepActive : "",
+              ].join(" ")}
+            >
+              <span className={styles.backupProgressDot}>
+                {isDone ? "✓" : index + 1}
+              </span>
+              <span>{stage.label}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 export default function BackupsSection({ cfg, patch, doAction }) {
+  const [localProgress, setLocalProgress] = React.useState(null);
+
+  const runProgressAction = async ({ action, progress }) => {
+    setLocalProgress({
+      ...progress,
+      updatedAt: new Date().toISOString(),
+    });
+
+    try {
+      const result = await Promise.resolve(doAction(action));
+
+      if (result?.progress) {
+        setLocalProgress(result.progress);
+        return;
+      }
+
+      setLocalProgress((prev) => ({
+        ...prev,
+        status: "running",
+        percent: Math.max(Number(prev?.percent) || 0, 5),
+        message: "Задача отправлена. Ожидается обновление статуса от сервера.",
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch (error) {
+      setLocalProgress((prev) => ({
+        ...prev,
+        status: "error",
+        message: "Не удалось запустить действие.",
+        updatedAt: new Date().toISOString(),
+      }));
+    }
+  };
+
   const cronFromPreset = (preset) => {
     if (preset === "hourly") return "0 * * * *";
     if (preset === "daily") return "0 3 * * *";
@@ -208,6 +387,13 @@ export default function BackupsSection({ cfg, patch, doAction }) {
       </FieldRow>
 
       <FieldRow
+        label="Текущий процесс"
+        hint="Показывает этап, процент выполнения и последнее состояние операции."
+      >
+        <BackupProgressPanel progress={cfg.backups.progress || localProgress} />
+      </FieldRow>
+
+      <FieldRow
         label="Ручные действия"
         hint="Пока что кнопки вызывают API-эндпоинты, если они реализованы."
       >
@@ -216,11 +402,20 @@ export default function BackupsSection({ cfg, patch, doAction }) {
             className="btn btn-primary btn-sm"
             type="button"
             onClick={() =>
-              doAction({
-                title: "Запустить резервное копирование сейчас",
-                description: "Немедленно запустить резервное копирование.",
-                url: "/api/ops/backup/run",
-                body: { scope: cfg.backups.include, mode: cfg.backups.mode },
+              runProgressAction({
+                progress: {
+                  type: "backup",
+                  status: "queued",
+                  stage: "queued",
+                  percent: 5,
+                  message: "Запрос на резервное копирование отправляется.",
+                },
+                action: {
+                  title: "Запустить резервное копирование сейчас",
+                  description: "Немедленно запустить резервное копирование.",
+                  url: "/api/ops/backup/run",
+                  body: { scope: cfg.backups.include, mode: cfg.backups.mode },
+                },
               })
             }
           >
@@ -231,11 +426,20 @@ export default function BackupsSection({ cfg, patch, doAction }) {
             className="btn btn-secondary btn-sm"
             type="button"
             onClick={() =>
-              doAction({
-                title: "Тестовое восстановление",
-                description: "Тестовое восстановление в песочнице (если доступно).",
-                url: "/api/ops/backup/test-restore",
-                body: { profile: cfg.backups.storage.keyProfile },
+              runProgressAction({
+                progress: {
+                  type: "restore",
+                  status: "queued",
+                  stage: "queued",
+                  percent: 5,
+                  message: "Запрос на тестовое восстановление отправляется.",
+                },
+                action: {
+                  title: "Тестовое восстановление",
+                  description: "Тестовое восстановление в песочнице (если доступно).",
+                  url: "/api/ops/backup/test-restore",
+                  body: { profile: cfg.backups.storage.keyProfile },
+                },
               })
             }
           >
