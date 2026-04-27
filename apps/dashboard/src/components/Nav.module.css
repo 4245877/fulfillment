@@ -1,37 +1,40 @@
-/* src/components/Nav.module.css */
+/* Nav.module.css */
 
 .nav {
   display: flex;
-  gap: 4px;
-  padding: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  width: fit-content;
-  position: relative;
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 4%, transparent);
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 16px 12px;
 }
 
 .link {
   position: relative;
-  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 14px;
   font-size: 14px;
   font-weight: 500;
   color: var(--muted);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-base);
+  transition:
+    color var(--transition-base),
+    background-color var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-fast);
   white-space: nowrap;
   z-index: 1;
   overflow: hidden;
 }
 
-/* Hover state */
 .link:hover {
   color: var(--text);
   background: color-mix(in srgb, var(--primary) 6%, transparent);
 }
 
-/* Active state */
 .link.active {
   color: var(--text);
   font-weight: 600;
@@ -40,20 +43,17 @@
     color-mix(in srgb, var(--primary) 12%, var(--bg)),
     color-mix(in srgb, var(--accent) 10%, var(--bg))
   );
-  box-shadow: 
+  box-shadow:
     0 2px 6px color-mix(in srgb, var(--primary) 15%, transparent),
     inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent);
-  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+  border-color: color-mix(in srgb, var(--primary) 25%, var(--border));
 }
 
-/* Subtle shine effect on active */
 .link.active::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: -100%;
+  inset: 0 auto 0 -100%;
   width: 100%;
-  height: 100%;
   background: linear-gradient(
     90deg,
     transparent,
@@ -65,84 +65,55 @@
 }
 
 @keyframes shine {
-  0%, 100% {
+  0%,
+  100% {
     left: -100%;
   }
+
   50% {
     left: 100%;
   }
 }
 
-/* Focus state */
 .link:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 3px;
-  border-radius: var(--radius-sm);
 }
 
-/* Active press effect */
 .link:active {
-  transform: scale(0.97);
-  transition-duration: 0.1s;
+  transform: scale(0.98);
 }
 
-/* Ripple effect on click */
-.link::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--primary) 20%, transparent);
-  transform: translate(-50%, -50%);
-  transition: width 0.5s ease-out, height 0.5s ease-out, opacity 0.5s ease-out;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.link:active::after {
-  width: 200px;
-  height: 200px;
-  opacity: 1;
-  transition-duration: 0s;
-}
-
-/* Mobile optimization */
-@media (max-width: 768px) {
+/* Tablets */
+@media (max-width: 1024px) {
   .nav {
-    width: 100%;
-    gap: 3px;
-    padding: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .nav::-webkit-scrollbar {
-    display: none;
+    padding: 14px 10px;
   }
 
   .link {
-    padding: 10px 16px;
-    font-size: 13px;
-    flex-shrink: 0;
+    padding: 10px 12px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .nav {
+    padding: 14px 12px;
+    gap: 8px;
+  }
+
+  .link {
+    min-height: 46px;
+    padding: 12px 14px;
+    font-size: 15px;
   }
 
   .link.active::before {
-    animation: none; /* Disable shine on mobile for performance */
+    animation: none;
   }
 }
 
-/* Tablet */
-@media (max-width: 1024px) and (min-width: 769px) {
-  .link {
-    padding: 10px 18px;
-  }
-}
-
-/* High contrast mode support */
+/* High contrast */
 @media (prefers-contrast: high) {
   .link.active {
     border: 2px solid var(--text);
@@ -153,40 +124,20 @@
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .link,
-  .link::before,
-  .link::after {
+  .link::before {
     animation: none !important;
     transition-duration: 0.01ms !important;
   }
 }
 
-/* Dark mode ready (if needed in future) */
-@media (prefers-color-scheme: dark) {
-  .nav {
-    box-shadow: 0 1px 3px color-mix(in srgb, #000 15%, transparent);
-  }
-  
-  .link.active {
-    box-shadow: 
-      0 2px 6px color-mix(in srgb, var(--primary) 25%, transparent),
-      inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
-  }
-}
-
-/* Print styles */
+/* Print */
 @media print {
-  .nav {
-    border: 1px solid #000;
-    box-shadow: none;
-  }
-
   .link.active {
     background: #f0f0f0;
     box-shadow: none;
   }
 
-  .link::before,
-  .link::after {
+  .link::before {
     display: none;
   }
 }
