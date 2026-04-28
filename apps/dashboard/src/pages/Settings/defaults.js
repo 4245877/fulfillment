@@ -166,13 +166,44 @@ export const DEFAULTS = {
 
   printFarm: {
     printers: [
-      { id: "a1", name: "Bambu A1", profile: "fdm-0.4", material: "PLA", enabled: true },
-      { id: "ke", name: "Ender 3 V3 KE", profile: "fdm-0.4", material: "PETG", enabled: true },
+      {
+        id: "ender3-v3-ke",
+        name: "Creality Ender 3 V3 KE",
+        protocol: "moonraker",
+        host: "192.168.0.141",
+        port: 80,
+        profile: "fdm-0.4",
+        material: "PLA / PETG / TPU",
+        enabled: true,
+      },
+      {
+        id: "creality-k2",
+        name: "Creality K2",
+        protocol: "moonraker",
+        host: "192.168.0.132",
+        port: 80,
+        profile: "fdm-0.4",
+        material: "PLA / PETG / ABS / ASA",
+        enabled: true,
+      },
+      {
+        id: "bambu-a1-combo",
+        name: "Bambu Lab A1 Combo",
+        protocol: "bambu",
+        host: "192.168.0.187",
+        port: 8883,
+        profile: "bambu-a1-combo-0.4",
+        material: "PLA / PETG / TPU",
+        enabled: true,
+      },
     ],
     routing: {
       rules: [
-        { when: "material=PLA", then: "printerGroup=fdm-pla" },
-        { when: "material=RESIN", then: "printerGroup=resin" },
+        { when: "material=PLA", then: "printer=ender3-v3-ke,creality-k2,bambu-a1-combo" },
+        { when: "material=PETG", then: "printer=ender3-v3-ke,creality-k2,bambu-a1-combo" },
+        { when: "multicolor=true", then: "printer=bambu-a1-combo" },
+        { when: "material=ABS", then: "printer=creality-k2" },
+        { when: "material=ASA", then: "printer=creality-k2" },
       ],
     },
     sla: {

@@ -1,13 +1,194 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import styles from "../../Settings.module.css";
+import { fetchPrinterStatuses } from "../../../api/printerFarmApi.js";
 import { Card, FieldRow, Toggle, ChipsEditor, NumberInput } from "../ui.jsx";
 
+const emptyPrinter = {
+  id: "new-printer",
+  name: "Новый принтер",
+  profile: "fdm-0.4",
+  material: "PLA",
+  enabled: true,
+};
+
+const printerFields = [
+  {
+    key: "id",
+    label: "ID",
+    placeholder: "ender3-v3-ke",
+  },
+  {
+    key: "name",
+    label: "Название",
+    placeholder: "Creality Ender 3 V3 KE",
+  },
+  {
+    key: "profile",
+    label: "Профиль",
+    placeholder: "fdm-0.4",
+  },
+  {
+    key: "material",
+    label: "Материал",
+    placeholder: "PLA / PETG",
+  },
+];
+
 export default function PrintFarmSection({ cfg, patch }) {
+  const printFarm = cfg.printFarm || {};
+  const printers = Array.isArray(printFarm.printers) ? printFarm.printers : [];
+  const routingRules = Array.isArray(printFarm.routing?.rules)
+    ? printFarm.routing.rules
+    : [];
+
+  const [printerStatuses, setPrinterStatuses] = useState([]);
+  const [statusError, setStatusError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const data = await fetchPrinterStatuses();
+
+        if (!cancelled) {
+          setPrinterStatuses(Array.isArray(data.printers) ? data.printers : []);
+          setStatusError("");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStatusError(
+            error instanceof Error
+              ? error.message
+              : "Не удалось получить статус принтеров"
+          );
+        }
+      }
+    };
+
+    load();
+
+    const timer = window.setInterval(load, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const statusById = useMemo(() => {
+    return new Map(printerStatuses.map((printer) => [printer.id, printer]));
+  }, [printerStatuses]);
+
+  const getStatusLabel = (status) => {
+    if (status === "printing") return "Печатает";
+    if (status === "paused") return "Пауза";
+    if (status === "idle") return "Ожидает";
+    if (status === "error") return "Ошибка";
+    if (status === "offline") return "Не в сети";
+
+    return "Неизвестно";
+  };
+
+  const updatePrinter = (index, key, value) => {
+    const next = printers.map((printer, i) =>
+      i === index ? { ...printer, [key]: value } : printer
+    );
+
+    patch("printFarm.printers", next);
+  };
+
+  const removePrinter = (index) => {
+    const next = printers.filter((_, i) => i !== index);
+    patch("printFarm.printers", next);
+  };
+
+  const addPrinter = () => {
+    const nextIndex = printers.length + 1;
+
+    patch("printFarm.printers", [
+      ...printers,
+      {
+        ...emptyPrinter,
+        id: `printer-${nextIndex}`,
+        name: `Новый принтер ${nextIndex}`,
+      },
+    ]);
+  };
+
   return (
     <Card
       title="7) Производство / Печатная ферма"
       sub="Принтеры, профили, маршрутизация, SLA/тайм-ауты"
     >
+      <div className={styles.printerStatusGrid}>
+        {(cfg.printFarm.printers || []).map((printer) => {
+          const live = statusById.get(printer.id);
+
+          return (
+            <div className={styles.printerStatusCard} key={printer.id}>
+              <div className={styles.printerStatusTop}>
+                <div>
+                  <div className={styles.printerStatusName}>
+                    {printer.name}
+                  </div>
+                  <div className={styles.printerStatusMeta}>
+                    {printer.protocol || "—"} ·{" "}
+                    {printer.host || "host не задан"}
+                  </div>
+                </div>
+
+                <div
+                  className={`${styles.printerBadge} ${
+                    live?.online
+                      ? styles.printerBadgeOnline
+                      : styles.printerBadgeOffline
+                  }`}
+                >
+                  {live ? getStatusLabel(live.status) : "Нет данных"}
+                </div>
+              </div>
+
+              <div className={styles.printerCurrentFile}>
+                {live?.currentFile || "Файл не печатается"}
+              </div>
+
+              <div className={styles.printerProgressTrack}>
+                <div
+                  className={styles.printerProgressFill}
+                  style={{ width: `${live?.progressPct ?? 0}%` }}
+                />
+              </div>
+
+              <div className={styles.printerStatusDetails}>
+                <span>{live?.progressPct ?? 0}%</span>
+                <span>{live?.printed || "—"}</span>
+                <span>
+                  {live?.remainingMinutes != null
+                    ? `${live.remainingMinutes} мин. осталось`
+                    : "—"}
+                </span>
+              </div>
+
+              <div className={styles.printerStatusDetails}>
+                <span>Сопло: {live?.nozzleTemp ?? "—"}°C</span>
+                <span>Стол: {live?.bedTemp ?? "—"}°C</span>
+              </div>
+
+              {live?.error ? (
+                <div className={styles.printerError}>{live.error}</div>
+              ) : null}
+            </div>
+          );
+        })}
+
+        {statusError ? (
+          <div className={styles.printerError}>
+            Ошибка мониторинга: {statusError}
+          </div>
+        ) : null}
+      </div>
+
       <FieldRow
         label="Принтеры"
         hint="Сопоставление принтеров, профили сопел и материалов."
@@ -16,89 +197,64 @@ export default function PrintFarmSection({ cfg, patch }) {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Название</th>
-                <th>Профиль</th>
-                <th>Материал</th>
+                {printerFields.map((field) => (
+                  <th key={field.key}>{field.label}</th>
+                ))}
                 <th>Включено</th>
                 <th />
               </tr>
             </thead>
+
             <tbody>
-              {(cfg.printFarm.printers || []).map((p, i) => (
-                <tr key={`${p.id}-${i}`}>
-                  <td>
-                    <input
-                      className="input"
-                      value={p.id}
-                      onChange={(e) => {
-                        const next = [...cfg.printFarm.printers];
-                        next[i] = { ...next[i], id: e.target.value };
-                        patch("printFarm.printers", next);
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="input"
-                      value={p.name}
-                      onChange={(e) => {
-                        const next = [...cfg.printFarm.printers];
-                        next[i] = { ...next[i], name: e.target.value };
-                        patch("printFarm.printers", next);
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="input"
-                      value={p.profile}
-                      onChange={(e) => {
-                        const next = [...cfg.printFarm.printers];
-                        next[i] = { ...next[i], profile: e.target.value };
-                        patch("printFarm.printers", next);
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="input"
-                      value={p.material}
-                      onChange={(e) => {
-                        const next = [...cfg.printFarm.printers];
-                        next[i] = { ...next[i], material: e.target.value };
-                        patch("printFarm.printers", next);
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="checkbox"
-                      type="checkbox"
-                      checked={!!p.enabled}
-                      onChange={(e) => {
-                        const next = [...cfg.printFarm.printers];
-                        next[i] = { ...next[i], enabled: e.target.checked };
-                        patch("printFarm.printers", next);
-                      }}
-                    />
-                  </td>
-                  <td style={{ width: 1, whiteSpace: "nowrap" }}>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      type="button"
-                      onClick={() => {
-                        const next = cfg.printFarm.printers.filter(
-                          (_, idx) => idx !== i
-                        );
-                        patch("printFarm.printers", next);
-                      }}
-                    >
-                      Удалить
-                    </button>
+              {printers.length === 0 ? (
+                <tr>
+                  <td colSpan={printerFields.length + 2}>
+                    <div className="muted">Принтеры пока не добавлены.</div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                printers.map((printer, index) => (
+                  <tr key={printer.id || index}>
+                    {printerFields.map((field) => (
+                      <td key={field.key}>
+                        <input
+                          className="input"
+                          value={printer[field.key] || ""}
+                          placeholder={field.placeholder}
+                          onChange={(event) =>
+                            updatePrinter(
+                              index,
+                              field.key,
+                              event.target.value
+                            )
+                          }
+                        />
+                      </td>
+                    ))}
+
+                    <td>
+                      <input
+                        className="checkbox"
+                        type="checkbox"
+                        checked={!!printer.enabled}
+                        onChange={(event) =>
+                          updatePrinter(index, "enabled", event.target.checked)
+                        }
+                      />
+                    </td>
+
+                    <td style={{ width: 1, whiteSpace: "nowrap" }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        type="button"
+                        onClick={() => removePrinter(index)}
+                      >
+                        Удалить
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
 
@@ -106,18 +262,7 @@ export default function PrintFarmSection({ cfg, patch }) {
             <button
               className="btn btn-primary btn-sm"
               type="button"
-              onClick={() =>
-                patch("printFarm.printers", [
-                  ...(cfg.printFarm.printers || []),
-                  {
-                    id: "new",
-                    name: "Новый принтер",
-                    profile: "fdm-0.4",
-                    material: "PLA",
-                    enabled: true,
-                  },
-                ])
-              }
+              onClick={addPrinter}
             >
               Добавить принтер
             </button>
@@ -131,20 +276,24 @@ export default function PrintFarmSection({ cfg, patch }) {
       >
         <div className={styles.inputGroup}>
           <div className={styles.inputLabel}>Правила</div>
+
           <ChipsEditor
-            value={(cfg.printFarm.routing.rules || []).map(
-              (r) => `${r.when} -> ${r.then}`
-            )}
-            onChange={(arr) => {
-              const rules = arr.map((line) => {
-                const [a, b] = String(line)
+            value={routingRules.map((rule) => `${rule.when} -> ${rule.then}`)}
+            onChange={(items) => {
+              const rules = items.map((line) => {
+                const [when, then] = String(line)
                   .split("->")
-                  .map((x) => x.trim());
-                return { when: a || "", then: b || "" };
+                  .map((item) => item.trim());
+
+                return {
+                  when: when || "",
+                  then: then || "",
+                };
               });
+
               patch("printFarm.routing.rules", rules);
             }}
-            placeholder="material=PLA -> printerGroup=fdm-pla"
+            placeholder="material=PLA -> printer=ender3-v3-ke"
           />
         </div>
       </FieldRow>
@@ -156,31 +305,39 @@ export default function PrintFarmSection({ cfg, patch }) {
         <div className={`${styles.inputGrid3} ${styles.max720}`}>
           <div style={{ display: "flex", alignItems: "center" }}>
             <Toggle
-              value={cfg.printFarm.sla.autoPauseOnError}
-              onChange={(v) => patch("printFarm.sla.autoPauseOnError", v)}
+              value={!!printFarm.sla?.autoPauseOnError}
+              onChange={(value) =>
+                patch("printFarm.sla.autoPauseOnError", value)
+              }
               label="Автопауза при ошибке"
             />
           </div>
+
           <div>
             <div className={styles.inputLabel}>
-              Уведомление о простое (мин.)
+              Уведомление о простое, мин.
             </div>
             <NumberInput
-              value={cfg.printFarm.sla.idleNotifyMinutes}
+              value={printFarm.sla?.idleNotifyMinutes ?? 0}
               min={0}
               max={100000}
-              onChange={(v) => patch("printFarm.sla.idleNotifyMinutes", v)}
+              onChange={(value) =>
+                patch("printFarm.sla.idleNotifyMinutes", value)
+              }
             />
           </div>
+
           <div>
             <div className={styles.inputLabel}>
-              Уведомление об ошибке (мин.)
+              Уведомление об ошибке, мин.
             </div>
             <NumberInput
-              value={cfg.printFarm.sla.errorNotifyMinutes}
+              value={printFarm.sla?.errorNotifyMinutes ?? 0}
               min={0}
               max={100000}
-              onChange={(v) => patch("printFarm.sla.errorNotifyMinutes", v)}
+              onChange={(value) =>
+                patch("printFarm.sla.errorNotifyMinutes", value)
+              }
             />
           </div>
         </div>
