@@ -181,7 +181,7 @@ export const DEFAULTS = {
         name: "Creality K2",
         protocol: "moonraker",
         host: "192.168.0.132",
-        port: 80,
+        port: 4408,
         profile: "fdm-0.4",
         material: "PLA / PETG / ABS / ASA",
         enabled: true,

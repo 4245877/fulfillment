@@ -281,16 +281,21 @@ async function getBambuStatus(printer: PrinterConfig): Promise<PrinterStatus> {
   );
 }
 
-export async function printerRoutes(app: FastifyInstance) {
+export default async function printersRoutes(app: FastifyInstance) {
   app.get("/status", async () => {
     const printers = readPrintersConfig().filter((printer) => printer.enabled !== false);
 
     const statuses = await Promise.all(
-      printers.map((printer) => {
-        if (printer.protocol === "moonraker") return getMoonrakerStatus(printer);
-        if (printer.protocol === "bambu") return getBambuStatus(printer);
+      printers.map(async (printer) => {
+        if (printer.protocol === "moonraker") {
+          return getMoonrakerStatus(printer);
+        }
 
-        return Promise.resolve({
+        if (printer.protocol === "bambu") {
+          return getBambuStatus(printer);
+        }
+
+        return {
           id: printer.id,
           name: printer.name,
           protocol: printer.protocol,
@@ -304,7 +309,7 @@ export async function printerRoutes(app: FastifyInstance) {
           bedTemp: null,
           updatedAt: new Date().toISOString(),
           error: "Unsupported printer protocol",
-        } satisfies PrinterStatus);
+        };
       })
     );
 

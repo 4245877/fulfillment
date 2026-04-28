@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import printersRoutes from "./modules/printers/routes";
 
 const app = Fastify({ logger: true });
 
@@ -84,5 +85,7 @@ app.get("/api/events/stream", async (req, reply) => {
 
   req.raw.on("close", () => clearInterval(timer));
 });
+
+app.register(printersRoutes, { prefix: "/api/printers" });
 
 export default app;
