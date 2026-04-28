@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, FieldRow, Toggle, NumberInput, TextArea, TextInput } from "../ui.jsx";
 import { safeParseJSON } from "../utils";
+import styles from "../../Settings.module.css";
 
 export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
   // ----- редактор statusMapping (черновик) -----
@@ -39,9 +40,9 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
       sub="Провайдеры, лимиты, профили webhook, маппинг статусов, антифрод"
     >
       <FieldRow label="Провайдеры" hint="Включить/выключить, rate-limit, профиль секретов.">
-        <div style={{ display: "grid", gap: 12 }}>
+        <div className={styles.inputGroup}>
           {Object.entries(cfg.logisticsPayments.providers).map(([name, p]) => (
-            <div key={name} className="card" style={{ padding: 12 }}>
+            <div key={name} className={styles.nestedCard}>
               <div
                 style={{
                   display: "flex",
@@ -50,7 +51,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
                   gap: 12,
                 }}
               >
-                <div style={{ fontWeight: 800 }}>{name}</div>
+                <div className={styles.nestedCardTitle}>{name}</div>
                 <Toggle
                   value={p.enabled}
                   onChange={(v) => patch(`logisticsPayments.providers.${name}.enabled`, v)}
@@ -58,19 +59,9 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
                 />
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 12,
-                  marginTop: 10,
-                  maxWidth: 720,
-                }}
-              >
+              <div className={`${styles.inputGrid2} ${styles.max720}`}>
                 <div>
-                  <div className="text-muted" style={{ fontSize: 12 }}>
-                    rateLimitRps
-                  </div>
+                  <div className={styles.inputLabel}>rateLimitRps</div>
                   <NumberInput
                     value={p.rateLimitRps}
                     min={0}
@@ -79,9 +70,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
                   />
                 </div>
                 <div>
-                  <div className="text-muted" style={{ fontSize: 12 }}>
-                    профиль
-                  </div>
+                  <div className={styles.inputLabel}>профиль</div>
                   <TextInput
                     value={p.profile}
                     onChange={(v) => patch(`logisticsPayments.providers.${name}.profile`, v)}
@@ -98,7 +87,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
         label="Маппинг статусов"
         hint="Соответствие внешних статусов внутренним. Здесь редактируется как черновик и применяется кнопкой."
       >
-        <div style={{ maxWidth: 720 }}>
+        <div className={styles.max720}>
           <TextArea
             value={statusMappingDraft}
             onChange={(v) => {
@@ -116,7 +105,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
             }}
           />
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+          <div className={styles.buttonGroup}>
             <button
               type="button"
               className="btn btn-primary btn-sm"
@@ -136,9 +125,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
               Откатить
             </button>
 
-            <div className="text-muted" style={{ fontSize: 12, alignSelf: "center" }}>
-              Подсказка: Ctrl/⌘ + Enter — применить.
-            </div>
+            <div className={styles.fieldHint}>Подсказка: Ctrl/⌘ + Enter — применить.</div>
           </div>
 
           {statusMappingError ? (
@@ -150,17 +137,15 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
       </FieldRow>
 
       <FieldRow label="Антифрод (осторожно)" hint="Пороги/правила проверки заказов.">
-        <div style={{ display: "grid", gap: 10, maxWidth: 720 }}>
+        <div className={`${styles.inputGroup} ${styles.max720}`}>
           <Toggle
             value={cfg.logisticsPayments.antifraud.enabled}
             onChange={(v) => patch("logisticsPayments.antifraud.enabled", v)}
             label="включено"
           />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className={styles.inputGrid2}>
             <div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
-                maxOrderValueUAH
-              </div>
+              <div className={styles.inputLabel}>maxOrderValueUAH</div>
               <NumberInput
                 value={cfg.logisticsPayments.antifraud.maxOrderValueUAH}
                 min={0}
@@ -170,9 +155,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
               />
             </div>
             <div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
-                requireManualReviewAboveUAH
-              </div>
+              <div className={styles.inputLabel}>requireManualReviewAboveUAH</div>
               <NumberInput
                 value={cfg.logisticsPayments.antifraud.requireManualReviewAboveUAH}
                 min={0}

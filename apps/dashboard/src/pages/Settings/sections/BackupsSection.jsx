@@ -65,26 +65,22 @@ function formatProgressTime(value) {
 }
 
 function BackupProgressPanel({ progress }) {
-  const safeProgress = progress || {
-    type: "backup",
-    status: "idle",
-    stage: null,
-    percent: 0,
-    message: "Резервное копирование сейчас не выполняется.",
-    updatedAt: null,
-  };
+  const safeProgress =
+    progress || {
+      type: "backup",
+      status: "idle",
+      stage: null,
+      percent: 0,
+      message: "Резервное копирование сейчас не выполняется.",
+      updatedAt: null,
+    };
 
   const type = safeProgress.type === "restore" ? "restore" : "backup";
   const stages = type === "restore" ? restoreStages : backupStages;
   const currentStageKey = safeProgress.stage;
-
   const currentIndex = stages.findIndex((stage) => stage.key === currentStageKey);
   const currentStage = currentIndex >= 0 ? stages[currentIndex] : null;
-
-  const percent = clampPercent(
-    safeProgress.percent ?? currentStage?.percent ?? 0
-  );
-
+  const percent = clampPercent(safeProgress.percent ?? currentStage?.percent ?? 0);
   const status = safeProgress.status || "idle";
   const statusLabel = statusLabels[status] || status;
   const updatedAt = formatProgressTime(safeProgress.updatedAt);
@@ -195,6 +191,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
     if (preset === "hourly") return "0 * * * *";
     if (preset === "daily") return "0 3 * * *";
     if (preset === "weekly") return "0 4 * * 0";
+
     return cfg.backups.cron;
   };
 
@@ -204,7 +201,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
       sub="Расписание, состав резервной копии, хранение, хранилище, ручные действия"
     >
       <FieldRow label="Расписание" hint="Готовый вариант или собственный cron.">
-        <div style={{ display: "grid", gap: 10, maxWidth: 520 }}>
+        <div className={`${styles.inputGroup} ${styles.max520}`}>
           <Select
             value={cfg.backups.schedulePreset}
             onChange={(v) => {
@@ -218,6 +215,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
               { value: "custom", label: "Пользовательский (cron)" },
             ]}
           />
+
           <TextInput
             value={cfg.backups.cron}
             onChange={(v) => patch("backups.cron", v)}
@@ -230,7 +228,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
         label="Тип и состав резервной копии"
         hint="Полная/инкрементальная + что именно включать в резервную копию."
       >
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className={styles.inputGroup}>
           <Select
             value={cfg.backups.mode}
             onChange={(v) => patch("backups.mode", v)}
@@ -240,7 +238,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
             ]}
           />
 
-          <div style={{ display: "grid", gap: 6 }}>
+          <div className={styles.inputGroup}>
             {Object.entries(cfg.backups.include).map(([k, v]) => (
               <Toggle
                 key={k}
@@ -254,27 +252,31 @@ export default function BackupsSection({ cfg, patch, doAction }) {
       </FieldRow>
 
       <FieldRow label="Окно выполнения" hint="Чтобы не мешать работе в часы пик.">
-        <div style={{ display: "grid", gap: 10, maxWidth: 520 }}>
+        <div className={`${styles.inputGroup} ${styles.max520}`}>
           <Toggle
             value={cfg.backups.window.avoidPeak}
             onChange={(v) => patch("backups.window.avoidPeak", v)}
             label="Избегать часов пик"
           />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+
+          <div className={styles.inputGrid2}>
             <div>
               <div className="text-muted" style={{ fontSize: 12 }}>
                 начало
               </div>
+
               <TextInput
                 value={cfg.backups.window.start}
                 onChange={(v) => patch("backups.window.start", v)}
                 placeholder="02:00"
               />
             </div>
+
             <div>
               <div className="text-muted" style={{ fontSize: 12 }}>
                 конец
               </div>
+
               <TextInput
                 value={cfg.backups.window.end}
                 onChange={(v) => patch("backups.window.end", v)}
@@ -285,12 +287,16 @@ export default function BackupsSection({ cfg, patch, doAction }) {
         </div>
       </FieldRow>
 
-      <FieldRow label="Хранение" hint="Сколько хранить ежедневных, еженедельных и ежемесячных копий.">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, maxWidth: 520 }}>
+      <FieldRow
+        label="Хранение"
+        hint="Сколько хранить ежедневных, еженедельных и ежемесячных копий."
+      >
+        <div className={`${styles.inputGrid3} ${styles.max520}`}>
           <div>
             <div className="text-muted" style={{ fontSize: 12 }}>
               ежедневно
             </div>
+
             <NumberInput
               value={cfg.backups.retention.daily}
               min={0}
@@ -298,10 +304,12 @@ export default function BackupsSection({ cfg, patch, doAction }) {
               onChange={(v) => patch("backups.retention.daily", v)}
             />
           </div>
+
           <div>
             <div className="text-muted" style={{ fontSize: 12 }}>
               еженедельно
             </div>
+
             <NumberInput
               value={cfg.backups.retention.weekly}
               min={0}
@@ -309,10 +317,12 @@ export default function BackupsSection({ cfg, patch, doAction }) {
               onChange={(v) => patch("backups.retention.weekly", v)}
             />
           </div>
+
           <div>
             <div className="text-muted" style={{ fontSize: 12 }}>
               ежемесячно
             </div>
+
             <NumberInput
               value={cfg.backups.retention.monthly}
               min={0}
@@ -327,7 +337,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
         label="Хранилище резервных копий"
         hint="S3/MinIO/файловая система. Ключи обычно хранятся на сервере — здесь только профиль."
       >
-        <div style={{ display: "grid", gap: 12, maxWidth: 620 }}>
+        <div className={`${styles.inputGroup} ${styles.max620}`}>
           <Select
             value={cfg.backups.storage.provider}
             onChange={(v) => patch("backups.storage.provider", v)}
@@ -338,21 +348,24 @@ export default function BackupsSection({ cfg, patch, doAction }) {
             ]}
           />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className={styles.inputGrid2}>
             <div>
               <div className="text-muted" style={{ fontSize: 12 }}>
                 Бакет (bucket)
               </div>
+
               <TextInput
                 value={cfg.backups.storage.bucket}
                 onChange={(v) => patch("backups.storage.bucket", v)}
                 placeholder="backups"
               />
             </div>
+
             <div>
               <div className="text-muted" style={{ fontSize: 12 }}>
                 Путь (path)
               </div>
+
               <TextInput
                 value={cfg.backups.storage.path}
                 onChange={(v) => patch("backups.storage.path", v)}
@@ -361,21 +374,24 @@ export default function BackupsSection({ cfg, patch, doAction }) {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className={styles.inputGrid2}>
             <div>
               <div className="text-muted" style={{ fontSize: 12 }}>
                 Профиль шифрования
               </div>
+
               <TextInput
                 value={cfg.backups.storage.encryptionProfile}
                 onChange={(v) => patch("backups.storage.encryptionProfile", v)}
                 placeholder="server-managed"
               />
             </div>
+
             <div>
               <div className="text-muted" style={{ fontSize: 12 }}>
                 Профиль ключа
               </div>
+
               <TextInput
                 value={cfg.backups.storage.keyProfile}
                 onChange={(v) => patch("backups.storage.keyProfile", v)}
@@ -397,7 +413,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
         label="Ручные действия"
         hint="Пока что кнопки вызывают API-эндпоинты, если они реализованы."
       >
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className={styles.buttonGroup}>
           <button
             className="btn btn-primary btn-sm"
             type="button"
@@ -414,7 +430,10 @@ export default function BackupsSection({ cfg, patch, doAction }) {
                   title: "Запустить резервное копирование сейчас",
                   description: "Немедленно запустить резервное копирование.",
                   url: "/api/ops/backup/run",
-                  body: { scope: cfg.backups.include, mode: cfg.backups.mode },
+                  body: {
+                    scope: cfg.backups.include,
+                    mode: cfg.backups.mode,
+                  },
                 },
               })
             }
@@ -438,7 +457,9 @@ export default function BackupsSection({ cfg, patch, doAction }) {
                   title: "Тестовое восстановление",
                   description: "Тестовое восстановление в песочнице (если доступно).",
                   url: "/api/ops/backup/test-restore",
-                  body: { profile: cfg.backups.storage.keyProfile },
+                  body: {
+                    profile: cfg.backups.storage.keyProfile,
+                  },
                 },
               })
             }

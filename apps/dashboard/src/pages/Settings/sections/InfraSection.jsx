@@ -1,6 +1,7 @@
 // apps/dashboard/src/pages/settings/sections/InfraSection.jsx
 import React from "react";
 import { Card, FieldRow, Toggle, NumberInput, TextArea } from "../ui.jsx";
+import styles from "../../Settings.module.css";
 
 const ROLE_OPTIONS = [
   { value: "api", label: "API" },
@@ -25,9 +26,9 @@ export default function InfraSection({ cfg, patch }) {
         label="Список нод"
         hint="Название, роль, хост. (UI-список; серверные данные будут подтягиваться позже)."
       >
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ overflowX: "auto" }}>
-            <table className="table">
+        <div className={styles.inputGroup}>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
               <thead>
                 <tr>
                   <th>Название</th>
@@ -127,18 +128,9 @@ export default function InfraSection({ cfg, patch }) {
         label="Пулы и лимиты"
         hint="Ограничения для воркеров/очередей и rate limit внешних API."
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 12,
-            maxWidth: 720,
-          }}
-        >
+        <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              Макс. воркеров печати
-            </div>
+            <div className={styles.inputLabel}>Макс. воркеров печати</div>
             <NumberInput
               value={pools.maxWorkersPrints}
               min={0}
@@ -148,9 +140,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              Макс. воркеров импорта
-            </div>
+            <div className={styles.inputLabel}>Макс. воркеров импорта</div>
             <NumberInput
               value={pools.maxWorkersImports}
               min={0}
@@ -160,9 +150,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              Макс. воркеров медиа
-            </div>
+            <div className={styles.inputLabel}>Макс. воркеров медиа</div>
             <NumberInput
               value={pools.maxWorkersMedia}
               min={0}
@@ -172,9 +160,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              Макс. воркеров вебхуков
-            </div>
+            <div className={styles.inputLabel}>Макс. воркеров вебхуков</div>
             <NumberInput
               value={pools.maxWorkersWebhooks}
               min={0}
@@ -184,7 +170,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
+            <div className={styles.inputLabel}>
               Лимит запросов к внешнему API (RPS)
             </div>
             <NumberInput
@@ -202,21 +188,14 @@ export default function InfraSection({ cfg, patch }) {
         label="Режим технических работ (maintenance)"
         hint="Ограничивает функции, но может разрешать чтение каталога."
       >
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className={styles.inputGroup}>
           <Toggle
             value={maintenance.enabled}
             onChange={(v) => patch("infra.maintenance.enabled", v)}
             label="Включить режим техработ"
           />
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 12,
-              maxWidth: 520,
-            }}
-          >
+          <div className={`${styles.inputGrid2} ${styles.max520}`}>
             <Toggle
               value={maintenance.allowCatalogRead}
               onChange={(v) => patch("infra.maintenance.allowCatalogRead", v)}

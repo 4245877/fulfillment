@@ -1,4 +1,5 @@
 import React from "react";
+import styles from "../../Settings.module.css";
 import { Card, FieldRow, Toggle, ChipsEditor, NumberInput } from "../ui.jsx";
 
 export default function PrintFarmSection({ cfg, patch }) {
@@ -11,8 +12,8 @@ export default function PrintFarmSection({ cfg, patch }) {
         label="Принтеры"
         hint="Сопоставление принтеров, профили сопел и материалов."
       >
-        <div style={{ overflowX: "auto" }}>
-          <table className="table">
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
             <thead>
               <tr>
                 <th>ID</th>
@@ -87,7 +88,9 @@ export default function PrintFarmSection({ cfg, patch }) {
                       className="btn btn-secondary btn-sm"
                       type="button"
                       onClick={() => {
-                        const next = cfg.printFarm.printers.filter((_, idx) => idx !== i);
+                        const next = cfg.printFarm.printers.filter(
+                          (_, idx) => idx !== i
+                        );
                         patch("printFarm.printers", next);
                       }}
                     >
@@ -99,7 +102,7 @@ export default function PrintFarmSection({ cfg, patch }) {
             </tbody>
           </table>
 
-          <div style={{ marginTop: 10 }}>
+          <div className={styles.buttonGroup}>
             <button
               className="btn btn-primary btn-sm"
               type="button"
@@ -126,12 +129,12 @@ export default function PrintFarmSection({ cfg, patch }) {
         label="Маршрутизация задач"
         hint="Простые правила: какая группа принтеров подходит для какого материала."
       >
-        <div style={{ display: "grid", gap: 8 }}>
-          <div className="text-muted" style={{ fontSize: 12 }}>
-            Правила
-          </div>
+        <div className={styles.inputGroup}>
+          <div className={styles.inputLabel}>Правила</div>
           <ChipsEditor
-            value={(cfg.printFarm.routing.rules || []).map((r) => `${r.when} -> ${r.then}`)}
+            value={(cfg.printFarm.routing.rules || []).map(
+              (r) => `${r.when} -> ${r.then}`
+            )}
             onChange={(arr) => {
               const rules = arr.map((line) => {
                 const [a, b] = String(line)
@@ -150,14 +153,7 @@ export default function PrintFarmSection({ cfg, patch }) {
         label="SLA / тайм-ауты"
         hint="Автопауза при ошибке, уведомления о простое и ошибках."
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: 12,
-            maxWidth: 720,
-          }}
-        >
+        <div className={`${styles.inputGrid3} ${styles.max720}`}>
           <div style={{ display: "flex", alignItems: "center" }}>
             <Toggle
               value={cfg.printFarm.sla.autoPauseOnError}
@@ -166,7 +162,7 @@ export default function PrintFarmSection({ cfg, patch }) {
             />
           </div>
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
+            <div className={styles.inputLabel}>
               Уведомление о простое (мин.)
             </div>
             <NumberInput
@@ -177,7 +173,7 @@ export default function PrintFarmSection({ cfg, patch }) {
             />
           </div>
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
+            <div className={styles.inputLabel}>
               Уведомление об ошибке (мин.)
             </div>
             <NumberInput

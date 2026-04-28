@@ -3,35 +3,30 @@ import styles from "../Settings.module.css";
 
 export function Card({ title, sub, children, right }) {
   return (
-    <div className="card" style={{ marginBottom: 12 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>{title}</div>
-          {sub ? (
-            <div className="muted" style={{ fontSize: 12 }}>
-              {sub}
-            </div>
-          ) : null}
+    <section className={styles.card}>
+      <div className={styles.cardHeader}>
+        <div className={styles.cardHeaderText}>
+          <h2 className={styles.cardTitle}>{title}</h2>
+          {sub ? <div className={styles.cardSubtitle}>{sub}</div> : null}
         </div>
-        {right ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{right}</div> : null}
+
+        {right ? <div className={styles.cardActions}>{right}</div> : null}
       </div>
-      <div style={{ marginTop: 12 }}>{children}</div>
-    </div>
+
+      <div className={styles.cardBody}>{children}</div>
+    </section>
   );
 }
 
 export function FieldRow({ label, hint, children }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 12, padding: "10px 0" }}>
-      <div>
-        <div style={{ fontWeight: 650 }}>{label}</div>
-        {hint ? (
-          <div className="muted" style={{ fontSize: 12 }}>
-            {hint}
-          </div>
-        ) : null}
+    <div className={styles.fieldRow}>
+      <div className={styles.fieldLabel}>
+        <div className={styles.fieldLabelText}>{label}</div>
+        {hint ? <div className={styles.fieldHint}>{hint}</div> : null}
       </div>
-      <div>{children}</div>
+
+      <div className={styles.fieldInput}>{children}</div>
     </div>
   );
 }
@@ -106,22 +101,24 @@ export function ChipsEditor({ value, onChange, placeholder = "Введи та н
   const items = Array.isArray(value) ? value : [];
 
   return (
-    <div style={{ display: "grid", gap: 8 }}>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+    <div className={styles.inputGroup}>
+      <div className={styles.chipsContainer}>
         {items.map((x, i) => (
-          <span key={`${x}-${i}`} className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            {x}
+          <span key={`${x}-${i}`} className={styles.chip}>
+            <span>{x}</span>
+
             <button
+              className={styles.chipRemove}
               type="button"
               onClick={() => onChange(items.filter((_, idx) => idx !== i))}
-              style={{ padding: "2px 8px" }}
-              aria-label="remove"
+              aria-label={`Удалить ${x}`}
             >
               ×
             </button>
           </span>
         ))}
-        {!items.length ? <span className="muted">—</span> : null}
+
+        {!items.length ? <span className={styles.chipEmpty}>—</span> : null}
       </div>
 
       <input
@@ -130,13 +127,17 @@ export function ChipsEditor({ value, onChange, placeholder = "Введи та н
         placeholder={placeholder}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            const v = draft.trim();
-            if (!v) return;
-            if (!items.includes(v)) onChange([...items, v]);
-            setDraft("");
-          }
+          if (e.key !== "Enter") return;
+
+          e.preventDefault();
+
+          const v = draft.trim();
+
+          if (!v) return;
+
+          if (!items.includes(v)) onChange([...items, v]);
+
+          setDraft("");
         }}
       />
     </div>
@@ -145,16 +146,9 @@ export function ChipsEditor({ value, onChange, placeholder = "Введи та н
 
 export function DangerZone({ title, children }) {
   return (
-    <div
-      style={{
-        border: "1px solid var(--danger-border)",
-        borderRadius: 12,
-        padding: 12,
-        background: "color-mix(in srgb, var(--secondary) 6%, var(--surface))",
-      }}
-    >
-      <div style={{ fontWeight: 800, color: "var(--danger-text)", marginBottom: 8 }}>{title}</div>
-      {children}
+    <div className={styles.dangerZone}>
+      <div className={styles.dangerTitle}>{title}</div>
+      <div className={styles.dangerContent}>{children}</div>
     </div>
   );
 }

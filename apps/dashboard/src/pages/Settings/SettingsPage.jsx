@@ -227,12 +227,12 @@ export default function SettingsPage() {
         </div>
 
         <div className={styles.sidebarActions}>
-          <button className="buttonSecondary" type="button" onClick={exportJson}>
+          <button className="btn btn-secondary" type="button" onClick={exportJson}>
             Експорт JSON
           </button>
 
           <button
-            className="buttonSecondary"
+            className="btn btn-secondary"
             type="button"
             onClick={handleImportClick}
             aria-label="Імпорт налаштувань з JSON"
@@ -249,7 +249,7 @@ export default function SettingsPage() {
             onChange={handleImportChange}
           />
 
-          <button type="button" onClick={handleResetClick}>
+          <button className="btn btn-danger" type="button" onClick={handleResetClick}>
             Скинути
           </button>
         </div>

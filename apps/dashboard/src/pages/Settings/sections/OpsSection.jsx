@@ -1,6 +1,7 @@
 // apps/dashboard/src/pages/settings/sections/OpsSection.jsx
 import React from "react";
 import { Card, FieldRow, DangerZone, NumberInput } from "../ui.jsx";
+import styles from "../../Settings.module.css";
 
 export default function OpsSection({ cfg, patch, doAction }) {
   return (
@@ -12,18 +13,9 @@ export default function OpsSection({ cfg, patch, doAction }) {
         label="Пороги деградации"
         hint="% ошибок, p95 latency, тайм-ауты."
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 12,
-            maxWidth: 720,
-          }}
-        >
+        <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              errorRateWarnPct
-            </div>
+            <div className={styles.inputLabel}>errorRateWarnPct</div>
             <NumberInput
               value={cfg.ops.degradation.errorRateWarnPct}
               min={0}
@@ -34,9 +26,7 @@ export default function OpsSection({ cfg, patch, doAction }) {
           </div>
 
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              errorRateDangerPct
-            </div>
+            <div className={styles.inputLabel}>errorRateDangerPct</div>
             <NumberInput
               value={cfg.ops.degradation.errorRateDangerPct}
               min={0}
@@ -47,9 +37,7 @@ export default function OpsSection({ cfg, patch, doAction }) {
           </div>
 
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              p95LatencyWarnMs
-            </div>
+            <div className={styles.inputLabel}>p95LatencyWarnMs</div>
             <NumberInput
               value={cfg.ops.degradation.p95LatencyWarnMs}
               min={0}
@@ -60,9 +48,7 @@ export default function OpsSection({ cfg, patch, doAction }) {
           </div>
 
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              p95LatencyDangerMs
-            </div>
+            <div className={styles.inputLabel}>p95LatencyDangerMs</div>
             <NumberInput
               value={cfg.ops.degradation.p95LatencyDangerMs}
               min={0}
@@ -73,9 +59,7 @@ export default function OpsSection({ cfg, patch, doAction }) {
           </div>
 
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              timeoutWarnPct
-            </div>
+            <div className={styles.inputLabel}>timeoutWarnPct</div>
             <NumberInput
               value={cfg.ops.degradation.timeoutWarnPct}
               min={0}
@@ -86,9 +70,7 @@ export default function OpsSection({ cfg, patch, doAction }) {
           </div>
 
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              timeoutDangerPct
-            </div>
+            <div className={styles.inputLabel}>timeoutDangerPct</div>
             <NumberInput
               value={cfg.ops.degradation.timeoutDangerPct}
               min={0}
@@ -104,8 +86,8 @@ export default function OpsSection({ cfg, patch, doAction }) {
         label="Операционные действия"
         hint="Кнопки безопасны: всегда с подтверждением. Работают, если API реализован."
       >
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className={styles.inputGroup}>
+          <div className={styles.buttonGroup}>
             <button
               className="btn btn-primary btn-sm"
               type="button"
@@ -172,7 +154,7 @@ export default function OpsSection({ cfg, patch, doAction }) {
           </div>
 
           <DangerZone title="Опасная зона">
-            <div className="text-muted" style={{ fontSize: 12, marginBottom: 8 }}>
+            <div className={styles.fieldHint}>
               Rebuild search index может остановить поиск и создать нагрузку на
               инфраструктуру. Включай только если это действительно нужно.
             </div>

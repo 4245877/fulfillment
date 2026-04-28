@@ -1,6 +1,7 @@
 // apps/dashboard/src/pages/settings/sections/QueuesSection.jsx
 import React from "react";
 import { Card, FieldRow, Toggle, NumberInput } from "../ui.jsx";
+import styles from "../../Settings.module.css";
 
 export default function QueuesSection({ cfg, patch }) {
   return (
@@ -12,18 +13,9 @@ export default function QueuesSection({ cfg, patch }) {
         label="Пороги"
         hint="Пороги ready/running для подсветки и оповещений."
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 12,
-            maxWidth: 720,
-          }}
-        >
+        <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              readyWarn
-            </div>
+            <div className={styles.inputLabel}>readyWarn</div>
             <NumberInput
               value={cfg.queues.thresholds.readyWarn}
               min={0}
@@ -33,9 +25,7 @@ export default function QueuesSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              readyDanger
-            </div>
+            <div className={styles.inputLabel}>readyDanger</div>
             <NumberInput
               value={cfg.queues.thresholds.readyDanger}
               min={0}
@@ -45,9 +35,7 @@ export default function QueuesSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              runningWarn
-            </div>
+            <div className={styles.inputLabel}>runningWarn</div>
             <NumberInput
               value={cfg.queues.thresholds.runningWarn}
               min={0}
@@ -57,9 +45,7 @@ export default function QueuesSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              runningDanger
-            </div>
+            <div className={styles.inputLabel}>runningDanger</div>
             <NumberInput
               value={cfg.queues.thresholds.runningDanger}
               min={0}
@@ -74,18 +60,9 @@ export default function QueuesSection({ cfg, patch }) {
         label="Повторные попытки / Backoff / DLQ"
         hint="Политика повторных попыток и очередь dead-letter."
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 12,
-            maxWidth: 720,
-          }}
-        >
+        <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              maxRetries
-            </div>
+            <div className={styles.inputLabel}>maxRetries</div>
             <NumberInput
               value={cfg.queues.retries.maxRetries}
               min={0}
@@ -95,9 +72,7 @@ export default function QueuesSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              backoffMs
-            </div>
+            <div className={styles.inputLabel}>backoffMs</div>
             <NumberInput
               value={cfg.queues.retries.backoffMs}
               min={0}
@@ -108,9 +83,7 @@ export default function QueuesSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              backoffMaxMs
-            </div>
+            <div className={styles.inputLabel}>backoffMaxMs</div>
             <NumberInput
               value={cfg.queues.retries.backoffMaxMs}
               min={0}
@@ -134,31 +107,29 @@ export default function QueuesSection({ cfg, patch }) {
         label="Политики обработки"
         hint="Дедупликация вебхуков, батчи, тайм-ауты."
       >
-        <div style={{ display: "grid", gap: 12, maxWidth: 720 }}>
+        <div className={`${styles.inputGroup} ${styles.max720}`}>
           <Toggle
             value={cfg.queues.policies.webhookDedupEnabled}
             onChange={(v) => patch("queues.policies.webhookDedupEnabled", v)}
             label="Дедупликация вебхуков"
           />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className={styles.inputGrid2}>
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>
-                webhookDedupWindowMs
-              </div>
+              <div className={styles.inputLabel}>webhookDedupWindowMs</div>
               <NumberInput
                 value={cfg.queues.policies.webhookDedupWindowMs}
                 min={0}
                 max={3600000}
                 step={1000}
-                onChange={(v) => patch("queues.policies.webhookDedupWindowMs", v)}
+                onChange={(v) =>
+                  patch("queues.policies.webhookDedupWindowMs", v)
+                }
               />
             </div>
 
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>
-                maxBatchSize
-              </div>
+              <div className={styles.inputLabel}>maxBatchSize</div>
               <NumberInput
                 value={cfg.queues.policies.maxBatchSize}
                 min={1}
@@ -169,9 +140,7 @@ export default function QueuesSection({ cfg, patch }) {
             </div>
 
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>
-                jobTimeoutMs
-              </div>
+              <div className={styles.inputLabel}>jobTimeoutMs</div>
               <NumberInput
                 value={cfg.queues.policies.jobTimeoutMs}
                 min={0}
@@ -182,15 +151,15 @@ export default function QueuesSection({ cfg, patch }) {
             </div>
 
             <div>
-              <div className="muted" style={{ fontSize: 12 }}>
-                visibilityTimeoutMs
-              </div>
+              <div className={styles.inputLabel}>visibilityTimeoutMs</div>
               <NumberInput
                 value={cfg.queues.policies.visibilityTimeoutMs}
                 min={0}
                 max={36000000}
                 step={1000}
-                onChange={(v) => patch("queues.policies.visibilityTimeoutMs", v)}
+                onChange={(v) =>
+                  patch("queues.policies.visibilityTimeoutMs", v)
+                }
               />
             </div>
           </div>

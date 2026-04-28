@@ -1,6 +1,7 @@
 // apps/dashboard/src/pages/settings/sections/WebhooksSection.jsx
 import React from "react";
 import { Card, FieldRow, Toggle, NumberInput } from "../ui.jsx";
+import styles from "../../Settings.module.css";
 
 export default function WebhooksSection({ cfg, patch, doAction }) {
   return (
@@ -12,18 +13,10 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
         label="Политики"
         hint="Основные рычаги надежности и безопасности вебхуков."
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 12,
-            maxWidth: 720,
-          }}
-        >
+        <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              retries
-            </div>
+            <div className={styles.inputLabel}>retries</div>
+
             <NumberInput
               value={cfg.webhooks.policy.retries}
               min={0}
@@ -33,9 +26,8 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
           </div>
 
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              backoffMs
-            </div>
+            <div className={styles.inputLabel}>backoffMs</div>
+
             <NumberInput
               value={cfg.webhooks.policy.backoffMs}
               min={0}
@@ -45,7 +37,7 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
             />
           </div>
 
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div className={styles.toggleCell}>
             <Toggle
               value={cfg.webhooks.policy.idempotencyEnabled}
               onChange={(v) => patch("webhooks.policy.idempotencyEnabled", v)}
@@ -53,12 +45,10 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
             />
           </div>
 
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div className={styles.toggleCell}>
             <Toggle
               value={cfg.webhooks.policy.signatureVerification}
-              onChange={(v) =>
-                patch("webhooks.policy.signatureVerification", v)
-              }
+              onChange={(v) => patch("webhooks.policy.signatureVerification", v)}
               label="signatureVerification"
             />
           </div>
@@ -69,8 +59,8 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
         label="Последние ошибки"
         hint="Плейсхолдер (можно подключить к /api/webhooks/errors)."
       >
-        <div style={{ overflowX: "auto" }}>
-          <table className="table">
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
             <thead>
               <tr>
                 <th>время</th>
@@ -78,6 +68,7 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
                 <th>сообщение</th>
               </tr>
             </thead>
+
             <tbody>
               {(cfg.webhooks.recentErrors || []).length ? (
                 (cfg.webhooks.recentErrors || []).slice(0, 20).map((e, i) => (
@@ -103,20 +94,22 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
         label="Отправить тестовое событие"
         hint="Опционально: отправить тестовый вебхук (если API реализовано)."
       >
-        <button
-          className="btn btn-primary btn-sm"
-          type="button"
-          onClick={() =>
-            doAction({
-              title: "Отправить тестовое событие",
-              description: "Отправить тестовое событие для проверки трассировки.",
-              url: "/api/ops/webhooks/send-test",
-              body: { kind: "ping" },
-            })
-          }
-        >
-          Отправить тест
-        </button>
+        <div className={styles.buttonGroup}>
+          <button
+            className="btn btn-primary btn-sm"
+            type="button"
+            onClick={() =>
+              doAction({
+                title: "Отправить тестовое событие",
+                description: "Отправить тестовое событие для проверки трассировки.",
+                url: "/api/ops/webhooks/send-test",
+                body: { kind: "ping" },
+              })
+            }
+          >
+            Отправить тест
+          </button>
+        </div>
       </FieldRow>
     </Card>
   );

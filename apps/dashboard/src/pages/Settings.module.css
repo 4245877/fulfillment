@@ -381,6 +381,63 @@
   min-width: 0;
 }
 
+.cardHeaderText {
+  min-width: 0;
+}
+
+.fieldLabel,
+.fieldInput {
+  min-width: 0;
+}
+
+.fieldInput {
+  width: 100%;
+}
+
+.fieldInput > * {
+  min-width: 0;
+}
+
+.fieldInput :global(input),
+.fieldInput :global(select),
+.fieldInput :global(textarea) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.max320 {
+  max-width: 320px;
+}
+
+.max360 {
+  max-width: 360px;
+}
+
+.max520 {
+  max-width: 520px;
+}
+
+.max620 {
+  max-width: 620px;
+}
+
+.max720 {
+  max-width: 720px;
+}
+
+.max760 {
+  max-width: 760px;
+}
+
+.max320,
+.max360,
+.max520,
+.max620,
+.max720,
+.max760 {
+  width: 100%;
+}
+
 .inputGroup {
   display: grid;
   gap: 10px;
@@ -771,6 +828,16 @@
     grid-template-columns: 1fr;
   }
 
+  .max320,
+  .max360,
+  .max520,
+  .max620,
+  .max720,
+  .max760 {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .cardHeader {
     flex-direction: column;
     align-items: flex-start;
@@ -784,6 +851,51 @@
   .table th,
   .table td {
     padding: 8px 10px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .content,
+  .sidebar,
+  .card,
+  .fieldInput,
+  .inputGroup,
+  .inputGrid2,
+  .inputGrid3,
+  .nestedCard {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .card {
+    padding: 16px 14px;
+  }
+
+  .fieldRow {
+    margin: 0;
+    padding: 14px 0;
+  }
+
+  .cardSubtitle,
+  .fieldHint,
+  .toggleLabel {
+    overflow-wrap: anywhere;
+  }
+
+  .buttonGroup {
+    width: 100%;
+  }
+
+  .buttonGroup :global(.btn) {
+    flex: 1 1 180px;
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
   }
 }
 
