@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import mqtt from "mqtt";
 
-type PrinterProtocol = "moonraker" | "bambu";
+type PrinterProtocol = "moonraker" | "bambu" | "creality";
 
 type PrinterConfig = {
   id: string;
@@ -45,6 +45,24 @@ function readPrintersConfig(): PrinterConfig[] {
   }
 }
 
+function makeOfflineStatus(printer: PrinterConfig, error: string): PrinterStatus {
+  return {
+    id: printer.id,
+    name: printer.name,
+    protocol: printer.protocol,
+    online: false,
+    status: "offline",
+    currentFile: null,
+    progressPct: null,
+    printed: null,
+    remainingMinutes: null,
+    nozzleTemp: null,
+    bedTemp: null,
+    updatedAt: new Date().toISOString(),
+    error,
+  };
+}
+
 function toStatusState(value: unknown): PrinterStatus["status"] {
   const state = String(value || "").toLowerCase();
 
@@ -58,7 +76,10 @@ function toStatusState(value: unknown): PrinterStatus["status"] {
   return "unknown";
 }
 
-function estimateRemainingMinutes(progressPct: number | null, elapsedSec: number | null) {
+function estimateRemainingMinutes(
+  progressPct: number | null,
+  elapsedSec: number | null
+) {
   if (!progressPct || progressPct <= 0 || !elapsedSec) return null;
 
   const totalSec = elapsedSec / (progressPct / 100);
@@ -67,7 +88,9 @@ function estimateRemainingMinutes(progressPct: number | null, elapsedSec: number
   return Math.round(remainingSec / 60);
 }
 
-async function getMoonrakerStatus(printer: PrinterConfig): Promise<PrinterStatus> {
+async function getMoonrakerStatus(
+  printer: PrinterConfig
+): Promise<PrinterStatus> {
   const port = printer.port ?? 80;
   const baseUrl = `http://${printer.host}:${port}`;
 
@@ -123,26 +146,19 @@ async function getMoonrakerStatus(printer: PrinterConfig): Promise<PrinterStatus
       progressPct,
       printed: null,
       remainingMinutes: estimateRemainingMinutes(progressPct, elapsedSec),
-      nozzleTemp: typeof extruder.temperature === "number" ? Math.round(extruder.temperature) : null,
-      bedTemp: typeof bed.temperature === "number" ? Math.round(bed.temperature) : null,
+      nozzleTemp:
+        typeof extruder.temperature === "number"
+          ? Math.round(extruder.temperature)
+          : null,
+      bedTemp:
+        typeof bed.temperature === "number" ? Math.round(bed.temperature) : null,
       updatedAt: new Date().toISOString(),
     };
   } catch (error) {
-    return {
-      id: printer.id,
-      name: printer.name,
-      protocol: printer.protocol,
-      online: false,
-      status: "offline",
-      currentFile: null,
-      progressPct: null,
-      printed: null,
-      remainingMinutes: null,
-      nozzleTemp: null,
-      bedTemp: null,
-      updatedAt: new Date().toISOString(),
-      error: error instanceof Error ? error.message : "Unknown Moonraker error",
-    };
+    return makeOfflineStatus(
+      printer,
+      error instanceof Error ? error.message : "Unknown Moonraker error"
+    );
   } finally {
     clearTimeout(timeout);
   }
@@ -150,21 +166,10 @@ async function getMoonrakerStatus(printer: PrinterConfig): Promise<PrinterStatus
 
 function ensureBambuClient(printer: PrinterConfig) {
   if (!printer.serial || !printer.accessCode) {
-    bambuCache.set(printer.id, {
-      id: printer.id,
-      name: printer.name,
-      protocol: printer.protocol,
-      online: false,
-      status: "offline",
-      currentFile: null,
-      progressPct: null,
-      printed: null,
-      remainingMinutes: null,
-      nozzleTemp: null,
-      bedTemp: null,
-      updatedAt: new Date().toISOString(),
-      error: "Bambu serial/accessCode is not configured",
-    });
+    bambuCache.set(
+      printer.id,
+      makeOfflineStatus(printer, "Bambu serial/accessCode is not configured")
+    );
 
     return;
   }
@@ -239,21 +244,7 @@ function ensureBambuClient(printer: PrinterConfig) {
   });
 
   client.on("error", (error) => {
-    bambuCache.set(printer.id, {
-      id: printer.id,
-      name: printer.name,
-      protocol: printer.protocol,
-      online: false,
-      status: "offline",
-      currentFile: null,
-      progressPct: null,
-      printed: null,
-      remainingMinutes: null,
-      nozzleTemp: null,
-      bedTemp: null,
-      updatedAt: new Date().toISOString(),
-      error: error.message,
-    });
+    bambuCache.set(printer.id, makeOfflineStatus(printer, error.message));
   });
 
   bambuClients.set(printer.id, client);
@@ -281,35 +272,152 @@ async function getBambuStatus(printer: PrinterConfig): Promise<PrinterStatus> {
   );
 }
 
-export default async function printersRoutes(app: FastifyInstance) {
-  app.get("/status", async () => {
-    const printers = readPrintersConfig().filter((printer) => printer.enabled !== false);
+function normalizeCrealityState(state: unknown): PrinterStatus["status"] {
+  const value = String(state ?? "").toLowerCase();
 
-    const statuses = await Promise.all(
-      printers.map(async (printer) => {
-        if (printer.protocol === "moonraker") {
-          return getMoonrakerStatus(printer);
+  if (value === "1" || value.includes("print")) return "printing";
+  if (value === "5" || value.includes("pause")) return "paused";
+  if (value === "0" || value.includes("stop") || value.includes("idle")) {
+    return "idle";
+  }
+  if (value.includes("error") || value.includes("fail")) return "error";
+
+  return "unknown";
+}
+
+function getCrealityStatus(printer: PrinterConfig): Promise<PrinterStatus> {
+  const port = printer.port ?? 9999;
+  const url = `ws://${printer.host}:${port}`;
+
+  return new Promise((resolve) => {
+    let ws: WebSocket | null = null;
+    let settled = false;
+
+    const finish = (status: PrinterStatus) => {
+      if (settled) return;
+
+      settled = true;
+      clearTimeout(timeout);
+
+      try {
+        ws?.close();
+      } catch {
+        // ignore
+      }
+
+      resolve(status);
+    };
+
+    const timeout = setTimeout(() => {
+      finish(makeOfflineStatus(printer, "Creality WebSocket timeout"));
+    }, 2500);
+
+    try {
+      ws = new WebSocket(url);
+    } catch (err) {
+      finish(
+        makeOfflineStatus(
+          printer,
+          err instanceof Error ? err.message : String(err)
+        )
+      );
+      return;
+    }
+
+    ws.addEventListener("open", () => {
+      try {
+        ws?.send(
+          JSON.stringify({
+            ModeCode: "heart_beat",
+            msg: new Date().toISOString(),
+          })
+        );
+      } catch {
+        // ignore
+      }
+    });
+
+    ws.addEventListener("message", (event) => {
+      try {
+        const raw = String(event.data);
+
+        if (!raw || raw === "ok") {
+          return;
         }
 
-        if (printer.protocol === "bambu") {
-          return getBambuStatus(printer);
-        }
+        const data = JSON.parse(raw);
 
-        return {
+        const progress =
+          data.printProgress !== undefined ? Number(data.printProgress) : null;
+
+        const status = normalizeCrealityState(data.state);
+
+        finish({
           id: printer.id,
           name: printer.name,
           protocol: printer.protocol,
-          online: false,
-          status: "unknown",
-          currentFile: null,
-          progressPct: null,
-          printed: null,
-          remainingMinutes: null,
-          nozzleTemp: null,
-          bedTemp: null,
+          online: true,
+          status,
+          currentFile: data.printFileName || null,
+          progressPct: Number.isFinite(progress) ? progress : null,
+          printed: data.printJobTime ? String(data.printJobTime) : null,
+          remainingMinutes:
+            data.printLeftTime !== undefined && data.printLeftTime !== null
+              ? Math.round(Number(data.printLeftTime) / 60)
+              : null,
+          nozzleTemp:
+            data.nozzleTemp !== undefined ? Number(data.nozzleTemp) : null,
+          bedTemp: data.bedTemp0 !== undefined ? Number(data.bedTemp0) : null,
           updatedAt: new Date().toISOString(),
-          error: "Unsupported printer protocol",
-        };
+        });
+      } catch (err) {
+        finish(
+          makeOfflineStatus(
+            printer,
+            err instanceof Error ? err.message : String(err)
+          )
+        );
+      }
+    });
+
+    ws.addEventListener("error", () => {
+      finish(makeOfflineStatus(printer, "Creality WebSocket error"));
+    });
+
+    ws.addEventListener("close", () => {
+      clearTimeout(timeout);
+    });
+  });
+}
+
+export default async function printersRoutes(app: FastifyInstance) {
+  app.get("/status", async () => {
+    const printers = readPrintersConfig().filter(
+      (printer) => printer.enabled !== false
+    );
+
+    const statuses = await Promise.all(
+      printers.map(async (printer) => {
+        try {
+          if (printer.protocol === "moonraker") {
+            return await getMoonrakerStatus(printer);
+          }
+
+          if (printer.protocol === "bambu") {
+            return await getBambuStatus(printer);
+          }
+
+          if (printer.protocol === "creality") {
+            return await getCrealityStatus(printer);
+          }
+
+          return makeOfflineStatus(printer, "Unsupported printer protocol");
+        } catch (err) {
+          return makeOfflineStatus(
+            printer,
+            err instanceof Error ? err.message : String(err)
+          );
+        }
       })
     );
 
