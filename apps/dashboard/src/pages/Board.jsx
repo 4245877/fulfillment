@@ -1,12 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiWB as api } from "../api/wallboardApi.js";
+import { fetchPrinterStatuses } from "../api/printerFarmApi.js";
 import { useSSE } from "../hooks/useSSE.js";
 
 import "../styles/wallboard.css";
 
 const DEFAULT_OPS = { stats: {} };
 const DEFAULT_PRINTS = { printers: [], jobs: [], stats: {} };
+const DEFAULT_PRINTER_MONITOR = { printers: [], error: "" };
+
+const PRINTER_POLL_INTERVAL_MS = 5000;
+const LAG_WARNING_MS = 5000;
+const LAG_DANGER_MS = 60000;
+const PROGRESS_SUCCESS_FROM = 80;
+const PROGRESS_WARNING_FROM = 35;
 
 const ORDER_STAGES = [
   ["PrePrintCheck", "Переддрукарська перевірка"],
@@ -188,10 +196,16 @@ function formatPercent(value) {
   return `${Math.round(normalizePercent(value))}%`;
 }
 
+function formatTemperature(value) {
+  return value == null ? "—" : `${formatInt(value)}°C`;
+}
+
 function getLagTone(value) {
   const ms = asNumber(value, 0);
-  if (ms > 60000) return "danger";
-  if (ms > 5000) return "warning";
+
+  if (ms > LAG_DANGER_MS) return "danger";
+  if (ms > LAG_WARNING_MS) return "warning";
+
   return "success";
 }
 
@@ -253,12 +267,16 @@ function getServiceLabel(status) {
 
 function getProgressClass(value) {
   const percent = normalizePercent(value);
-  if (percent >= 80) return "row-progress-fill--success";
-  if (percent >= 35) return "row-progress-fill--warning";
+
+  if (percent >= PROGRESS_SUCCESS_FROM) return "row-progress-fill--success";
+  if (percent >= PROGRESS_WARNING_FROM) return "row-progress-fill--warning";
+
   return "row-progress-fill--danger";
 }
 
 function toTagClass(tone = "primary") {
+  const key = String(tone || "primary").toLowerCase();
+
   const map = {
     primary: "tag--primary",
     info: "tag--primary",
@@ -270,7 +288,7 @@ function toTagClass(tone = "primary") {
     error: "tag--danger",
   };
 
-  return map[tone] || "";
+  return map[key] || "";
 }
 
 function Panel({ title, subtitle, children, footer = null, loading = false, flush = false }) {
@@ -282,11 +300,8 @@ function Panel({ title, subtitle, children, footer = null, loading = false, flus
             <span className="panel-title-dot" />
             {title}
           </h2>
-          {subtitle ? (
-            <div className="panel-footer-meta" style={{ marginTop: "0.25rem" }}>
-              {subtitle}
-            </div>
-          ) : null}
+
+          {subtitle ? <div className="panel-subtitle">{subtitle}</div> : null}
         </div>
       </div>
 
@@ -396,48 +411,104 @@ function SectionOrders({ data = {}, loading = false }) {
   );
 }
 
-function SectionPrintFarm({ printers = [], jobs = [], loading = false }) {
+function SectionPrintFarm({
+  printers = [],
+  jobs = [],
+  livePrinters = [],
+  monitorError = "",
+  loading = false,
+}) {
+  const visiblePrinters = livePrinters.length ? livePrinters : printers;
+
   return (
     <Panel
       loading={loading}
-      title="3D-ферма — принтери та завдання"
-      subtitle="Стан обладнання та прогрес активних робіт"
+      title="3D-ферма — моніторинг принтерів"
+      subtitle="Живий стан обладнання, температури, файли та прогрес друку"
       footer={
         <>
-          <span className="panel-footer-meta">Принтерів: {formatInt(printers.length)}</span>
+          <span className="panel-footer-meta">Принтерів: {formatInt(visiblePrinters.length)}</span>
           <span className="panel-footer-meta">Активних робіт: {formatInt(jobs.length)}</span>
         </>
       }
     >
-      {printers.length ? (
-        <div className="activity-feed" style={{ marginBottom: "var(--space-lg)" }}>
-          {printers.map((printer) => (
-            <div key={printer.id} className="activity-item">
-              <div className="activity-avatar" aria-hidden="true">
-                {(printer.name || "P").slice(0, 1).toUpperCase()}
-              </div>
+      {monitorError ? <div className="printer-monitor-alert">Помилка моніторингу: {monitorError}</div> : null}
 
-              <div className="activity-content">
-                <div className="activity-name">{printer.name || "Принтер без назви"}</div>
-                <div className="activity-desc">
-                  <strong>{printer.model || "Модель не вказана"}</strong>
-                  {printer.nozzle ? ` • Сопло ${printer.nozzle}` : ""}
-                  {printer.material_color ? ` • ${printer.material_color}` : ""}
+      {visiblePrinters.length ? (
+        <div className="printer-monitor-grid">
+          {visiblePrinters.map((printer) => {
+            const state =
+              printer.status ||
+              printer.state ||
+              (printer.online === false ? "offline" : "unknown");
+
+            const progress = normalizePercent(printer.progressPct ?? printer.progress ?? 0);
+
+            const meta = [
+              printer.protocol,
+              printer.host,
+              printer.model,
+              printer.nozzle ? `Сопло ${printer.nozzle}` : null,
+              printer.material_color || printer.material,
+            ]
+              .filter(Boolean)
+              .join(" • ");
+
+            return (
+              <div className="printer-monitor-card" key={printer.id}>
+                <div className="printer-monitor-top">
+                  <div>
+                    <div className="printer-monitor-name">
+                      {printer.name || "Принтер без назви"}
+                    </div>
+
+                    <div className="printer-monitor-meta">
+                      {meta || "Дані підключення не вказані"}
+                    </div>
+                  </div>
+
+                  <StatusTag tone={getPrinterTone(state)}>{getPrinterStateLabel(state)}</StatusTag>
                 </div>
-              </div>
 
-              <div className="activity-time">
-                <StatusTag tone={getPrinterTone(printer.state)}>
-                  {getPrinterStateLabel(printer.state)}
-                </StatusTag>
+                <div className="printer-monitor-file">
+                  {printer.currentFile || "Файл не друкується"}
+                </div>
+
+                <div className="printer-monitor-progress">
+                  <div
+                    className={`printer-monitor-progress-fill ${getProgressClass(progress)}`}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+
+                <div className="printer-monitor-details">
+                  <span>{Math.round(progress)}%</span>
+                  <span>{printer.printed || "—"}</span>
+                  <span>
+                    {printer.remainingMinutes != null
+                      ? `${formatInt(printer.remainingMinutes)} хв залишилося`
+                      : "—"}
+                  </span>
+                </div>
+
+                <div className="printer-monitor-details">
+                  <span>Сопло: {formatTemperature(printer.nozzleTemp)}</span>
+                  <span>Стіл: {formatTemperature(printer.bedTemp)}</span>
+                </div>
+
+                <div className="printer-monitor-updated">
+                  Оновлено: {formatDateTime(printer.updatedAt)}
+                </div>
+
+                {printer.error ? <div className="printer-monitor-error">{printer.error}</div> : null}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <EmptyState
           title="Немає даних про принтери"
-          desc="Список принтерів зʼявиться після першої синхронізації ферми."
+          desc="Список принтерів зʼявиться після першого успішного опитування API."
         />
       )}
 
@@ -453,21 +524,26 @@ function SectionPrintFarm({ printers = [], jobs = [], loading = false }) {
                 <th>Час завершення</th>
               </tr>
             </thead>
+
             <tbody>
               {jobs.map((job) => (
                 <tr key={job.id}>
                   <td>
                     <div className="col-name">{job.order_number || "—"}</div>
                   </td>
+
                   <td>
                     <div className="col-amount">
                       {(job.sku || "—") + " ×" + formatInt(job.qty || 0)}
                     </div>
                   </td>
+
                   <td>{job.printer_name || "—"}</td>
+
                   <td>
                     <RowProgress value={job.progress || 0} />
                   </td>
+
                   <td>{formatDateTime(job.eta)}</td>
                 </tr>
               ))}
@@ -479,13 +555,13 @@ function SectionPrintFarm({ printers = [], jobs = [], loading = false }) {
   );
 }
 
-function SectionQueues({ q = {}, loading = false }) {
+function SectionQueues({ queues = {}, loading = false }) {
   const rows = QUEUE_ROWS.map(({ key, label, readyKey, runningKey }) => ({
     key,
     label,
-    ready: q[key]?.[readyKey] ?? 0,
-    running: runningKey ? q[key]?.[runningKey] ?? 0 : "—",
-    lag: q[key]?.lagMs ?? 0,
+    ready: queues[key]?.[readyKey] ?? 0,
+    running: runningKey ? queues[key]?.[runningKey] ?? 0 : "—",
+    lag: queues[key]?.lagMs ?? 0,
   }));
 
   return (
@@ -500,6 +576,7 @@ function SectionQueues({ q = {}, loading = false }) {
               <th>Відставання</th>
             </tr>
           </thead>
+
           <tbody>
             {rows.map((row) => (
               <tr key={row.key}>
@@ -518,8 +595,8 @@ function SectionQueues({ q = {}, loading = false }) {
   );
 }
 
-function SectionMaterials({ m = {}, loading = false }) {
-  const low = Array.isArray(m.low) ? m.low : [];
+function SectionMaterials({ materials = {}, loading = false }) {
+  const low = Array.isArray(materials.low) ? materials.low : [];
 
   return (
     <Panel
@@ -527,19 +604,34 @@ function SectionMaterials({ m = {}, loading = false }) {
       title="Матеріали"
       subtitle="Запаси філаменту, смоли та позиції з ризиком дефіциту"
     >
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-md)" }}>
-        <KpiCard label="Філамент" value={`${formatFixed(m.filamentKg ?? 0, 1)} кг`} icon="◔" variant="primary" />
-        <KpiCard label="Смола" value={`${formatFixed(m.resinL ?? 0, 1)} л`} icon="◑" variant="accent" />
-        <KpiCard label="Котушки в роботі" value={formatInt(m.reelsInUse ?? 0)} icon="◎" variant="info" />
+      <div className="wallboard-grid-2">
+        <KpiCard
+          label="Філамент"
+          value={`${formatFixed(materials.filamentKg ?? 0, 1)} кг`}
+          icon="◔"
+          variant="primary"
+        />
+        <KpiCard
+          label="Смола"
+          value={`${formatFixed(materials.resinL ?? 0, 1)} л`}
+          icon="◑"
+          variant="accent"
+        />
+        <KpiCard
+          label="Котушки в роботі"
+          value={formatInt(materials.reelsInUse ?? 0)}
+          icon="◎"
+          variant="info"
+        />
         <KpiCard
           label="Поріг дефіциту"
-          value={`${formatFixed(m.lowThresholdKg ?? 1, 1)} кг`}
+          value={`${formatFixed(materials.lowThresholdKg ?? 1, 1)} кг`}
           icon="!"
           variant="warning"
         />
       </div>
 
-      <div style={{ marginTop: "var(--space-lg)" }}>
+      <div className="wallboard-stack-lg">
         {low.length ? (
           <div className="activity-feed">
             {low.map((item, index) => (
@@ -560,7 +652,7 @@ function SectionMaterials({ m = {}, loading = false }) {
         ) : (
           <EmptyState
             title="Дефіцитних матеріалів не знайдено"
-            desc="Усі позиції зараз вище заданого порогу." 
+            desc="Усі позиції зараз вище заданого порогу."
           />
         )}
       </div>
@@ -568,8 +660,9 @@ function SectionMaterials({ m = {}, loading = false }) {
   );
 }
 
-function SectionLogistics({ l = {}, loading = false }) {
-  const byCarrier = l.byCarrier && typeof l.byCarrier === "object" ? l.byCarrier : null;
+function SectionLogistics({ logistics = {}, loading = false }) {
+  const byCarrier =
+    logistics.byCarrier && typeof logistics.byCarrier === "object" ? logistics.byCarrier : null;
 
   return (
     <Panel
@@ -577,77 +670,100 @@ function SectionLogistics({ l = {}, loading = false }) {
       title="Логістика"
       subtitle="Статуси відправлень та розподіл за перевізниками"
     >
-      <div className="kpi-grid" style={{ marginBottom: "var(--space-lg)" }}>
+      <div className="kpi-grid">
         {LOGISTICS_STATUSES.map(([key, label]) => (
           <KpiCard
             key={key}
             label={label}
-            value={formatInt(l[key] || 0)}
+            value={formatInt(logistics[key] || 0)}
             icon={key === "problem" ? "!" : "◦"}
             variant={key === "problem" ? "danger" : "primary"}
           />
         ))}
       </div>
 
-      {byCarrier ? (
-        <div className="wboard-table-wrap">
-          <table className="wboard-table">
-            <thead>
-              <tr>
-                <th>Перевізник</th>
-                <th>Нові</th>
-                <th>У дорозі</th>
-                <th>Доставлено</th>
-                <th>Проблемні</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(byCarrier).map(([carrier, stats]) => (
-                <tr key={carrier}>
-                  <td className="col-name">{carrier}</td>
-                  <td>{formatInt(stats?.new || 0)}</td>
-                  <td>{formatInt(stats?.inTransit || 0)}</td>
-                  <td>{formatInt(stats?.delivered || 0)}</td>
-                  <td>
-                    <StatusTag tone={(stats?.problem || 0) > 0 ? "danger" : "success"}>
-                      {formatInt(stats?.problem || 0)}
-                    </StatusTag>
-                  </td>
+      <div className="wallboard-stack-lg">
+        {byCarrier ? (
+          <div className="wboard-table-wrap">
+            <table className="wboard-table">
+              <thead>
+                <tr>
+                  <th>Перевізник</th>
+                  <th>Нові</th>
+                  <th>У дорозі</th>
+                  <th>Доставлено</th>
+                  <th>Проблемні</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <EmptyState
-          title="Немає даних по перевізниках"
-          desc="Статистика за службами доставки зʼявиться після імпорту відправлень."
-        />
-      )}
+              </thead>
+
+              <tbody>
+                {Object.entries(byCarrier).map(([carrier, stats]) => (
+                  <tr key={carrier}>
+                    <td className="col-name">{carrier}</td>
+                    <td>{formatInt(stats?.new || 0)}</td>
+                    <td>{formatInt(stats?.inTransit || 0)}</td>
+                    <td>{formatInt(stats?.delivered || 0)}</td>
+                    <td>
+                      <StatusTag tone={(stats?.problem || 0) > 0 ? "danger" : "success"}>
+                        {formatInt(stats?.problem || 0)}
+                      </StatusTag>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState
+            title="Немає даних по перевізниках"
+            desc="Статистика за службами доставки зʼявиться після імпорту відправлень."
+          />
+        )}
+      </div>
     </Panel>
   );
 }
 
-function SectionPayments({ p = {}, loading = false }) {
+function SectionPayments({ payments = {}, loading = false }) {
   return (
     <Panel
       loading={loading}
       title="Оплати"
       subtitle="Передоплата, доплати та спірні платежі перед відвантаженням"
     >
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-md)" }}>
-        <KpiCard label="Очікує 25%" value={formatInt(p.awaitingPrepay || 0)} icon="₴" variant="warning" />
-        <KpiCard label="Очікує доплату" value={formatInt(p.awaitingRest || 0)} icon="₴" variant="primary" />
-        <KpiCard label="Спори" value={formatInt(p.disputes || 0)} icon="!" variant="danger" />
-        <KpiCard label="Середній чек" value={`${formatInt(p.avgCheckUAH || 0)} ₴`} icon="◌" variant="success" />
+      <div className="wallboard-grid-2">
+        <KpiCard
+          label="Очікує 25%"
+          value={formatInt(payments.awaitingPrepay || 0)}
+          icon="₴"
+          variant="warning"
+        />
+        <KpiCard
+          label="Очікує доплату"
+          value={formatInt(payments.awaitingRest || 0)}
+          icon="₴"
+          variant="primary"
+        />
+        <KpiCard
+          label="Спори"
+          value={formatInt(payments.disputes || 0)}
+          icon="!"
+          variant="danger"
+        />
+        <KpiCard
+          label="Середній чек"
+          value={`${formatInt(payments.avgCheckUAH || 0)} ₴`}
+          icon="◌"
+          variant="success"
+        />
       </div>
     </Panel>
   );
 }
 
-function SectionServices({ s = {}, loading = false }) {
+function SectionServices({ services = {}, loading = false }) {
   const downCount = SERVICE_ROWS.reduce((count, [, key]) => {
-    const status = String(s[key] || "").toLowerCase();
+    const status = String(services[key] || "").toLowerCase();
     return status && status !== "up" && status !== "ok" && status !== "healthy" ? count + 1 : count;
   }, 0);
 
@@ -666,12 +782,15 @@ function SectionServices({ s = {}, loading = false }) {
               <th>Статус</th>
             </tr>
           </thead>
+
           <tbody>
             {SERVICE_ROWS.map(([name, key]) => (
               <tr key={key}>
                 <td className="col-name">{name}</td>
                 <td>
-                  <StatusTag tone={getServiceTone(s[key])}>{getServiceLabel(s[key])}</StatusTag>
+                  <StatusTag tone={getServiceTone(services[key])}>
+                    {getServiceLabel(services[key])}
+                  </StatusTag>
                 </td>
               </tr>
             ))}
@@ -689,9 +808,14 @@ function SectionIndexer({ idx = {}, loading = false }) {
       title="Пошуковий індекс"
       subtitle="Стан індексації каталогу та швидкість оновлення"
     >
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-md)" }}>
+      <div className="wallboard-grid-2">
         <KpiCard label="Беклог" value={formatInt(idx.backlog || 0)} icon="◦" variant="warning" />
-        <KpiCard label="Швидкість" value={`${formatInt(idx.ratePerMin || 0)}/хв`} icon="→" variant="success" />
+        <KpiCard
+          label="Швидкість"
+          value={`${formatInt(idx.ratePerMin || 0)}/хв`}
+          icon="→"
+          variant="success"
+        />
         <KpiCard label="Шарди" value={formatInt(idx.shards || 1)} icon="≡" variant="primary" />
         <KpiCard
           label="Останнє оновлення"
@@ -725,6 +849,7 @@ function SectionIngester({ ing = {}, loading = false }) {
                 <th>Тривалість</th>
               </tr>
             </thead>
+
             <tbody>
               {batches.map((batch) => (
                 <tr key={batch.id}>
@@ -740,16 +865,36 @@ function SectionIngester({ ing = {}, loading = false }) {
         </div>
       ) : (
         <EmptyState
-          title="Пакетов імпорту поки немає"
+          title="Пакетів імпорту поки немає"
           desc="Останні завантаження CSV і медіа зʼявляться тут після запуску імпортера."
         />
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "var(--space-md)", marginTop: "var(--space-lg)" }}>
-        <KpiCard label="Беклог медіа" value={formatInt(ing.mediaBacklog || 0)} icon="◫" variant="warning" />
-        <KpiCard label="Трансформацій / хв" value={formatInt(ing.mediaRatePerMin || 0)} icon="⇄" variant="success" />
-        <KpiCard label="Помилки за 1 год" value={formatInt(ing.errors1h || 0)} icon="!" variant="danger" />
-        <KpiCard label="Версія pricing.yml" value={ing.pricingVersion || "—"} icon="⌘" variant="primary" />
+      <div className="wallboard-grid-4 wallboard-stack-lg">
+        <KpiCard
+          label="Беклог медіа"
+          value={formatInt(ing.mediaBacklog || 0)}
+          icon="◫"
+          variant="warning"
+        />
+        <KpiCard
+          label="Трансформацій / хв"
+          value={formatInt(ing.mediaRatePerMin || 0)}
+          icon="⇄"
+          variant="success"
+        />
+        <KpiCard
+          label="Помилки за 1 год"
+          value={formatInt(ing.errors1h || 0)}
+          icon="!"
+          variant="danger"
+        />
+        <KpiCard
+          label="Версія pricing.yml"
+          value={ing.pricingVersion || "—"}
+          icon="⌘"
+          variant="primary"
+        />
       </div>
     </Panel>
   );
@@ -776,6 +921,7 @@ function SectionWebhooks({ wh = {}, loading = false }) {
                 <th>Остання помилка</th>
               </tr>
             </thead>
+
             <tbody>
               {items.map(([name, value]) => (
                 <tr key={name}>
@@ -795,7 +941,7 @@ function SectionWebhooks({ wh = {}, loading = false }) {
       ) : (
         <EmptyState
           title="Немає даних по вебхуках"
-          desc="Після першої активности провайдерів тут зʼявиться статистика доставок і помилок."
+          desc="Після першої активності провайдерів тут зʼявиться статистика доставок і помилок."
         />
       )}
     </Panel>
@@ -804,16 +950,14 @@ function SectionWebhooks({ wh = {}, loading = false }) {
 
 function SectionAlerts({ alerts = [], loading = false }) {
   return (
-    <Panel
-      loading={loading}
-      title="Оповіщення"
-      subtitle="Останні 10 подій"
-      flush
-    >
+    <Panel loading={loading} title="Оповіщення" subtitle="Останні 10 подій" flush>
       {alerts.length ? (
         <div className="activity-feed">
           {alerts.slice(0, 10).map((alert, index) => (
-            <div key={`${alert.ts || "alert"}-${index}`} className={`activity-item${index === 0 ? " activity-item--unread" : ""}`}>
+            <div
+              key={`${alert.ts || "alert"}-${index}`}
+              className={`activity-item${index === 0 ? " activity-item--unread" : ""}`}
+            >
               <div className="activity-avatar" aria-hidden="true">
                 {getAlertLabel(alert.level).slice(0, 1)}
               </div>
@@ -880,7 +1024,9 @@ function TopSummary({ prints, stats, alertsCount }) {
 export default function Board() {
   const [ops, setOps] = useState(DEFAULT_OPS);
   const [prints, setPrints] = useState(DEFAULT_PRINTS);
+  const [printerMonitor, setPrinterMonitor] = useState(DEFAULT_PRINTER_MONITOR);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [updatedAt, setUpdatedAt] = useState(new Date());
 
   useEffect(() => {
@@ -898,6 +1044,13 @@ export default function Board() {
           setPrints((current) => mergePrints(current, printsResult.value));
         }
 
+        const errors = [opsResult, printsResult]
+          .filter((result) => result.status === "rejected")
+          .map((result) =>
+            result.reason instanceof Error ? result.reason.message : "Помилка завантаження"
+          );
+
+        setLoadError(errors.join(" • "));
         setUpdatedAt(new Date());
       })
       .finally(() => {
@@ -911,7 +1064,54 @@ export default function Board() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
+
+    const loadPrinterStatuses = async () => {
+      if (inFlight) return;
+
+      inFlight = true;
+
+      try {
+        const data = await fetchPrinterStatuses();
+
+        if (cancelled) return;
+
+        setPrinterMonitor({
+          printers: Array.isArray(data.printers) ? data.printers : [],
+          error: "",
+        });
+
+        setUpdatedAt(new Date());
+      } catch (error) {
+        if (cancelled) return;
+
+        setPrinterMonitor((current) => ({
+          ...current,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Не вдалося отримати статус принтерів",
+        }));
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    loadPrinterStatuses();
+
+    const timer = window.setInterval(loadPrinterStatuses, PRINTER_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const handleSSEEvent = useCallback((event = {}) => {
+    const data = event.payload || event.data || {};
+
     setUpdatedAt(new Date());
 
     if (event.type === "print.progress") {
@@ -921,12 +1121,14 @@ export default function Board() {
           job.id === event.entity_id
             ? {
                 ...job,
-                progress: event.data?.progress,
-                eta: event.data?.eta,
+                progress: data.progress ?? job.progress,
+                eta: data.eta ?? job.eta,
               }
             : job
         ),
       }));
+
+      return;
     }
 
     if (event.type === "printer.state") {
@@ -936,19 +1138,35 @@ export default function Board() {
           printer.id === event.entity_id
             ? {
                 ...printer,
-                state: event.data?.state,
+                state: data.state ?? printer.state,
               }
             : printer
         ),
       }));
+
+      setPrinterMonitor((current) => ({
+        ...current,
+        printers: current.printers.map((printer) =>
+          printer.id === event.entity_id
+            ? {
+                ...printer,
+                status: data.state ?? printer.status,
+                state: data.state ?? printer.state,
+              }
+            : printer
+        ),
+      }));
+
+      return;
     }
 
     if (event.domain === "prints" || event.domain === "print") {
-      setPrints((current) => mergePrints(current, event.payload || event.data));
+      setPrints((current) => mergePrints(current, data));
+      return;
     }
 
     if (event.domain === "ops") {
-      setOps((current) => mergeOps(current, event.payload || event.data));
+      setOps((current) => mergeOps(current, data));
     }
   }, []);
 
@@ -977,27 +1195,42 @@ export default function Board() {
         </div>
       ) : null}
 
+      {loadError ? (
+        <div className="alert-strip alert-strip--danger">
+          <div className="alert-strip-icon" aria-hidden="true">
+            !
+          </div>
+          <div className="alert-strip-text">{loadError}</div>
+        </div>
+      ) : null}
+
       <TopSummary prints={prints} stats={stats} alertsCount={alerts.length} />
 
-      <div style={{ display: "grid", gap: "var(--space-md)" }}>
+      <div className="wallboard-sections">
         <div className="wallboard-row">
-          <SectionPrintFarm printers={prints.printers} jobs={prints.jobs} loading={loading} />
+          <SectionPrintFarm
+            printers={prints.printers}
+            jobs={prints.jobs}
+            livePrinters={printerMonitor.printers}
+            monitorError={printerMonitor.error}
+            loading={loading}
+          />
           <SectionAlerts alerts={alerts} loading={loading} />
         </div>
 
         <div className="wallboard-row">
           <SectionOrders data={stats} loading={loading} />
-          <SectionServices s={stats.services} loading={loading} />
+          <SectionServices services={stats.services} loading={loading} />
         </div>
 
         <div className="wallboard-row">
-          <SectionQueues q={stats.queues} loading={loading} />
-          <SectionPayments p={stats.payments} loading={loading} />
+          <SectionQueues queues={stats.queues} loading={loading} />
+          <SectionPayments payments={stats.payments} loading={loading} />
         </div>
 
         <div className="wallboard-row">
-          <SectionLogistics l={stats.logistics} loading={loading} />
-          <SectionMaterials m={stats.materials} loading={loading} />
+          <SectionLogistics logistics={stats.logistics} loading={loading} />
+          <SectionMaterials materials={stats.materials} loading={loading} />
         </div>
 
         <div className="wallboard-row">

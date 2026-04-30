@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
 import styles from "../../Settings.module.css";
-import { fetchPrinterStatuses } from "../../../api/printerFarmApi.js";
 import { Card, FieldRow, Toggle, ChipsEditor, NumberInput } from "../ui.jsx";
 
 const emptyPrinter = {
@@ -41,55 +40,6 @@ export default function PrintFarmSection({ cfg, patch }) {
     ? printFarm.routing.rules
     : [];
 
-  const [printerStatuses, setPrinterStatuses] = useState([]);
-  const [statusError, setStatusError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const data = await fetchPrinterStatuses();
-
-        if (!cancelled) {
-          setPrinterStatuses(Array.isArray(data.printers) ? data.printers : []);
-          setStatusError("");
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setStatusError(
-            error instanceof Error
-              ? error.message
-              : "Не удалось получить статус принтеров"
-          );
-        }
-      }
-    };
-
-    load();
-
-    const timer = window.setInterval(load, 5000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, []);
-
-  const statusById = useMemo(() => {
-    return new Map(printerStatuses.map((printer) => [printer.id, printer]));
-  }, [printerStatuses]);
-
-  const getStatusLabel = (status) => {
-    if (status === "printing") return "Печатает";
-    if (status === "paused") return "Пауза";
-    if (status === "idle") return "Ожидает";
-    if (status === "error") return "Ошибка";
-    if (status === "offline") return "Не в сети";
-
-    return "Неизвестно";
-  };
-
   const updatePrinter = (index, key, value) => {
     const next = printers.map((printer, i) =>
       i === index ? { ...printer, [key]: value } : printer
@@ -121,74 +71,6 @@ export default function PrintFarmSection({ cfg, patch }) {
       title="7) Производство / Печатная ферма"
       sub="Принтеры, профили, маршрутизация, SLA/тайм-ауты"
     >
-      <div className={styles.printerStatusGrid}>
-        {(cfg.printFarm.printers || []).map((printer) => {
-          const live = statusById.get(printer.id);
-
-          return (
-            <div className={styles.printerStatusCard} key={printer.id}>
-              <div className={styles.printerStatusTop}>
-                <div>
-                  <div className={styles.printerStatusName}>
-                    {printer.name}
-                  </div>
-                  <div className={styles.printerStatusMeta}>
-                    {printer.protocol || "—"} ·{" "}
-                    {printer.host || "host не задан"}
-                  </div>
-                </div>
-
-                <div
-                  className={`${styles.printerBadge} ${
-                    live?.online
-                      ? styles.printerBadgeOnline
-                      : styles.printerBadgeOffline
-                  }`}
-                >
-                  {live ? getStatusLabel(live.status) : "Нет данных"}
-                </div>
-              </div>
-
-              <div className={styles.printerCurrentFile}>
-                {live?.currentFile || "Файл не печатается"}
-              </div>
-
-              <div className={styles.printerProgressTrack}>
-                <div
-                  className={styles.printerProgressFill}
-                  style={{ width: `${live?.progressPct ?? 0}%` }}
-                />
-              </div>
-
-              <div className={styles.printerStatusDetails}>
-                <span>{live?.progressPct ?? 0}%</span>
-                <span>{live?.printed || "—"}</span>
-                <span>
-                  {live?.remainingMinutes != null
-                    ? `${live.remainingMinutes} мин. осталось`
-                    : "—"}
-                </span>
-              </div>
-
-              <div className={styles.printerStatusDetails}>
-                <span>Сопло: {live?.nozzleTemp ?? "—"}°C</span>
-                <span>Стол: {live?.bedTemp ?? "—"}°C</span>
-              </div>
-
-              {live?.error ? (
-                <div className={styles.printerError}>{live.error}</div>
-              ) : null}
-            </div>
-          );
-        })}
-
-        {statusError ? (
-          <div className={styles.printerError}>
-            Ошибка мониторинга: {statusError}
-          </div>
-        ) : null}
-      </div>
-
       <FieldRow
         label="Принтеры"
         hint="Сопоставление принтеров, профили сопел и материалов."
