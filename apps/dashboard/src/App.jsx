@@ -5,6 +5,7 @@ import Layout from "./components/Layout.jsx";
 import Board from "./pages/Board.jsx";
 import Orders from "./pages/Orders.jsx";
 import Print from "./pages/Print.jsx";
+import Inventory from "./pages/Inventory.jsx";
 import Shipments from "./pages/Shipments.jsx";
 import Audit from "./pages/Audit.jsx";
 import SettingsPage from "./pages/Settings/SettingsPage.jsx";
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="board" element={<Board />} />
           <Route path="orders" element={<Orders />} />
           <Route path="prints/:id" element={<Print />} />
+          <Route path="inventory" element={<Inventory />} />
           <Route path="shipments" element={<Shipments />} />
           <Route path="audit" element={<Audit />} />
           <Route path="settings" element={<SettingsPage />} />

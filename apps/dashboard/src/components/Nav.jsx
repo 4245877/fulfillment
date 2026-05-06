@@ -15,6 +15,10 @@ export default function Nav({ onNavigate }) {
         Замовлення
       </NavLink>
 
+      <NavLink to="/inventory" className={cls} onClick={onNavigate}>
+        Матеріали
+      </NavLink>
+
       <NavLink to="/shipments" className={cls} onClick={onNavigate}>
         Відправлення
       </NavLink>

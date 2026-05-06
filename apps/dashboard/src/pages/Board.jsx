@@ -596,13 +596,14 @@ function SectionQueues({ queues = {}, loading = false }) {
 }
 
 function SectionMaterials({ materials = {}, loading = false }) {
+  const stock = Array.isArray(materials.stock) ? materials.stock : [];
   const low = Array.isArray(materials.low) ? materials.low : [];
 
   return (
     <Panel
       loading={loading}
-      title="Матеріали"
-      subtitle="Запаси філаменту, смоли та позиції з ризиком дефіциту"
+      title="Склад пластика"
+      subtitle="Залишки філаменту за матеріалом і кольором"
     >
       <div className="wallboard-grid-2">
         <KpiCard
@@ -612,47 +613,76 @@ function SectionMaterials({ materials = {}, loading = false }) {
           variant="primary"
         />
         <KpiCard
-          label="Смола"
-          value={`${formatFixed(materials.resinL ?? 0, 1)} л`}
-          icon="◑"
-          variant="accent"
+          label="Позицій на складі"
+          value={formatInt(stock.length)}
+          icon="≡"
+          variant="info"
         />
         <KpiCard
           label="Котушки в роботі"
           value={formatInt(materials.reelsInUse ?? 0)}
           icon="◎"
-          variant="info"
+          variant="success"
         />
         <KpiCard
-          label="Поріг дефіциту"
-          value={`${formatFixed(materials.lowThresholdKg ?? 1, 1)} кг`}
+          label="Проблемні залишки"
+          value={formatInt(low.length)}
           icon="!"
-          variant="warning"
+          variant={low.length ? "warning" : "info"}
         />
       </div>
 
       <div className="wallboard-stack-lg">
-        {low.length ? (
-          <div className="activity-feed">
-            {low.map((item, index) => (
-              <div key={`${item.material || "material"}-${index}`} className="activity-item">
-                <div className="activity-avatar" aria-hidden="true">
-                  {(item.material || "M").slice(0, 1).toUpperCase()}
-                </div>
-                <div className="activity-content">
-                  <div className="activity-name">{item.material || "Матеріал без назви"}</div>
-                  <div className="activity-desc">Потрібне поповнення складу.</div>
-                </div>
-                <div className="activity-time">
-                  <StatusTag tone="warning">{formatFixed(item.remainKg ?? 0, 1)} кг</StatusTag>
-                </div>
-              </div>
-            ))}
+        {stock.length ? (
+          <div className="wboard-table-wrap">
+            <table className="wboard-table">
+              <thead>
+                <tr>
+                  <th>Матеріал</th>
+                  <th>Залишок</th>
+                  <th>Статус</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {stock.slice(0, 8).map((item) => {
+                  const status = String(item.status || "ok").toLowerCase();
+
+                  return (
+                    <tr key={item.id || `${item.material}-${item.color}`}>
+                      <td className="col-name">
+                        {item.material} {item.colorName || item.color}
+                      </td>
+
+                      <td>{formatFixed(item.remainKg ?? 0, 1)} кг</td>
+
+                      <td>
+                        <StatusTag
+                          tone={
+                            status === "critical"
+                              ? "danger"
+                              : status === "low"
+                                ? "warning"
+                                : "success"
+                          }
+                        >
+                          {status === "critical"
+                            ? "CRITICAL"
+                            : status === "low"
+                              ? "LOW"
+                              : "OK"}
+                        </StatusTag>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
           <EmptyState
-            title="Дефіцитних матеріалів не знайдено"
-            desc="Усі позиції зараз вище заданого порогу."
+            title="Склад пластику порожній"
+            desc="Після першого поповнення залишки зʼявляться тут."
           />
         )}
       </div>

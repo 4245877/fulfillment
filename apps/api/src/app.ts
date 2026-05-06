@@ -1,6 +1,9 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+
 import printersRoutes from "./modules/printers/routes";
+import inventoryRoutes from "./modules/inventory/routes";
+import { getInventoryMaterialsSummary } from "./modules/inventory/service";
 
 const app = Fastify({ logger: true });
 
@@ -13,6 +16,8 @@ app.register(cors, {
 app.get("/health", async () => ({ ok: true }));
 
 app.get("/api/ops/overview", async () => {
+  const materials = await getInventoryMaterialsSummary();
+
   return {
     stats: {
       orders: {
@@ -26,9 +31,20 @@ app.get("/api/ops/overview", async () => {
         Delivered: 0,
         Issued: 0,
       },
-      payments: { awaitingPrepay: 0, awaitingRest: 0, disputes: 0, avgCheckUAH: 0 },
-      logistics: { new: 0, inTransit: 0, delivered: 0, problem: 0, byCarrier: {} },
-      materials: { filamentKg: 0, resinL: 0, reelsInUse: 0, lowThresholdKg: 1.0, low: [] },
+      payments: {
+        awaitingPrepay: 0,
+        awaitingRest: 0,
+        disputes: 0,
+        avgCheckUAH: 0,
+      },
+      logistics: {
+        new: 0,
+        inTransit: 0,
+        delivered: 0,
+        problem: 0,
+        byCarrier: {},
+      },
+      materials,
       queues: {
         prints: { ready: 0, running: 0, lagMs: 0 },
         imports: { backlog: 0, lagMs: 0 },
@@ -44,8 +60,19 @@ app.get("/api/ops/overview", async () => {
         redis: "down",
         indexer: "down",
       },
-      indexer: { backlog: 0, lastIndexedAt: "—", ratePerMin: 0, shards: 1 },
-      ingester: { batches: [], mediaBacklog: 0, mediaRatePerMin: 0, errors1h: 0, pricingVersion: "—" },
+      indexer: {
+        backlog: 0,
+        lastIndexedAt: "—",
+        ratePerMin: 0,
+        shards: 1,
+      },
+      ingester: {
+        batches: [],
+        mediaBacklog: 0,
+        mediaRatePerMin: 0,
+        errors1h: 0,
+        pricingVersion: "—",
+      },
       webhooks: { providers: {} },
       alerts: [],
     },
@@ -80,6 +107,7 @@ app.get("/api/events/stream", async (req, reply) => {
       ts: new Date().toISOString(),
       payload: {},
     };
+
     reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
   }, 5000);
 
@@ -87,5 +115,6 @@ app.get("/api/events/stream", async (req, reply) => {
 });
 
 app.register(printersRoutes, { prefix: "/api/printers" });
+app.register(inventoryRoutes, { prefix: "/api/inventory" });
 
 export default app;
