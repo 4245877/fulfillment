@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "filamentStock": [
+    {
+      "id": "filament_stock_d40257b4-dea5-4720-852c-f9ed27dda0ce",
+      "material": "PETG",
+      "color": "black",
+      "colorName": "Чорний",
+      "stockG": 2300,
+      "lowStockG": 1000,
+      "criticalStockG": 300,
+      "enabled": true,
+      "createdAt": "2026-05-06T10:54:21.779Z",
+      "updatedAt": "2026-05-06T10:54:21.781Z"
+    }
+  ],
+  "filamentMovements": [
+    {
+      "id": "filament_movement_e19a204a-3b03-4e25-ade9-56e2fc0039ad",
+      "createdAt": "2026-05-06T10:54:21.781Z",
+      "stockId": "filament_stock_d40257b4-dea5-4720-852c-f9ed27dda0ce",
+      "type": "add",
+      "quantityG": 2300,
+      "beforeG": 0,
+      "afterG": 2300,
+      "source": "dashboard",
+      "note": null,
+      "printerId": null,
+      "printJobId": null,
+      "idempotencyKey": null
+    }
+  ],
+  "printerFilamentState": []
+}

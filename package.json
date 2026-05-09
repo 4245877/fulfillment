@@ -1,5 +1,6 @@
 {
   "name": "4245877-fulfillment",
   "private": true,
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.15.9"
 }
