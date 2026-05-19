@@ -1,5 +1,6 @@
 // apps/dashboard/src/pages/settings/sections/BackupsSection.jsx
 import React from "react";
+import { api } from "../../../api/client.js";
 import { Card, FieldRow, Toggle, NumberInput, Select, TextInput } from "../ui.jsx";
 import styles from "../../Settings.module.css";
 
@@ -17,8 +18,9 @@ const backupStages = [
   { key: "preparing", label: "Подготовка", percent: 15 },
   { key: "database", label: "База данных", percent: 35 },
   { key: "files", label: "Файлы", percent: 55 },
-  { key: "uploading", label: "Загрузка", percent: 75 },
-  { key: "verifying", label: "Проверка", percent: 90 },
+  { key: "verifying", label: "Проверка", percent: 75 },
+  { key: "uploading", label: "Копирование на ПК", percent: 85 },
+  { key: "retention", label: "Очистка старых копий", percent: 95 },
   { key: "done", label: "Готово", percent: 100 },
 ];
 
@@ -156,6 +158,40 @@ function BackupProgressPanel({ progress }) {
 export default function BackupsSection({ cfg, patch, doAction }) {
   const [localProgress, setLocalProgress] = React.useState(null);
 
+  const loadBackupStatus = React.useCallback(async () => {
+    try {
+      const result = await api.get("/api/ops/backup/status", {
+        timeoutMs: 10000,
+      });
+
+      if (result?.progress) {
+        setLocalProgress(result.progress);
+      }
+    } catch {
+      setLocalProgress((prev) => ({
+        ...(prev || {
+          type: "backup",
+          status: "idle",
+          stage: null,
+          percent: 0,
+        }),
+        status: "error",
+        stage: "error",
+        percent: 100,
+        message: "Не удалось получить статус резервного копирования.",
+        updatedAt: new Date().toISOString(),
+      }));
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadBackupStatus();
+
+    const timer = window.setInterval(loadBackupStatus, 5000);
+
+    return () => window.clearInterval(timer);
+  }, [loadBackupStatus]);
+
   const runProgressAction = async ({ action, progress }) => {
     setLocalProgress({
       ...progress,
@@ -167,6 +203,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
 
       if (result?.progress) {
         setLocalProgress(result.progress);
+        window.setTimeout(loadBackupStatus, 1500);
         return;
       }
 
@@ -177,10 +214,14 @@ export default function BackupsSection({ cfg, patch, doAction }) {
         message: "Задача отправлена. Ожидается обновление статуса от сервера.",
         updatedAt: new Date().toISOString(),
       }));
+
+      window.setTimeout(loadBackupStatus, 1500);
     } catch (error) {
       setLocalProgress((prev) => ({
         ...prev,
         status: "error",
+        stage: "error",
+        percent: 100,
         message: "Не удалось запустить действие.",
         updatedAt: new Date().toISOString(),
       }));
@@ -406,7 +447,7 @@ export default function BackupsSection({ cfg, patch, doAction }) {
         label="Текущий процесс"
         hint="Показывает этап, процент выполнения и последнее состояние операции."
       >
-        <BackupProgressPanel progress={cfg.backups.progress || localProgress} />
+        <BackupProgressPanel progress={localProgress || cfg.backups.progress} />
       </FieldRow>
 
       <FieldRow

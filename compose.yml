@@ -10,12 +10,21 @@ services:
       CI: "true"
       PORT: 8080
       HOST: 0.0.0.0
+      BACKUP_SSH_USER: miha
+      BACKUP_SSH_HOST: 192.168.0.135
+      BACKUP_SSH_KEY: /run/secrets/lite_forest_ops
+      BACKUP_REMOTE_PROJECT_ROOT: /home/miha/app
+      BACKUP_REMOTE_SCRIPT: /home/miha/app/ops/backups/backup.sh
+      BACKUP_REMOTE_STATUS_FILE: /mnt/fast_data/backups/lite-forest/state/backup-status.json
+      BACKUP_REMOTE_ARCHIVES_DIR: /mnt/fast_data/backups/lite-forest/archives
     volumes:
       - .:/app
       - api_node_modules:/app/node_modules
       - api_api_node_modules:/app/apps/api/node_modules
+      - /home/miha/.ssh/lite_forest_ops:/run/secrets/lite_forest_ops:ro
     command: >
-      sh -c "corepack enable &&
+      sh -c "apk add --no-cache openssh-client &&
+             corepack enable &&
              pnpm install --no-frozen-lockfile &&
              pnpm --filter @drukarnya/fulfillment-api start"
     ports:

@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 
 import printersRoutes from "./modules/printers/routes";
 import inventoryRoutes from "./modules/inventory/routes";
+import backupsRoutes from "./modules/backups/routes";
 import { getInventoryMaterialsSummary } from "./modules/inventory/service";
 
 const app = Fastify({ logger: true });
@@ -116,5 +117,6 @@ app.get("/api/events/stream", async (req, reply) => {
 
 app.register(printersRoutes, { prefix: "/api/printers" });
 app.register(inventoryRoutes, { prefix: "/api/inventory" });
+app.register(backupsRoutes, { prefix: "/api/ops/backup" });
 
 export default app;

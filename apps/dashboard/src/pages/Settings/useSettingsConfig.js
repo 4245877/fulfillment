@@ -120,13 +120,15 @@ export function useSettingsConfig() {
 
   const doAction = async ({ title, description, url, body }) => {
     const ok = window.confirm(`${title}\n\n${description || ""}\n\nПідтвердити?`);
-    if (!ok) return;
+    if (!ok) return null;
 
     try {
-      await postJson(url, body);
+      const result = await postJson(url, body);
       showToast({ kind: "success", text: `${title}: OK` }, 2500);
+      return result;
     } catch (e) {
       showToast({ kind: "error", text: `${title}: ${String(e.message || e)}` }, 3500);
+      throw e;
     }
   };
 

@@ -45,22 +45,26 @@ export const DEFAULTS = {
     schedulePreset: "daily", // hourly | daily | weekly | custom
     cron: "0 3 * * *",
     mode: "full", // full | incremental
+
     include: {
       db: true,
       media: true,
       config: true,
       search: false,
     },
+
     window: {
       start: "02:00",
       end: "06:00",
       avoidPeak: true,
     },
+
     retention: {
       daily: 14,
       weekly: 8,
       monthly: 6,
     },
+
     storage: {
       provider: "minio", // s3 | minio | filesystem
       bucket: "backups",
@@ -75,6 +79,7 @@ export const DEFAULTS = {
       { name: "api-1", role: "api", host: "localhost", notes: "" },
       { name: "worker-1", role: "worker", host: "localhost", notes: "" },
     ],
+
     pools: {
       maxWorkersPrints: 6,
       maxWorkersImports: 4,
@@ -82,6 +87,7 @@ export const DEFAULTS = {
       maxWorkersWebhooks: 4,
       externalApiRateLimitRps: 5,
     },
+
     maintenance: {
       enabled: false,
       allowCatalogRead: true,
@@ -99,6 +105,7 @@ export const DEFAULTS = {
       timeoutWarnPct: 1,
       timeoutDangerPct: 3,
     },
+
     actions: {
       allowed: {
         restartService: true,
@@ -118,12 +125,14 @@ export const DEFAULTS = {
       runningWarn: 20,
       runningDanger: 80,
     },
+
     retries: {
       maxRetries: 6,
       backoffMs: 1500,
       backoffMaxMs: 30000,
       dlqEnabled: true,
     },
+
     policies: {
       webhookDedupEnabled: true,
       webhookDedupWindowMs: 60000,
@@ -137,11 +146,13 @@ export const DEFAULTS = {
     ingester: {
       batchSizeRows: 2000,
       concurrency: 4,
+
       normalize: {
         validateSku: true,
         dedupSku: true,
         fallbackOnMissingFields: true,
       },
+
       media: {
         maxFileMb: 25,
         allowedFormats: ["jpg", "png", "webp", "mp4"],
@@ -149,6 +160,7 @@ export const DEFAULTS = {
         retries: 4,
       },
     },
+
     indexer: {
       shards: 3,
       replicas: 1,
@@ -157,6 +169,7 @@ export const DEFAULTS = {
       indexedFields: ["sku", "title", "tags", "category", "attributes"],
       stopWordsProfile: "default",
     },
+
     retention: {
       importLogsDays: 30,
       importErrorsDays: 90,
@@ -197,15 +210,32 @@ export const DEFAULTS = {
         enabled: true,
       },
     ],
+
     routing: {
       rules: [
-        { when: "material=PLA", then: "printer=ender3-v3-ke,creality-k2,bambu-a1-combo" },
-        { when: "material=PETG", then: "printer=ender3-v3-ke,creality-k2,bambu-a1-combo" },
-        { when: "multicolor=true", then: "printer=bambu-a1-combo" },
-        { when: "material=ABS", then: "printer=creality-k2" },
-        { when: "material=ASA", then: "printer=creality-k2" },
+        {
+          when: "material=PLA",
+          then: "printer=ender3-v3-ke,creality-k2,bambu-a1-combo",
+        },
+        {
+          when: "material=PETG",
+          then: "printer=ender3-v3-ke,creality-k2,bambu-a1-combo",
+        },
+        {
+          when: "multicolor=true",
+          then: "printer=bambu-a1-combo",
+        },
+        {
+          when: "material=ABS",
+          then: "printer=creality-k2",
+        },
+        {
+          when: "material=ASA",
+          then: "printer=creality-k2",
+        },
       ],
     },
+
     sla: {
       autoPauseOnError: true,
       idleNotifyMinutes: 45,
@@ -215,10 +245,23 @@ export const DEFAULTS = {
 
   logisticsPayments: {
     providers: {
-      novaPoshta: { enabled: true, rateLimitRps: 2, profile: "default" },
-      ukrposhta: { enabled: false, rateLimitRps: 1, profile: "default" },
-      payments: { enabled: true, rateLimitRps: 2, profile: "default" },
+      novaPoshta: {
+        enabled: true,
+        rateLimitRps: 2,
+        profile: "default",
+      },
+      ukrposhta: {
+        enabled: false,
+        rateLimitRps: 1,
+        profile: "default",
+      },
+      payments: {
+        enabled: true,
+        rateLimitRps: 2,
+        profile: "default",
+      },
     },
+
     statusMapping: {
       shipment: {
         created: "new",
@@ -227,6 +270,7 @@ export const DEFAULTS = {
         problem: "problem",
       },
     },
+
     antifraud: {
       enabled: false,
       maxOrderValueUAH: 20000,
@@ -241,16 +285,30 @@ export const DEFAULTS = {
       idempotencyEnabled: true,
       signatureVerification: true,
     },
+
     recentErrors: [], // UI-only placeholder
   },
 
   alerts: {
     channels: {
-      telegram: { enabled: true, profile: "ops-main" },
-      slack: { enabled: false, profile: "default" },
-      email: { enabled: false, profile: "default" },
-      webhook: { enabled: false, profile: "default" },
+      telegram: {
+        enabled: true,
+        profile: "ops-main",
+      },
+      slack: {
+        enabled: false,
+        profile: "default",
+      },
+      email: {
+        enabled: false,
+        profile: "default",
+      },
+      webhook: {
+        enabled: false,
+        profile: "default",
+      },
     },
+
     rules: {
       queueLagMs: 60000,
       queueLagForMinutes: 5,
@@ -258,6 +316,7 @@ export const DEFAULTS = {
       indexerBacklog: 100000,
       backupFailed: true,
     },
+
     quietHours: {
       enabled: true,
       start: "23:00",
@@ -273,10 +332,18 @@ export const DEFAULTS = {
       allowReindex: ["admin"],
       allowSecretsRotate: ["admin"],
     },
+
     audit: {
       enabled: true,
       // UI-only placeholder
-      recent: [{ ts: "—", actor: "—", action: "—", target: "—" }],
+      recent: [
+        {
+          ts: "—",
+          actor: "—",
+          action: "—",
+          target: "—",
+        },
+      ],
     },
   },
 };
