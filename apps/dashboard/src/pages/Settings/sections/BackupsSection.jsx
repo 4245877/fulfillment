@@ -1,45 +1,32 @@
 // apps/dashboard/src/pages/settings/sections/BackupsSection.jsx
 import React from "react";
 import { api } from "../../../api/client.js";
-import { Card, FieldRow, Toggle, NumberInput, Select, TextInput } from "../ui.jsx";
+import { Card, FieldRow } from "../ui.jsx";
 import styles from "../../Settings.module.css";
 
-const includeLabels = {
-  database: "База данных",
-  uploads: "Загрузки",
-  media: "Медиафайлы",
-  config: "Конфигурация",
-  logs: "Логи",
-  cache: "Кэш",
-};
-
 const backupStages = [
-  { key: "queued", label: "В очереди", percent: 5 },
-  { key: "preparing", label: "Подготовка", percent: 15 },
-  { key: "database", label: "База данных", percent: 35 },
-  { key: "files", label: "Файлы", percent: 55 },
-  { key: "verifying", label: "Проверка", percent: 75 },
-  { key: "uploading", label: "Копирование на ПК", percent: 85 },
-  { key: "retention", label: "Очистка старых копий", percent: 95 },
-  { key: "done", label: "Готово", percent: 100 },
-];
-
-const restoreStages = [
-  { key: "queued", label: "В очереди", percent: 5 },
-  { key: "preparing", label: "Подготовка", percent: 15 },
-  { key: "downloading", label: "Загрузка копии", percent: 30 },
-  { key: "sandbox", label: "Песочница", percent: 50 },
-  { key: "restoring", label: "Восстановление", percent: 70 },
-  { key: "verifying", label: "Проверка", percent: 90 },
+  { key: "preflight", label: "Проверка условий", percent: 5 },
+  { key: "postgres", label: "PostgreSQL", percent: 15 },
+  { key: "uploads", label: "Uploads", percent: 25 },
+  { key: "minio", label: "MinIO", percent: 35 },
+  { key: "ingester", label: "Ingester data", percent: 45 },
+  { key: "stl_large", label: "STL/3MF large", percent: 55 },
+  { key: "stl_small", label: "STL/3MF small", percent: 65 },
+  { key: "config", label: "Конфигурация", percent: 72 },
+  { key: "manifest", label: "Manifest", percent: 78 },
+  { key: "checksum", label: "Проверка sha256", percent: 84 },
+  { key: "remote", label: "Копирование на ПК", percent: 92 },
+  { key: "retention", label: "Очистка старых копий", percent: 97 },
   { key: "done", label: "Готово", percent: 100 },
 ];
 
 const statusLabels = {
   idle: "Нет активного процесса",
-  queued: "Ожидает запуска",
   running: "Выполняется",
   success: "Завершено",
+  failed: "Ошибка",
   error: "Ошибка",
+  skipped: "Пропущено",
 };
 
 function clampPercent(value) {
@@ -52,47 +39,132 @@ function clampPercent(value) {
   return Math.round(num);
 }
 
-function formatProgressTime(value) {
-  if (!value) return null;
+function formatDateTime(value) {
+  if (!value) return "—";
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return null;
+  if (Number.isNaN(date.getTime())) return "—";
 
   return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
   }).format(date);
 }
 
-function BackupProgressPanel({ progress }) {
-  const safeProgress =
-    progress || {
-      type: "backup",
+function formatBytes(value) {
+  const num = Number(value);
+
+  if (!Number.isFinite(num) || num <= 0) return "—";
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = num;
+  let index = 0;
+
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024;
+    index += 1;
+  }
+
+  return `${size.toFixed(index === 0 ? 0 : 2)} ${units[index]}`;
+}
+
+function normalizeProgress(raw) {
+  if (!raw) {
+    return {
       status: "idle",
-      stage: null,
+      step: null,
       percent: 0,
       message: "Резервное копирование сейчас не выполняется.",
       updatedAt: null,
+      runId: null,
+      runDir: null,
+      logFile: null,
     };
+  }
 
-  const type = safeProgress.type === "restore" ? "restore" : "backup";
-  const stages = type === "restore" ? restoreStages : backupStages;
-  const currentStageKey = safeProgress.stage;
-  const currentIndex = stages.findIndex((stage) => stage.key === currentStageKey);
-  const currentStage = currentIndex >= 0 ? stages[currentIndex] : null;
-  const percent = clampPercent(safeProgress.percent ?? currentStage?.percent ?? 0);
-  const status = safeProgress.status || "idle";
-  const statusLabel = statusLabels[status] || status;
-  const updatedAt = formatProgressTime(safeProgress.updatedAt);
+  if (raw.progress) {
+    return normalizeProgress(raw.progress);
+  }
+
+  const step = raw.step || raw.stage || null;
+  const status = raw.status === "failed" ? "error" : raw.status || "idle";
+  const stage = backupStages.find((item) => item.key === step);
+
+  let percent = clampPercent(raw.percent ?? stage?.percent ?? 0);
+
+  if (status === "success") percent = 100;
+  if (status === "error") percent = 100;
+
+  return {
+    status,
+    step,
+    percent,
+    message: raw.message || "Ожидание статуса от сервера.",
+    updatedAt: raw.updated_at || raw.updatedAt || null,
+    runId: raw.run_id || raw.runId || null,
+    runDir: raw.run_dir || raw.runDir || null,
+    logFile: raw.log_file || raw.logFile || null,
+  };
+}
+
+function normalizeArchiveList(raw) {
+  const items = Array.isArray(raw)
+    ? raw
+    : raw?.archives || raw?.backups || raw?.items || [];
+
+  return items.map((item) => {
+    if (typeof item === "string") {
+      return {
+        id: item,
+        name: item,
+        createdAt: null,
+        sizeBytes: null,
+        path: null,
+      };
+    }
+
+    return {
+      id: item.run_id || item.id || item.name || item.path,
+      name: item.run_id || item.name || item.id || "backup",
+      createdAt: item.created_at || item.createdAt || item.mtime || null,
+      sizeBytes: item.size_bytes || item.sizeBytes || item.size || null,
+      path: item.path || item.run_dir || item.runDir || null,
+    };
+  });
+}
+
+async function runPostAction(doAction, action) {
+  if (typeof doAction === "function") {
+    return doAction(action);
+  }
+
+  if (typeof api.post === "function") {
+    return api.post(action.url, action.body || {}, {
+      timeoutMs: action.timeoutMs || 10000,
+    });
+  }
+
+  throw new Error("POST action handler is not available");
+}
+
+function BackupProgressPanel({ progress }) {
+  const currentIndex = backupStages.findIndex((stage) => stage.key === progress.step);
+  const currentStage = currentIndex >= 0 ? backupStages[currentIndex] : null;
+
+  const statusLabel = statusLabels[progress.status] || progress.status;
+  const updatedAt = formatDateTime(progress.updatedAt);
 
   return (
     <div className={styles.backupProgressCard}>
       <div className={styles.backupProgressHeader}>
         <div>
           <div className={styles.backupProgressEyebrow}>
-            {type === "restore" ? "Тестовое восстановление" : "Резервное копирование"}
+            Резервное копирование
           </div>
 
           <div className={styles.backupProgressTitle}>
@@ -100,19 +172,25 @@ function BackupProgressPanel({ progress }) {
           </div>
 
           <div className={styles.backupProgressMeta}>
-            {safeProgress.message || "Ожидание статуса от сервера."}
-            {updatedAt ? ` Обновлено: ${updatedAt}` : ""}
+            {progress.message}
+            {progress.updatedAt ? ` Обновлено: ${updatedAt}` : ""}
           </div>
+
+          {progress.runId ? (
+            <div className={styles.backupProgressMeta}>
+              Run ID: {progress.runId}
+            </div>
+          ) : null}
         </div>
 
         <div
           className={[
             styles.backupProgressBadge,
-            status === "error" ? styles.backupProgressBadgeError : "",
-            status === "success" ? styles.backupProgressBadgeSuccess : "",
+            progress.status === "error" ? styles.backupProgressBadgeError : "",
+            progress.status === "success" ? styles.backupProgressBadgeSuccess : "",
           ].join(" ")}
         >
-          {percent}%
+          {progress.percent}%
         </div>
       </div>
 
@@ -121,16 +199,16 @@ function BackupProgressPanel({ progress }) {
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={percent}
+        aria-valuenow={progress.percent}
       >
         <div
           className={styles.backupProgressFill}
-          style={{ width: `${percent}%` }}
+          style={{ width: `${progress.percent}%` }}
         />
       </div>
 
       <ol className={styles.backupProgressSteps}>
-        {stages.map((stage, index) => {
+        {backupStages.map((stage, index) => {
           const isDone = currentIndex >= 0 && index < currentIndex;
           const isActive = index === currentIndex;
 
@@ -155,8 +233,65 @@ function BackupProgressPanel({ progress }) {
   );
 }
 
-export default function BackupsSection({ cfg, patch, doAction }) {
-  const [localProgress, setLocalProgress] = React.useState(null);
+function BackupContents() {
+  return (
+    <div className={styles.inputGroup}>
+      <div>PostgreSQL database</div>
+      <div>/srv/drukarnya/uploads</div>
+      <div>Docker volume app_minio-data</div>
+      <div>/home/miha/app/services/ingester/data</div>
+      <div>/mnt/stl_large</div>
+      <div>/mnt/stl_small</div>
+      <div>docker-compose, nginx, migrations</div>
+      <div>manifest.json и sha256sums.txt</div>
+    </div>
+  );
+}
+
+function ArchiveList({ archives }) {
+  if (!archives.length) {
+    return <div className="text-muted">Список бэкапов пока не загружен.</div>;
+  }
+
+  return (
+    <div className={styles.inputGroup}>
+      {archives.map((archive) => (
+        <div
+          key={archive.id}
+          style={{
+            display: "grid",
+            gap: 4,
+            padding: "10px 12px",
+            border: "1px solid var(--border, #e5e7eb)",
+            borderRadius: 12,
+          }}
+        >
+          <strong>{archive.name}</strong>
+
+          <span className="text-muted">
+            Дата: {formatDateTime(archive.createdAt)}
+          </span>
+
+          <span className="text-muted">
+            Размер: {formatBytes(archive.sizeBytes)}
+          </span>
+
+          {archive.path ? (
+            <span className="text-muted">
+              Путь: {archive.path}
+            </span>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function BackupsSection({ doAction }) {
+  const [progress, setProgress] = React.useState(() => normalizeProgress(null));
+  const [archives, setArchives] = React.useState([]);
+  const [isBusy, setIsBusy] = React.useState(false);
+  const [listError, setListError] = React.useState(null);
 
   const loadBackupStatus = React.useCallback(async () => {
     try {
@@ -164,19 +299,12 @@ export default function BackupsSection({ cfg, patch, doAction }) {
         timeoutMs: 10000,
       });
 
-      if (result?.progress) {
-        setLocalProgress(result.progress);
-      }
+      setProgress(normalizeProgress(result));
     } catch {
-      setLocalProgress((prev) => ({
-        ...(prev || {
-          type: "backup",
-          status: "idle",
-          stage: null,
-          percent: 0,
-        }),
+      setProgress((prev) => ({
+        ...prev,
         status: "error",
-        stage: "error",
+        step: "error",
         percent: 100,
         message: "Не удалось получить статус резервного копирования.",
         updatedAt: new Date().toISOString(),
@@ -184,330 +312,173 @@ export default function BackupsSection({ cfg, patch, doAction }) {
     }
   }, []);
 
+  const loadBackupList = React.useCallback(async () => {
+    try {
+      const result = await api.get("/api/ops/backup/list", {
+        timeoutMs: 10000,
+      });
+
+      setArchives(normalizeArchiveList(result));
+      setListError(null);
+    } catch {
+      setListError("Не удалось загрузить список бэкапов.");
+    }
+  }, []);
+
   React.useEffect(() => {
     loadBackupStatus();
+    loadBackupList();
 
-    const timer = window.setInterval(loadBackupStatus, 5000);
+    const timer = window.setInterval(() => {
+      loadBackupStatus();
+      loadBackupList();
+    }, 5000);
 
     return () => window.clearInterval(timer);
-  }, [loadBackupStatus]);
+  }, [loadBackupStatus, loadBackupList]);
 
-  const runProgressAction = async ({ action, progress }) => {
-    setLocalProgress({
-      ...progress,
+  const runBackup = async () => {
+    setIsBusy(true);
+
+    setProgress({
+      status: "running",
+      step: "preflight",
+      percent: 5,
+      message: "Запуск резервного копирования.",
       updatedAt: new Date().toISOString(),
+      runId: null,
+      runDir: null,
+      logFile: null,
     });
 
     try {
-      const result = await Promise.resolve(doAction(action));
+      const result = await runPostAction(doAction, {
+        title: "Запустить резервное копирование",
+        description: "Запустить /home/miha/app/ops/backups/backup.sh на основном сервере.",
+        url: "/api/ops/backup/run",
+        body: {},
+        timeoutMs: 10000,
+      });
 
-      if (result?.progress) {
-        setLocalProgress(result.progress);
-        window.setTimeout(loadBackupStatus, 1500);
-        return;
-      }
-
-      setLocalProgress((prev) => ({
-        ...prev,
-        status: "running",
-        percent: Math.max(Number(prev?.percent) || 0, 5),
-        message: "Задача отправлена. Ожидается обновление статуса от сервера.",
-        updatedAt: new Date().toISOString(),
-      }));
-
+      setProgress(normalizeProgress(result?.progress || result));
       window.setTimeout(loadBackupStatus, 1500);
-    } catch (error) {
-      setLocalProgress((prev) => ({
+      window.setTimeout(loadBackupList, 2500);
+    } catch {
+      setProgress((prev) => ({
         ...prev,
         status: "error",
-        stage: "error",
+        step: "error",
         percent: 100,
-        message: "Не удалось запустить действие.",
+        message: "Не удалось запустить резервное копирование.",
         updatedAt: new Date().toISOString(),
       }));
+    } finally {
+      setIsBusy(false);
     }
   };
 
-  const cronFromPreset = (preset) => {
-    if (preset === "hourly") return "0 * * * *";
-    if (preset === "daily") return "0 3 * * *";
-    if (preset === "weekly") return "0 4 * * 0";
+  const checkLatestBackup = async () => {
+    setIsBusy(true);
 
-    return cfg.backups.cron;
+    setProgress((prev) => ({
+      ...prev,
+      status: "running",
+      step: "checksum",
+      percent: Math.max(prev.percent || 0, 84),
+      message: "Запущена проверка последнего бэкапа.",
+      updatedAt: new Date().toISOString(),
+    }));
+
+    try {
+      const result = await runPostAction(doAction, {
+        title: "Проверить последний бэкап",
+        description: "Запустить check-backup.sh для archives/latest.",
+        url: "/api/ops/backup/test-restore",
+        body: {},
+        timeoutMs: 10000,
+      });
+
+      setProgress(normalizeProgress(result?.progress || result));
+      window.setTimeout(loadBackupStatus, 1500);
+    } catch {
+      setProgress((prev) => ({
+        ...prev,
+        status: "error",
+        step: "error",
+        percent: 100,
+        message: "Не удалось запустить проверку последнего бэкапа.",
+        updatedAt: new Date().toISOString(),
+      }));
+    } finally {
+      setIsBusy(false);
+    }
   };
 
   return (
     <Card
-      title="2) Резервные копии и хранилище"
-      sub="Расписание, состав резервной копии, хранение, хранилище, ручные действия"
+      title="2) Резервные копии"
+      sub="Ручной запуск, проверка, статус и список архивов Lite Forest"
     >
-      <FieldRow label="Расписание" hint="Готовый вариант или собственный cron.">
-        <div className={`${styles.inputGroup} ${styles.max520}`}>
-          <Select
-            value={cfg.backups.schedulePreset}
-            onChange={(v) => {
-              patch("backups.schedulePreset", v);
-              if (v !== "custom") patch("backups.cron", cronFromPreset(v));
-            }}
-            options={[
-              { value: "hourly", label: "Каждый час" },
-              { value: "daily", label: "Ежедневно" },
-              { value: "weekly", label: "Еженедельно" },
-              { value: "custom", label: "Пользовательский (cron)" },
-            ]}
-          />
-
-          <TextInput
-            value={cfg.backups.cron}
-            onChange={(v) => patch("backups.cron", v)}
-            placeholder="0 3 * * *"
-          />
-        </div>
+      <FieldRow
+        label="Что входит в бэкап"
+        hint="Текущий состав соответствует backup.sh на основном сервере."
+      >
+        <BackupContents />
       </FieldRow>
 
       <FieldRow
-        label="Тип и состав резервной копии"
-        hint="Полная/инкрементальная + что именно включать в резервную копию."
+        label="Текущий статус"
+        hint="Читается из /mnt/fast_data/backups/lite-forest/state/backup-status.json через API."
       >
-        <div className={styles.inputGroup}>
-          <Select
-            value={cfg.backups.mode}
-            onChange={(v) => patch("backups.mode", v)}
-            options={[
-              { value: "full", label: "Полная" },
-              { value: "incremental", label: "Инкрементальная" },
-            ]}
-          />
-
-          <div className={styles.inputGroup}>
-            {Object.entries(cfg.backups.include).map(([k, v]) => (
-              <Toggle
-                key={k}
-                value={v}
-                onChange={(nv) => patch(`backups.include.${k}`, nv)}
-                label={includeLabels[k] || k}
-              />
-            ))}
-          </div>
-        </div>
-      </FieldRow>
-
-      <FieldRow label="Окно выполнения" hint="Чтобы не мешать работе в часы пик.">
-        <div className={`${styles.inputGroup} ${styles.max520}`}>
-          <Toggle
-            value={cfg.backups.window.avoidPeak}
-            onChange={(v) => patch("backups.window.avoidPeak", v)}
-            label="Избегать часов пик"
-          />
-
-          <div className={styles.inputGrid2}>
-            <div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
-                начало
-              </div>
-
-              <TextInput
-                value={cfg.backups.window.start}
-                onChange={(v) => patch("backups.window.start", v)}
-                placeholder="02:00"
-              />
-            </div>
-
-            <div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
-                конец
-              </div>
-
-              <TextInput
-                value={cfg.backups.window.end}
-                onChange={(v) => patch("backups.window.end", v)}
-                placeholder="06:00"
-              />
-            </div>
-          </div>
-        </div>
-      </FieldRow>
-
-      <FieldRow
-        label="Хранение"
-        hint="Сколько хранить ежедневных, еженедельных и ежемесячных копий."
-      >
-        <div className={`${styles.inputGrid3} ${styles.max520}`}>
-          <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              ежедневно
-            </div>
-
-            <NumberInput
-              value={cfg.backups.retention.daily}
-              min={0}
-              max={3650}
-              onChange={(v) => patch("backups.retention.daily", v)}
-            />
-          </div>
-
-          <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              еженедельно
-            </div>
-
-            <NumberInput
-              value={cfg.backups.retention.weekly}
-              min={0}
-              max={520}
-              onChange={(v) => patch("backups.retention.weekly", v)}
-            />
-          </div>
-
-          <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              ежемесячно
-            </div>
-
-            <NumberInput
-              value={cfg.backups.retention.monthly}
-              min={0}
-              max={240}
-              onChange={(v) => patch("backups.retention.monthly", v)}
-            />
-          </div>
-        </div>
-      </FieldRow>
-
-      <FieldRow
-        label="Хранилище резервных копий"
-        hint="S3/MinIO/файловая система. Ключи обычно хранятся на сервере — здесь только профиль."
-      >
-        <div className={`${styles.inputGroup} ${styles.max620}`}>
-          <Select
-            value={cfg.backups.storage.provider}
-            onChange={(v) => patch("backups.storage.provider", v)}
-            options={[
-              { value: "minio", label: "MinIO" },
-              { value: "s3", label: "S3" },
-              { value: "filesystem", label: "Файловая система" },
-            ]}
-          />
-
-          <div className={styles.inputGrid2}>
-            <div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
-                Бакет (bucket)
-              </div>
-
-              <TextInput
-                value={cfg.backups.storage.bucket}
-                onChange={(v) => patch("backups.storage.bucket", v)}
-                placeholder="backups"
-              />
-            </div>
-
-            <div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
-                Путь (path)
-              </div>
-
-              <TextInput
-                value={cfg.backups.storage.path}
-                onChange={(v) => patch("backups.storage.path", v)}
-                placeholder="fulfillment/"
-              />
-            </div>
-          </div>
-
-          <div className={styles.inputGrid2}>
-            <div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
-                Профиль шифрования
-              </div>
-
-              <TextInput
-                value={cfg.backups.storage.encryptionProfile}
-                onChange={(v) => patch("backups.storage.encryptionProfile", v)}
-                placeholder="server-managed"
-              />
-            </div>
-
-            <div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
-                Профиль ключа
-              </div>
-
-              <TextInput
-                value={cfg.backups.storage.keyProfile}
-                onChange={(v) => patch("backups.storage.keyProfile", v)}
-                placeholder="default"
-              />
-            </div>
-          </div>
-        </div>
-      </FieldRow>
-
-      <FieldRow
-        label="Текущий процесс"
-        hint="Показывает этап, процент выполнения и последнее состояние операции."
-      >
-        <BackupProgressPanel progress={localProgress || cfg.backups.progress} />
+        <BackupProgressPanel progress={progress} />
       </FieldRow>
 
       <FieldRow
         label="Ручные действия"
-        hint="Пока что кнопки вызывают API-эндпоинты, если они реализованы."
+        hint="Кнопки запускают реальные серверные скрипты через backend API."
       >
         <div className={styles.buttonGroup}>
           <button
             className="btn btn-primary btn-sm"
             type="button"
-            onClick={() =>
-              runProgressAction({
-                progress: {
-                  type: "backup",
-                  status: "queued",
-                  stage: "queued",
-                  percent: 5,
-                  message: "Запрос на резервное копирование отправляется.",
-                },
-                action: {
-                  title: "Запустить резервное копирование сейчас",
-                  description: "Немедленно запустить резервное копирование.",
-                  url: "/api/ops/backup/run",
-                  body: {
-                    scope: cfg.backups.include,
-                    mode: cfg.backups.mode,
-                  },
-                },
-              })
-            }
+            disabled={isBusy}
+            onClick={runBackup}
           >
-            Запустить резервное копирование
+            Запустить бэкап
           </button>
 
           <button
             className="btn btn-secondary btn-sm"
             type="button"
-            onClick={() =>
-              runProgressAction({
-                progress: {
-                  type: "restore",
-                  status: "queued",
-                  stage: "queued",
-                  percent: 5,
-                  message: "Запрос на тестовое восстановление отправляется.",
-                },
-                action: {
-                  title: "Тестовое восстановление",
-                  description: "Тестовое восстановление в песочнице (если доступно).",
-                  url: "/api/ops/backup/test-restore",
-                  body: {
-                    profile: cfg.backups.storage.keyProfile,
-                  },
-                },
-              })
-            }
+            disabled={isBusy}
+            onClick={checkLatestBackup}
           >
-            Тестовое восстановление
+            Проверить latest
+          </button>
+
+          <button
+            className="btn btn-secondary btn-sm"
+            type="button"
+            disabled={isBusy}
+            onClick={() => {
+              loadBackupStatus();
+              loadBackupList();
+            }}
+          >
+            Обновить
           </button>
         </div>
+      </FieldRow>
+
+      <FieldRow
+        label="Архивы"
+        hint="Локальные бэкапы из /mnt/fast_data/backups/lite-forest/archives."
+      >
+        {listError ? (
+          <div className="text-muted">{listError}</div>
+        ) : (
+          <ArchiveList archives={archives} />
+        )}
       </FieldRow>
     </Card>
   );
