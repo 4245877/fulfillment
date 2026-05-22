@@ -10,7 +10,18 @@ const DEFAULT_OPS = { stats: {} };
 const DEFAULT_PRINTS = { printers: [], jobs: [], stats: {} };
 const DEFAULT_PRINTER_MONITOR = { printers: [], error: "" };
 
+const DEFAULT_BACKUP_STATUS = {
+  status: "unknown",
+  step: null,
+  message: "Статус резервного копіювання ще не завантажено",
+  run_id: null,
+  run_dir: null,
+  log_file: null,
+  updated_at: null,
+};
+
 const PRINTER_POLL_INTERVAL_MS = 5000;
+const BACKUP_POLL_INTERVAL_MS = 10000;
 const LAG_WARNING_MS = 5000;
 const LAG_DANGER_MS = 60000;
 const PROGRESS_SUCCESS_FROM = 80;
@@ -49,7 +60,6 @@ const SERVICE_ROWS = [
   ["Мережа принтерів", "printers"],
   ["PostgreSQL", "db"],
   ["Redis", "redis"],
-  ["Індексатор пошуку", "indexer"],
 ];
 
 function asNumber(value, fallback = 0) {
@@ -263,6 +273,60 @@ function getServiceLabel(status) {
   if (v === "degraded" || v === "warning") return "Частково";
   if (v === "down") return "Недоступний";
   return status ? String(status) : "Недоступний";
+}
+
+function getBackupTone(status) {
+  const v = String(status || "").toLowerCase();
+
+  if (v === "success") return "success";
+  if (v === "running") return "warning";
+  if (v === "failed" || v === "error") return "danger";
+  if (v === "skipped") return "warning";
+
+  return "primary";
+}
+
+function getBackupStatusLabel(status) {
+  const v = String(status || "").toLowerCase();
+
+  if (v === "success") return "Готово";
+  if (v === "running") return "Виконується";
+  if (v === "failed" || v === "error") return "Помилка";
+  if (v === "skipped") return "Пропущено";
+
+  return "Невідомо";
+}
+
+function getBackupStepLabel(step) {
+  const labels = {
+    preflight: "Перевірка умов",
+    postgres: "PostgreSQL",
+    uploads: "Uploads",
+    minio: "MinIO",
+    ingester: "Ingester data",
+    stl_large: "STL/3MF large",
+    stl_small: "STL/3MF small",
+    config: "Конфігурація",
+    manifest: "Manifest",
+    checksum: "SHA256",
+    remote: "Копіювання на ПК",
+    retention: "Очищення старих копій",
+    done: "Готово",
+    error: "Помилка",
+    lock: "Вже виконується",
+  };
+
+  return labels[step] || (step ? String(step) : "—");
+}
+
+function getBackupAgeHours(updatedAt) {
+  if (!updatedAt) return null;
+
+  const date = new Date(updatedAt);
+
+  if (Number.isNaN(date.getTime())) return null;
+
+  return Math.max(0, (Date.now() - date.getTime()) / 36e5);
 }
 
 function getProgressClass(value) {
@@ -793,8 +857,12 @@ function SectionPayments({ payments = {}, loading = false }) {
 
 function SectionServices({ services = {}, loading = false }) {
   const downCount = SERVICE_ROWS.reduce((count, [, key]) => {
-    const status = String(services[key] || "").toLowerCase();
-    return status && status !== "up" && status !== "ok" && status !== "healthy" ? count + 1 : count;
+    const value = services[key];
+    const status = String(value || "down").toLowerCase();
+
+    return status !== "up" && status !== "ok" && status !== "healthy"
+      ? count + 1
+      : count;
   }, 0);
 
   return (
@@ -826,6 +894,88 @@ function SectionServices({ services = {}, loading = false }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </Panel>
+  );
+}
+
+function SectionBackups({ backup = DEFAULT_BACKUP_STATUS, loading = false }) {
+  const ageHours = getBackupAgeHours(backup.updated_at);
+  const isOld = ageHours != null && ageHours > 30;
+  const statusTone = isOld && backup.status === "success" ? "warning" : getBackupTone(backup.status);
+
+  return (
+    <Panel
+      loading={loading}
+      title="Резервні копії"
+      subtitle="Останній стан backup.sh на основному сервері"
+      footer={
+        <span className="panel-footer-meta">
+          Оновлено: {formatDateTime(backup.updated_at)}
+        </span>
+      }
+    >
+      <div className="wallboard-grid-2">
+        <KpiCard
+          label="Статус"
+          value={getBackupStatusLabel(backup.status)}
+          context={backup.message || "—"}
+          icon="◷"
+          variant={statusTone === "danger" ? "danger" : statusTone === "warning" ? "warning" : "success"}
+        />
+
+        <KpiCard
+          label="Етап"
+          value={getBackupStepLabel(backup.step)}
+          context={backup.run_id ? `Run ID: ${backup.run_id}` : "Run ID ще немає"}
+          icon="≡"
+          variant="primary"
+        />
+
+        <KpiCard
+          label="Вік статусу"
+          value={ageHours == null ? "—" : `${formatFixed(ageHours, ageHours < 10 ? 1 : 0)} год`}
+          context={isOld ? "Статус давно не оновлювався" : "Статус актуальний"}
+          icon="◌"
+          variant={isOld ? "warning" : "info"}
+        />
+
+        <KpiCard
+          label="Перевірка"
+          value={backup.status === "success" ? "OK" : backup.status === "running" ? "У процесі" : "—"}
+          context="sha256, PostgreSQL dump і tar-архіви"
+          icon={backup.status === "success" ? "✓" : "!"}
+          variant={backup.status === "success" ? "success" : "info"}
+        />
+      </div>
+
+      <div className="wallboard-stack-lg">
+        <div className="wboard-table-wrap">
+          <table className="wboard-table">
+            <tbody>
+              <tr>
+                <td className="col-name">Каталог</td>
+                <td className="col-sub">{backup.run_dir || "—"}</td>
+              </tr>
+
+              <tr>
+                <td className="col-name">Лог</td>
+                <td className="col-sub">{backup.log_file || "—"}</td>
+              </tr>
+
+              <tr>
+                <td className="col-name">Склад</td>
+                <td className="col-sub">
+                  PostgreSQL, uploads, MinIO, ingester data, STL/3MF, config
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <StatusTag tone={statusTone}>
+          {isOld ? "Потребує уваги" : getBackupStatusLabel(backup.status)}
+        </StatusTag>
       </div>
     </Panel>
   );
@@ -1055,6 +1205,8 @@ export default function Board() {
   const [ops, setOps] = useState(DEFAULT_OPS);
   const [prints, setPrints] = useState(DEFAULT_PRINTS);
   const [printerMonitor, setPrinterMonitor] = useState(DEFAULT_PRINTER_MONITOR);
+  const [backupStatus, setBackupStatus] = useState(DEFAULT_BACKUP_STATUS);
+  const [backupError, setBackupError] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [updatedAt, setUpdatedAt] = useState(new Date());
@@ -1139,6 +1291,59 @@ export default function Board() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
+
+    const loadBackupStatus = async () => {
+      if (inFlight) return;
+
+      inFlight = true;
+
+      try {
+        const response = await fetch("/api/ops/backup/status", {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (cancelled) return;
+
+        setBackupStatus({
+          ...DEFAULT_BACKUP_STATUS,
+          ...data,
+        });
+        setBackupError("");
+        setUpdatedAt(new Date());
+      } catch (error) {
+        if (cancelled) return;
+
+        setBackupError(
+          error instanceof Error
+            ? error.message
+            : "Не вдалося отримати статус резервного копіювання"
+        );
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    loadBackupStatus();
+
+    const timer = window.setInterval(loadBackupStatus, BACKUP_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const handleSSEEvent = useCallback((event = {}) => {
     const data = event.payload || event.data || {};
 
@@ -1195,6 +1400,14 @@ export default function Board() {
       return;
     }
 
+    if (event.domain === "backup" || event.type === "backup.status") {
+      setBackupStatus((current) => ({
+        ...current,
+        ...data,
+      }));
+      return;
+    }
+
     if (event.domain === "ops") {
       setOps((current) => mergeOps(current, data));
     }
@@ -1207,7 +1420,7 @@ export default function Board() {
     [handleSSEEvent]
   );
 
-  useSSE("/api/events/stream?topics=orders,prints,shipments,ops", sseOptions);
+  useSSE("/api/events/stream?topics=orders,prints,shipments,ops,backup", sseOptions);
 
   const stats = ops.stats || {};
   const alerts = Array.isArray(stats.alerts) ? stats.alerts : [];
@@ -1234,6 +1447,17 @@ export default function Board() {
         </div>
       ) : null}
 
+      {backupError ? (
+        <div className="alert-strip alert-strip--warning">
+          <div className="alert-strip-icon" aria-hidden="true">
+            !
+          </div>
+          <div className="alert-strip-text">
+            Не вдалося отримати статус резервного копіювання: {backupError}
+          </div>
+        </div>
+      ) : null}
+
       <TopSummary prints={prints} stats={stats} alertsCount={alerts.length} />
 
       <div className="wallboard-sections">
@@ -1254,21 +1478,24 @@ export default function Board() {
         </div>
 
         <div className="wallboard-row">
+          <SectionBackups backup={backupStatus} loading={loading} />
           <SectionQueues queues={stats.queues} loading={loading} />
+        </div>
+
+        <div className="wallboard-row">
           <SectionPayments payments={stats.payments} loading={loading} />
-        </div>
-
-        <div className="wallboard-row">
           <SectionLogistics logistics={stats.logistics} loading={loading} />
-          <SectionMaterials materials={stats.materials} loading={loading} />
         </div>
 
         <div className="wallboard-row">
+          <SectionMaterials materials={stats.materials} loading={loading} />
           <SectionWebhooks wh={stats.webhooks} loading={loading} />
-          <SectionIndexer idx={stats.indexer} loading={loading} />
         </div>
 
-        <SectionIngester ing={stats.ingester} loading={loading} />
+        <div className="wallboard-row">
+          <SectionIndexer idx={stats.indexer} loading={loading} />
+          <SectionIngester ing={stats.ingester} loading={loading} />
+        </div>
       </div>
     </div>
   );
