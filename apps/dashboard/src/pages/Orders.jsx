@@ -4,12 +4,15 @@ import s from "./Orders.module.css";
 function asArray(v) {
   return Array.isArray(v) ? v : [];
 }
+
 function norm(v) {
   return String(v ?? "").toLowerCase().trim();
 }
+
 function pickId(o) {
   return o?.id ?? o?.order_id ?? o?.uuid ?? o?._id ?? "";
 }
+
 function pickStatus(o) {
   return o?.status ?? o?.state ?? o?.stage ?? "";
 }
@@ -37,10 +40,15 @@ export default function Orders() {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
-      if (!res.ok) throw new Error(`GET /api/orders -> ${res.status} ${res.statusText}`);
+      if (!res.ok) {
+        throw new Error(
+          `GET /api/orders -> ${res.status} ${res.statusText}`
+        );
+      }
 
       const data = await res.json();
       const list = asArray(data?.orders ?? data?.items ?? data ?? []);
+
       setOrders(list);
     } catch (e) {
       setOrders([]);
@@ -61,11 +69,24 @@ export default function Orders() {
     return list.filter((o) => {
       if (status !== "all") {
         const st = norm(pickStatus(o));
-        if (st !== norm(status)) return false;
-      }
-      if (!qq) return true;
 
-      const hay = [pickId(o), pickStatus(o), o?.customer, o?.customer_name, o?.email, o?.phone]
+        if (st !== norm(status)) {
+          return false;
+        }
+      }
+
+      if (!qq) {
+        return true;
+      }
+
+      const hay = [
+        pickId(o),
+        pickStatus(o),
+        o?.customer,
+        o?.customer_name,
+        o?.email,
+        o?.phone,
+      ]
         .map(norm)
         .join(" ");
 
@@ -75,10 +96,15 @@ export default function Orders() {
 
   const statuses = useMemo(() => {
     const set = new Set();
+
     for (const o of asArray(orders)) {
       const st = String(pickStatus(o) ?? "").trim();
-      if (st) set.add(st);
+
+      if (st) {
+        set.add(st);
+      }
     }
+
     return ["all", ...Array.from(set)];
   }, [orders]);
 
@@ -87,19 +113,28 @@ export default function Orders() {
       <div className={s.topRow}>
         <h2 className={s.title}>Замовлення</h2>
 
-        <button onClick={load} disabled={loading}>
+        <button
+          type="button"
+          className={`btn btn-secondary ${s.reloadButton}`}
+          onClick={load}
+          disabled={loading}
+        >
           {loading ? "Завантаження…" : "Оновити"}
         </button>
 
         <div className={s.controls}>
           <input
-            className={s.search}
+            className={`input ${s.search}`}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Пошук (id, статус, клієнт...)"
+            placeholder="Пошук за ID, статусом або клієнтом…"
           />
 
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select
+            className={`select ${s.statusSelect}`}
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
             {statuses.map((x) => (
               <option key={x} value={x}>
                 {x === "all" ? "усі статуси" : x}
@@ -110,11 +145,14 @@ export default function Orders() {
       </div>
 
       {error && (
-        <div className="errorBox" style={{ marginTop: 12 }}>
-          <div className="errorTitle">Помилка завантаження</div>
-          <div className="errorText">{String(error?.message || error)}</div>
-          <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-            Підказка: якщо API ще не запущений — це нормально. UI не має падати.
+        <div className={`alert alert-danger ${s.errorBox}`}>
+          <div>
+            <div className="alert-title">Помилка завантаження</div>
+            <p>{String(error?.message || error)}</p>
+            <small>
+              Підказка: якщо API ще не запущений — це нормально. UI не має
+              падати.
+            </small>
           </div>
         </div>
       )}
@@ -125,31 +163,41 @@ export default function Orders() {
 
       <div className={s.list}>
         {filtered.map((o, idx) => (
-          <div key={pickId(o) || idx} className="card">
+          <div key={pickId(o) || idx} className={`card ${s.orderCard}`}>
             <div className={s.cardHeader}>
               <div>
                 <div className={s.primaryLine}>
-                  #{pickId(o) || "(no id)"}{" "}
-                  <span className="muted">{o?.created_at ? `• ${o.created_at}` : ""}</span>
+                  #{pickId(o) || "без ID"}{" "}
+                  <span className="text-muted">
+                    {o?.created_at ? `• ${o.created_at}` : ""}
+                  </span>
                 </div>
+
                 <div className={s.subLine}>
-                  Статус: <span style={{ color: "var(--text)" }}>{pickStatus(o) || "(unknown)"}</span>
+                  Статус:{" "}
+                  <span className={s.statusValue}>
+                    {pickStatus(o) || "невідомо"}
+                  </span>
                 </div>
               </div>
 
-              <div className="muted">{o?.customer_name || o?.customer || o?.email || o?.phone || ""}</div>
+              <div className={`text-muted ${s.customerInfo}`}>
+                {o?.customer_name || o?.customer || o?.email || o?.phone || ""}
+              </div>
             </div>
 
             <details className={s.details}>
-              <summary className="muted" style={{ cursor: "pointer" }}>
-                Деталі (JSON)
+              <summary className={`text-muted ${s.detailsSummary}`}>
+                Деталі JSON
               </summary>
               <pre className={s.pre}>{JSON.stringify(o, null, 2)}</pre>
             </details>
           </div>
         ))}
 
-        {!loading && !error && filtered.length === 0 && <div className={s.empty}>Немає даних для відображення.</div>}
+        {!loading && !error && filtered.length === 0 && (
+          <div className={s.empty}>Немає даних для відображення.</div>
+        )}
       </div>
     </div>
   );

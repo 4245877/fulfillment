@@ -61,7 +61,9 @@ async function request(
     if (expect === "json") {
       if (!ct.includes("json")) {
         const snippet = text ? `\n\n${text.slice(0, 300)}` : "";
-        throw new Error(`Expected JSON but got "${ct || "unknown"}" @ ${url}${snippet}`);
+        throw new Error(
+          `Expected JSON but got "${ct || "unknown"}" @ ${url}${snippet}`
+        );
       }
       if (!text) return null;
       return JSON.parse(text);
@@ -73,11 +75,57 @@ async function request(
   }
 }
 
-export const api = {
-  get: (path, opts) => request(path, { ...(opts || {}), method: "GET", expect: "json" }),
-  post: (path, body, opts) => request(path, { ...(opts || {}), method: "POST", body, expect: "json" }),
-  put: (path, body, opts) => request(path, { ...(opts || {}), method: "PUT", body, expect: "json" }),
-  del: (path, opts) => request(path, { ...(opts || {}), method: "DELETE", expect: "json" }),
+function buildQuery(params = {}) {
+  const qs = new URLSearchParams();
 
-  getText: (path, opts) => request(path, { ...(opts || {}), method: "GET", expect: "text" }),
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    qs.set(key, String(value));
+  });
+
+  const text = qs.toString();
+  return text ? `?${text}` : "";
+}
+
+export const api = {
+  get: (path, opts) =>
+    request(path, { ...(opts || {}), method: "GET", expect: "json" }),
+
+  post: (path, body, opts) =>
+    request(path, { ...(opts || {}), method: "POST", body, expect: "json" }),
+
+  put: (path, body, opts) =>
+    request(path, { ...(opts || {}), method: "PUT", body, expect: "json" }),
+
+  patch: (path, body, opts) =>
+    request(path, { ...(opts || {}), method: "PATCH", body, expect: "json" }),
+
+  del: (path, opts) =>
+    request(path, { ...(opts || {}), method: "DELETE", expect: "json" }),
+
+  getText: (path, opts) =>
+    request(path, { ...(opts || {}), method: "GET", expect: "text" }),
+
+  reportProduct: (productId, payload, opts) =>
+    request(`/api/products/${encodeURIComponent(productId)}/reports`, {
+      ...(opts || {}),
+      method: "POST",
+      body: payload,
+      expect: "json",
+    }),
+
+  listProductReports: (params, opts) =>
+    request(`/api/product-reports${buildQuery(params)}`, {
+      ...(opts || {}),
+      method: "GET",
+      expect: "json",
+    }),
+
+  updateProductReport: (reportId, payload, opts) =>
+    request(`/api/product-reports/${encodeURIComponent(reportId)}`, {
+      ...(opts || {}),
+      method: "PATCH",
+      body: payload,
+      expect: "json",
+    }),
 };

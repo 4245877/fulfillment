@@ -1,0 +1,758 @@
+/* ============================================================
+   ProductReports.css
+   Admin product reports page.
+   Clean card layout with status accents and compact controls.
+   ============================================================ */
+
+/* ── Page Layout ─────────────────────────────────────────────── */
+.product-reports-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  padding: var(--space-xl);
+  max-width: 960px;
+  margin-inline: auto;
+  animation: pageReveal 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes pageReveal {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Page Header ─────────────────────────────────────────────── */
+.product-reports-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.product-reports-page__header > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-reports-page__header h1 {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: clamp(1.6rem, 2vw + 1rem, 2.5rem);
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: var(--space-xs);
+  position: relative;
+  display: inline-block;
+}
+
+/* Header accent underline */
+.product-reports-page__header h1::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 40%;
+  height: 2px;
+  background: var(--gradient-hair);
+  border-radius: 1px;
+  animation: lineGrow 0.6s 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+  transform-origin: left;
+}
+
+@keyframes lineGrow {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+.product-reports-page__header p {
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  max-width: 56ch;
+  line-height: 1.6;
+  margin-top: var(--space-sm);
+}
+
+/* Refresh button */
+.product-reports-page__header > button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5625rem 1.125rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', var(--font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+  white-space: nowrap;
+  align-self: flex-start;
+  margin-top: 0.25rem;
+}
+
+.product-reports-page__header > button::before {
+  content: '↻';
+  display: inline-block;
+  transition: transform 0.5s ease;
+}
+
+.product-reports-page__header > button:hover::before {
+  transform: rotate(360deg);
+}
+
+.product-reports-page__header > button:hover {
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.product-reports-page__header > button:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.product-reports-page__header > button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Filters Bar ─────────────────────────────────────────────── */
+.product-reports-page__filters {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: var(--space-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Filters top accent */
+.product-reports-page__filters::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--gradient-hair);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.product-reports-page__filters label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  flex: 1;
+  min-width: 180px;
+}
+
+.product-reports-page__filters label > span {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--neutral-800);
+  letter-spacing: 0.01em;
+}
+
+.product-reports-page__filters select,
+.product-reports-page__filters input[type="search"] {
+  width: 100%;
+  padding: 0.5625rem 0.875rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', var(--font);
+  font-size: 0.9375rem;
+  color: var(--text);
+  appearance: none;
+  -webkit-appearance: none;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.product-reports-page__filters select {
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237A6A60' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  cursor: pointer;
+}
+
+.product-reports-page__filters select:hover,
+.product-reports-page__filters input[type="search"]:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+.product-reports-page__filters select:focus,
+.product-reports-page__filters input[type="search"]:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+  background: color-mix(in srgb, var(--primary) 2%, var(--surface));
+}
+
+.product-reports-page__filters input[type="search"]::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* ── Stats Row ───────────────────────────────────────────────── */
+.product-reports-page__stats {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.product-reports-page__stats > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--neutral-600);
+  box-shadow: var(--shadow-sm);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.product-reports-page__stats > div:first-child {
+  background: color-mix(in srgb, var(--primary) 9%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 25%, var(--border));
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.product-reports-page__stats dt,
+.product-reports-page__stats dd {
+  margin: 0;
+}
+
+.product-reports-page__stats dt::after {
+  content: ":";
+}
+
+/* ── Error Banner ────────────────────────────────────────────── */
+.product-reports-page__error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: color-mix(in srgb, var(--danger-text) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger-text) 25%, var(--border));
+  border-left: 3px solid var(--danger-text);
+  border-radius: var(--radius-sm);
+  color: var(--danger-text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  animation: alertIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.product-reports-page__error::before {
+  content: '⚠';
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+@keyframes alertIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Empty / Loading State ───────────────────────────────────── */
+.product-reports-page__empty {
+  text-align: center;
+  padding: var(--space-xl) var(--space-lg);
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  animation: alertIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ── Reports List ────────────────────────────────────────────── */
+.product-reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ── Report Card ─────────────────────────────────────────────── */
+.product-report-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  position: relative;
+  transition:
+    box-shadow var(--transition-base),
+    border-color var(--transition-base),
+    transform var(--transition-slow);
+  animation: cardEnter 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.product-report-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--primary) 20%, var(--border));
+  transform: translateY(-1px);
+}
+
+/* Status accent bar */
+.product-report-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 3px;
+  background: var(--border);
+  transition: background var(--transition-base);
+}
+
+.product-report-card--new::before {
+  background: var(--info);
+}
+
+.product-report-card--in_review::before {
+  background: var(--warning);
+}
+
+.product-report-card--resolved::before {
+  background: var(--success);
+}
+
+.product-report-card--rejected::before {
+  background: var(--danger-text);
+}
+
+/* ── Card Header ─────────────────────────────────────────────── */
+.product-report-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-lg) var(--space-md);
+  padding-left: calc(var(--space-lg) + 8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.product-report-card__header > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-report-card__header h2 {
+  font-family: 'DM Sans', var(--font);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.product-report-card__header p {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Status Badge ────────────────────────────────────────────── */
+.product-report-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6875rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* Status dot */
+.product-report-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.product-report-status--new {
+  background: color-mix(in srgb, var(--info) 12%, var(--surface));
+  color: var(--info);
+  border: 1px solid color-mix(in srgb, var(--info) 28%, var(--border));
+}
+
+.product-report-status--new::before {
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+.product-report-status--in_review {
+  background: color-mix(in srgb, var(--warning) 14%, var(--surface));
+  color: color-mix(in srgb, var(--warning) 65%, var(--text));
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
+}
+
+.product-report-status--resolved {
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 25%, var(--border));
+}
+
+.product-report-status--rejected {
+  background: color-mix(in srgb, var(--danger-text) 9%, var(--surface));
+  color: var(--danger-text);
+  border: 1px solid color-mix(in srgb, var(--danger-text) 22%, var(--danger-border));
+}
+
+/* ── Card Meta Grid ──────────────────────────────────────────── */
+.product-report-card__meta {
+  display: flex;
+  gap: 0;
+  padding: var(--space-md) var(--space-lg);
+  padding-left: calc(var(--space-lg) + 8px);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--neutral-50) 60%, var(--surface));
+  flex-wrap: wrap;
+}
+
+.product-report-card__meta > div {
+  flex: 1;
+  min-width: 140px;
+  padding: var(--space-xs) var(--space-md) var(--space-xs) 0;
+}
+
+.product-report-card__meta > div + div {
+  padding-left: var(--space-md);
+  border-left: 1px solid var(--border);
+}
+
+.product-report-card__meta dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.product-report-card__meta dd {
+  font-size: 0.9rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Card Sections ───────────────────────────────────────────── */
+.product-report-card__section {
+  padding: var(--space-md) var(--space-lg);
+  padding-left: calc(var(--space-lg) + 8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.product-report-card__section h3 {
+  font-family: 'DM Sans', var(--font);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+.product-report-card__section p {
+  font-size: 0.9375rem;
+  color: var(--text);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.product-report-card__section a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--link);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+  padding-bottom: 1px;
+  transition: color var(--transition-fast), border-bottom-color var(--transition-fast);
+}
+
+.product-report-card__section a::after {
+  content: '↗';
+  font-size: 0.75rem;
+  opacity: 0.7;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.product-report-card__section a:hover {
+  color: var(--link-hover);
+  border-bottom-style: solid;
+}
+
+.product-report-card__section a:hover::after {
+  transform: translate(2px, -2px);
+  opacity: 1;
+}
+
+/* ── Card Controls ───────────────────────────────────────────── */
+.product-report-card__controls {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  padding-left: calc(var(--space-lg) + 8px);
+  background: color-mix(in srgb, var(--primary) 2%, var(--surface));
+}
+
+.product-report-card__controls label {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.product-report-card__controls label > span {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--neutral-800);
+  letter-spacing: 0.01em;
+}
+
+.product-report-card__controls select,
+.product-report-card__controls textarea {
+  width: 100%;
+  padding: 0.5625rem 0.875rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', var(--font);
+  font-size: 0.9rem;
+  color: var(--text);
+  appearance: none;
+  -webkit-appearance: none;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.product-report-card__controls select {
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237A6A60' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  cursor: pointer;
+}
+
+.product-report-card__controls textarea {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.65;
+}
+
+.product-report-card__controls select:hover,
+.product-report-card__controls textarea:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+.product-report-card__controls select:focus,
+.product-report-card__controls textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+  background: color-mix(in srgb, var(--primary) 1.5%, var(--surface));
+}
+
+.product-report-card__controls select:disabled,
+.product-report-card__controls textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--neutral-200);
+}
+
+.product-report-card__controls textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* Save button */
+.product-report-card__controls > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+  padding: 0.5625rem 1.25rem;
+  background: var(--primary);
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', var(--font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--on-primary);
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 3px rgba(178, 86, 52, 0.3);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.product-report-card__controls > button::before {
+  content: '✓';
+  font-size: 0.875rem;
+}
+
+.product-report-card__controls > button:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  box-shadow: 0 4px 12px rgba(178, 86, 52, 0.28);
+  transform: translateY(-1px);
+}
+
+.product-report-card__controls > button:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.product-report-card__controls > button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Busy state spinner */
+.product-report-card__controls > button:disabled::after {
+  content: '';
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--on-primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-left: 0.25rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .product-reports-page {
+    padding: var(--space-md);
+    gap: var(--space-lg);
+  }
+
+  .product-reports-page__header {
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .product-reports-page__header > button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .product-reports-page__filters {
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-md);
+  }
+
+  .product-reports-page__filters label {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .product-report-card__meta {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .product-report-card__meta > div + div {
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-top: var(--space-sm);
+    margin-top: var(--space-sm);
+  }
+
+  .product-reports-page__stats {
+    gap: var(--space-xs);
+  }
+
+  .product-reports-page__stats > div {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-report-card__header h2 {
+    white-space: normal;
+  }
+}
+
+/* ── Reduced Motion ──────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .product-reports-page,
+  .product-reports-page *,
+  .product-reports-page *::before,
+  .product-reports-page *::after {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .product-report-card__controls > button:disabled::after {
+    display: none;
+  }
+}

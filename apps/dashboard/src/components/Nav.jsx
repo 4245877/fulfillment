@@ -23,6 +23,10 @@ export default function Nav({ onNavigate }) {
         Відправлення
       </NavLink>
 
+      <NavLink to="/product-reports" className={cls} onClick={onNavigate}>
+        Скарги
+      </NavLink>
+
       <NavLink to="/audit" className={cls} onClick={onNavigate}>
         Журнал подій
       </NavLink>

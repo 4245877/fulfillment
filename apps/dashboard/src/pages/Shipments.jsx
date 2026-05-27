@@ -1,6 +1,52 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useSSE } from "../hooks/useSSE";
+import styles from "./Shipments.module.css";
+
+function getStatusClass(status) {
+  const value = String(status || "").toLowerCase();
+
+  if (
+    value.includes("delivered") ||
+    value.includes("completed") ||
+    value.includes("done") ||
+    value.includes("достав") ||
+    value.includes("викон")
+  ) {
+    return styles.statusSuccess;
+  }
+
+  if (
+    value.includes("error") ||
+    value.includes("failed") ||
+    value.includes("cancel") ||
+    value.includes("помил") ||
+    value.includes("скас")
+  ) {
+    return styles.statusDanger;
+  }
+
+  if (
+    value.includes("pending") ||
+    value.includes("queued") ||
+    value.includes("waiting") ||
+    value.includes("очіку")
+  ) {
+    return styles.statusWarning;
+  }
+
+  if (
+    value.includes("ship") ||
+    value.includes("transit") ||
+    value.includes("sent") ||
+    value.includes("дороз") ||
+    value.includes("відправ")
+  ) {
+    return styles.statusInfo;
+  }
+
+  return styles.statusNeutral;
+}
 
 export default function Shipments() {
   const [rows, setRows] = useState([]);
@@ -8,9 +54,13 @@ export default function Shipments() {
 
   async function load() {
     setError("");
+
     try {
       const data = await api.get("/api/shipments?limit=50");
-      const list = Array.isArray(data) ? data : (data?.items || data?.rows || []);
+      const list = Array.isArray(data)
+        ? data
+        : data?.items || data?.rows || [];
+
       setRows(Array.isArray(list) ? list : []);
     } catch (e) {
       setRows([]);
@@ -25,10 +75,13 @@ export default function Shipments() {
   useSSE("/api/events/stream?topics=shipments", {
     onEvent: (evt) => {
       if (!evt || typeof evt !== "object") return;
+
       if (evt.type === "shipment.updated") {
         setRows((cur) =>
           Array.isArray(cur)
-            ? cur.map((x) => (x?.id === evt.entity_id ? { ...x, ...evt.data } : x))
+            ? cur.map((x) =>
+                x?.id === evt.entity_id ? { ...x, ...evt.data } : x
+              )
             : []
         );
       }
@@ -36,34 +89,80 @@ export default function Shipments() {
   });
 
   return (
-    <div>
-      <h2>Відправлення</h2>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.headerText}>
+          <div className={styles.eyebrow}>Логістика</div>
+          <h2 className={styles.title}>Відправлення</h2>
+          <p className={styles.subtitle}>
+            Останні відправлення, перевізники, номери ТТН та напрямки доставки.
+          </p>
+        </div>
+      </header>
 
       {error ? (
-        <div style={{ marginTop: 10, padding: 10, border: "1px solid #7f1d1d", borderRadius: 10 }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Помилка завантаження</div>
-          <div style={{ whiteSpace: "pre-wrap", fontSize: 12, color: "#fecaca" }}>{error}</div>
-          <div style={{ marginTop: 6, fontSize: 12, color: "#9ca3af" }}>
+        <div className={styles.error}>
+          <div className={styles.errorTitle}>Помилка завантаження</div>
+          <div className={styles.errorText}>{error}</div>
+          <div className={styles.errorHint}>
             Підказка: якщо API ще не запущений — це нормально. UI не має падати.
           </div>
         </div>
       ) : null}
 
-      <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+      <div className={styles.list}>
         {(Array.isArray(rows) ? rows : []).map((s) => (
-          <div key={s.id || `${s.order_number}-${s.awb || ""}`} style={{ border: "1px solid #1f2937", borderRadius: 10, padding: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-              <strong>Заказ: {s.order_number || "—"}</strong>
-              <span className="tag">{s.status || "—"}</span>
+          <article
+            key={s.id || `${s.order_number}-${s.awb || ""}`}
+            className={styles.card}
+          >
+            <div className={styles.cardTop}>
+              <div className={styles.order}>
+                <span className={styles.orderLabel}>Заказ</span>
+                <strong className={styles.orderNumber}>
+                  {s.order_number || "—"}
+                </strong>
+              </div>
+
+              <span
+                className={`${styles.statusTag} ${getStatusClass(s.status)}`}
+                title={s.status || "—"}
+              >
+                {s.status || "—"}
+              </span>
             </div>
-            <div style={{ marginTop: 6, color: "#9ca3af" }}>
-              Перевізник: {s.carrier || "—"} · Номер ТТН: {s.awb || "—"}
+
+            <div className={styles.meta}>
+              <span className={styles.metaItem}>
+                <span className={styles.metaLabel}>Перевізник:</span>
+                <span className={styles.metaValue}>{s.carrier || "—"}</span>
+              </span>
+
+              <span className={styles.dot} aria-hidden="true" />
+
+              <span className={styles.metaItem}>
+                <span className={styles.metaLabel}>Номер ТТН:</span>
+                <span className={styles.metaValue}>{s.awb || "—"}</span>
+              </span>
             </div>
-            <div style={{ marginTop: 6 }}>
-              Куди: {s.destination || s.pickup_point || "—"}
+
+            <div className={styles.destination}>
+              <span className={styles.destinationLabel}>Куди</span>
+              <span className={styles.destinationValue}>
+                {s.destination || s.pickup_point || "—"}
+              </span>
+            </div>
+          </article>
+        ))}
+
+        {!error && Array.isArray(rows) && rows.length === 0 ? (
+          <div className={styles.empty}>
+            <div className={styles.emptyTitle}>Відправлень поки немає</div>
+            <div className={styles.emptyText}>
+              Коли API поверне дані, вони зʼявляться тут автоматично.
             </div>
           </div>
-        ))}
+        ) : null}
       </div>
     </div>
   );
