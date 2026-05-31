@@ -4,6 +4,7 @@ import { apiWB as api } from "../api/wallboardApi.js";
 import { fetchPrinterStatuses } from "../api/printerFarmApi.js";
 import { useSSE } from "../hooks/useSSE.js";
 import PrinterMonitoringPanel from "../components/printers/PrinterMonitoringPanel.jsx";
+import PrinterManagerPanel from "../components/printers/PrinterManagerPanel.jsx";
 
 import "../styles/wallboard.css";
 
@@ -95,7 +96,7 @@ function formatHeroDate(value) {
   });
 }
 
-function PrintersHero({ updatedAt, loading }) {
+function PrintersHero({ updatedAt, loading, hasError }) {
   return (
     <header className="wallboard-hero">
       <div className="wallboard-hero-inner">
@@ -111,9 +112,19 @@ function PrintersHero({ updatedAt, loading }) {
         <div className="wallboard-hero-meta">
           <div className="wallboard-hero-date">{formatHeroDate(updatedAt)}</div>
           <div className="wallboard-hero-time">{formatHeaderTime(updatedAt)}</div>
-          <div className="wallboard-hero-status">
+          <div
+            className={
+              hasError
+                ? "wallboard-hero-status wallboard-hero-status--danger"
+                : "wallboard-hero-status"
+            }
+          >
             <span className="wallboard-hero-status-dot" />
-            {loading ? "Оновлення даних" : "Моніторинг активний"}
+            {loading
+              ? "Оновлення даних"
+              : hasError
+                ? "Є помилки моніторингу"
+                : "Моніторинг активний"}
           </div>
         </div>
       </div>
@@ -125,8 +136,52 @@ export default function Printers() {
   const [prints, setPrints] = useState(DEFAULT_PRINTS);
   const [printerMonitor, setPrinterMonitor] = useState(DEFAULT_PRINTER_MONITOR);
   const [loading, setLoading] = useState(true);
+  const [monitorLoading, setMonitorLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [updatedAt, setUpdatedAt] = useState(new Date());
+  const [updatedAt, setUpdatedAt] = useState(null);
+
+  const refreshPrinters = useCallback(async () => {
+    const [printsResult, statusesResult] = await Promise.allSettled([
+      api.printsOverview(),
+      fetchPrinterStatuses(),
+    ]);
+
+    let hasSuccess = false;
+
+    if (printsResult.status === "fulfilled") {
+      hasSuccess = true;
+      setPrints((current) => mergePrints(current, printsResult.value));
+      setLoadError("");
+    } else {
+      setLoadError(
+        printsResult.reason instanceof Error
+          ? printsResult.reason.message
+          : "Не вдалося оновити зведення друку"
+      );
+    }
+
+    if (statusesResult.status === "fulfilled") {
+      hasSuccess = true;
+      setPrinterMonitor({
+        printers: Array.isArray(statusesResult.value?.printers)
+          ? statusesResult.value.printers
+          : [],
+        error: "",
+      });
+    } else {
+      setPrinterMonitor((current) => ({
+        ...current,
+        error:
+          statusesResult.reason instanceof Error
+            ? statusesResult.reason.message
+            : "Не вдалося отримати статус принтерів",
+      }));
+    }
+
+    if (hasSuccess) {
+      setUpdatedAt(new Date());
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -192,6 +247,10 @@ export default function Printers() {
         }));
       } finally {
         inFlight = false;
+
+        if (!cancelled) {
+          setMonitorLoading(false);
+        }
       }
     };
 
@@ -275,7 +334,11 @@ export default function Printers() {
 
   return (
     <div className="wallboard">
-      <PrintersHero updatedAt={updatedAt} loading={loading} />
+      <PrintersHero
+        updatedAt={updatedAt}
+        loading={loading || monitorLoading}
+        hasError={Boolean(loadError || printerMonitor.error)}
+      />
 
       {loading ? (
         <div className="alert-strip alert-strip--info">
@@ -298,15 +361,15 @@ export default function Printers() {
       ) : null}
 
       <div className="wallboard-sections">
-        <div className="wallboard-row">
-          <PrinterMonitoringPanel
-            printers={prints.printers}
-            jobs={prints.jobs}
-            livePrinters={printerMonitor.printers}
-            monitorError={printerMonitor.error}
-            loading={loading}
-          />
-        </div>
+        <PrinterMonitoringPanel
+          printers={prints.printers}
+          jobs={prints.jobs}
+          livePrinters={printerMonitor.printers}
+          monitorError={printerMonitor.error}
+          loading={monitorLoading}
+        />
+
+        <PrinterManagerPanel onChanged={refreshPrinters} />
       </div>
     </div>
   );

@@ -13,9 +13,7 @@ function clamp(value, min, max) {
 }
 
 function normalizePercent(value) {
-  const n = asNumber(value, 0);
-  const percent = n <= 1 ? n * 100 : n;
-  return clamp(percent, 0, 100);
+  return clamp(asNumber(value, 0), 0, 100);
 }
 
 function formatInt(value) {
@@ -44,19 +42,18 @@ function formatTemperature(value) {
   return value == null ? "—" : `${formatInt(value)}°C`;
 }
 
-function getProgressClass(value) {
-  const percent = normalizePercent(value);
-
+function getProgressClass(percent) {
   if (percent >= PROGRESS_SUCCESS_FROM) return "row-progress-fill--success";
   if (percent >= PROGRESS_WARNING_FROM) return "row-progress-fill--warning";
 
-  return "row-progress-fill--danger";
+  return "row-progress-fill--primary";
 }
 
 function getPrinterTone(state) {
   const v = String(state || "").toLowerCase();
 
-  if (v === "printing" || v === "ready") return "success";
+  if (v === "printing") return "success";
+  if (v === "ready" || v === "idle") return "info";
   if (v === "paused" || v === "maintenance") return "warning";
   if (v === "error" || v === "offline") return "danger";
 
@@ -106,6 +103,10 @@ function Panel({
 }) {
   return (
     <section className={`panel${loading ? " panel-loading" : ""}`}>
+      {loading ? (
+        <div className="panel-loading-spinner" aria-hidden="true" />
+      ) : null}
+
       <div className="panel-header">
         <div>
           <h2 className="panel-title">
@@ -220,6 +221,19 @@ export default function PrinterMonitoringPanel({
                 className="printer-monitor-card"
                 key={printer.id || printer.name || index}
               >
+                <div className="printer-monitor-image-wrap">
+                  <img
+                    className="printer-monitor-image"
+                    src={printer.imageUrl || "/printer-images/default-printer.png"}
+                    alt={printer.name || "3D-принтер"}
+                    loading="lazy"
+                    onError={(event) => {
+                      event.currentTarget.onerror = null;
+                      event.currentTarget.src = "/printer-images/default-printer.png";
+                    }}
+                  />
+                </div>
+
                 <div className="printer-monitor-top">
                   <div>
                     <div className="printer-monitor-name">
@@ -304,7 +318,7 @@ export default function PrinterMonitoringPanel({
 
                   <td>
                     <div className="col-amount">
-                      {(job.sku || "—") + " ×" + formatInt(job.qty || 0)}
+                      {`${job.sku || "—"} × ${formatInt(job.qty || 0)}`}
                     </div>
                   </td>
 

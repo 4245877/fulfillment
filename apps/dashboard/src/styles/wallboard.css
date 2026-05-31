@@ -155,6 +155,15 @@
   letter-spacing: 0.04em;
 }
 
+.wallboard-hero-status--danger {
+  color: var(--danger-text);
+}
+
+.wallboard-hero-status--danger .wallboard-hero-status-dot {
+  background: var(--danger-text);
+  animation: none;
+}
+
 .wallboard-hero-status-dot {
   width: 7px;
   height: 7px;
@@ -417,6 +426,11 @@
 }
 
 /* ── Wallboard Sections Row ─────────────────────────────────── */
+.wallboard-sections {
+  display: grid;
+  gap: var(--space-md);
+}
+
 .wallboard-row {
   display: grid;
   grid-template-columns: 1fr 380px;
@@ -736,11 +750,13 @@
 
 .printer-monitor-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--space-md);
 }
 
 .printer-monitor-card {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   padding: var(--space-md);
   border: 1px solid var(--border);
@@ -865,6 +881,10 @@
   border-radius: inherit;
   background: var(--primary);
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.row-progress-fill--primary {
+  background: var(--primary);
 }
 
 .row-progress-fill--success {
@@ -1140,4 +1160,224 @@
     border: 1px solid #ccc;
     break-inside: avoid;
   }
+}
+
+.printer-monitor-image-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+  margin-bottom: 14px;
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.08), transparent 60%),
+    color-mix(in srgb, var(--surface) 92%, var(--border));
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.printer-monitor-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 12px;
+}
+
+.printer-manager-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: var(--space-md);
+}
+
+.printer-manager-list {
+  display: grid;
+  gap: var(--space-sm);
+  align-content: start;
+}
+
+.printer-manager-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 96%, var(--border));
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    transform var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.printer-manager-card:hover,
+.printer-manager-card--active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  transform: translateY(-1px);
+}
+
+.printer-manager-card-image {
+  width: 74px;
+  height: 58px;
+  object-fit: contain;
+}
+
+.printer-manager-card-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.printer-manager-card-text strong {
+  overflow: hidden;
+  font-size: 0.875rem;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.printer-manager-card-text span {
+  overflow: hidden;
+  font-size: 0.75rem;
+  color: var(--neutral-600);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.printer-manager-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--success);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--success) 70%, transparent);
+}
+
+.printer-manager-dot--off {
+  background: var(--neutral-600);
+  box-shadow: none;
+}
+
+.printer-manager-editor {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.printer-manager-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.08), transparent 60%),
+    color-mix(in srgb, var(--surface) 94%, var(--border));
+}
+
+.printer-manager-preview img {
+  width: min(100%, 320px);
+  height: 170px;
+  object-fit: contain;
+  padding: 14px;
+}
+
+.printer-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-sm);
+}
+
+.printer-preset-card {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--border));
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    transform var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.printer-preset-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  transform: translateY(-1px);
+}
+
+.printer-preset-card img {
+  width: 100%;
+  height: 84px;
+  object-fit: contain;
+}
+
+.printer-preset-card span {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.printer-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 12px;
+}
+
+.printer-form-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.printer-form-grid label span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--neutral-600);
+}
+
+.printer-enabled-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.printer-manager-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.printer-manager-message {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 900px) {
+  .printer-manager-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.printer-manager-card:focus-visible,
+.printer-preset-card:focus-visible,
+.btn:focus-visible,
+.input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
