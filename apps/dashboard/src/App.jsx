@@ -5,6 +5,7 @@ import Layout from "./components/Layout.jsx";
 import Board from "./pages/Board.jsx";
 import Orders from "./pages/Orders.jsx";
 import Print from "./pages/Print.jsx";
+import Printers from "./pages/Printers.jsx";
 import Inventory from "./pages/Inventory.jsx";
 import Shipments from "./pages/Shipments.jsx";
 import Audit from "./pages/Audit.jsx";
@@ -20,6 +21,7 @@ export default function App() {
           <Route index element={<Board />} />
           <Route path="board" element={<Board />} />
           <Route path="orders" element={<Orders />} />
+          <Route path="printers" element={<Printers />} />
           <Route path="prints/:id" element={<Print />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="shipments" element={<Shipments />} />

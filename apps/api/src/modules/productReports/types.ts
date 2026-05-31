@@ -12,6 +12,12 @@ export type ProductReport = {
   created_at: string;
   resolved_at: string | null;
   admin_note: string | null;
+
+  // Антиспам / источник
+  source: "shop";
+  client_ip_hash: string;
+  user_agent: string | null;
+  referer: string | null;
 };
 
 export type ProductReportsStore = {
@@ -26,6 +32,12 @@ export type CreateProductReportInput = {
   reason?: string;
   comment?: string;
   page_url?: string;
+};
+
+export type CreateProductReportMeta = {
+  ip?: string;
+  user_agent?: string;
+  referer?: string;
 };
 
 export type ListProductReportsInput = {

@@ -15,6 +15,10 @@ export default function Nav({ onNavigate }) {
         Замовлення
       </NavLink>
 
+      <NavLink to="/printers" className={cls} onClick={onNavigate}>
+        3D-принтери
+      </NavLink>
+
       <NavLink to="/inventory" className={cls} onClick={onNavigate}>
         Матеріали
       </NavLink>

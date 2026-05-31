@@ -1,6 +1,7 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 
 import {
+  ProductReportError,
   createProductReport,
   listProductReports,
   updateProductReport,
@@ -11,13 +12,41 @@ function getErrorMessage(error: unknown) {
 }
 
 function getErrorStatus(error: unknown) {
+  if (error instanceof ProductReportError) {
+    return error.statusCode;
+  }
+
+  const statusCode = Number((error as any)?.statusCode);
+
+  if (Number.isInteger(statusCode) && statusCode >= 400 && statusCode <= 599) {
+    return statusCode;
+  }
+
   const message = getErrorMessage(error).toLowerCase();
 
   if (message.includes("not found")) {
     return 404;
   }
 
+  if (message.includes("too many") || message.includes("spam")) {
+    return 429;
+  }
+
   return 400;
+}
+
+function getClientIp(req: FastifyRequest) {
+  const headers = req.headers;
+
+  const cfIp = String(headers["cf-connecting-ip"] || "").trim();
+  const realIp = String(headers["x-real-ip"] || "").trim();
+
+  const forwarded = String(headers["x-forwarded-for"] || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)[0];
+
+  return cfIp || realIp || forwarded || req.ip || "unknown";
 }
 
 export default async function productReportsRoutes(app: FastifyInstance) {
@@ -27,7 +56,12 @@ export default async function productReportsRoutes(app: FastifyInstance) {
 
       const item = await createProductReport(
         String(params.productId || ""),
-        req.body as any
+        req.body as any,
+        {
+          ip: getClientIp(req),
+          user_agent: String(req.headers["user-agent"] || ""),
+          referer: String(req.headers.referer || req.headers.referrer || ""),
+        },
       );
 
       reply.code(201);
@@ -66,7 +100,7 @@ export default async function productReportsRoutes(app: FastifyInstance) {
 
       const item = await updateProductReport(
         String(params.reportId || ""),
-        req.body as any
+        req.body as any,
       );
 
       return {

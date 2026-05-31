@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "reports": [
+    {
+      "report_id": "product_report_a5b012ef-9140-457c-8e21-0eab8358287a",
+      "product_id": "04c27c6f-4d2d-465a-8a43-33fcfc5cc9b5",
+      "product_name": "Корпус для ESP32 DevKitC V4 NodeMCU",
+      "product_sku": "-esp32-devkitc-v4-nodemc-PMDSHV",
+      "reason": "Інше",
+      "comment": "123",
+      "page_url": "http://192.168.0.135/products/-esp32-devkitc-v4-nodemc-PMDSHV",
+      "status": "new",
+      "created_at": "2026-05-29T09:30:38.134Z",
+      "resolved_at": null,
+      "admin_note": null,
+      "source": "shop",
+      "client_ip_hash": "fc1fa43bcc0a3cce859fec16b0e70cedeb5781b245410e8c2e5f0d68ec877836",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:151.0) Gecko/20100101 Firefox/151.0",
+      "referer": "http://192.168.0.135/products/-esp32-devkitc-v4-nodemc-PMDSHV"
+    },
+    {
+      "report_id": "product_report_32789bc6-dd7d-4bd4-8331-e4d88fe8b230",
+      "product_id": "test-reason-check",
+      "product_name": "Проверка reason",
+      "product_sku": "SKU-REASON",
+      "reason": "Інше",
+      "comment": "Проверка причины жалобы",
+      "page_url": "http://192.168.0.135/product/test-reason-check",
+      "status": "new",
+      "created_at": "2026-05-29T09:30:21.226Z",
+      "resolved_at": null,
+      "admin_note": null,
+      "source": "shop",
+      "client_ip_hash": "74b8774402e8622e24df10d9596a5e43a9d116ad917f7387743eb45390de5b3d",
+      "user_agent": "reason-test",
+      "referer": null
+    },
+    {
+      "report_id": "product_report_ba815fa5-7ec0-4c0a-8888-c0414fb8a252",
+      "product_id": "test-product-from-shop",
+      "product_name": "Проверка прокси",
+      "product_sku": "SKU-PROXY",
+      "reason": "Некоректний опис",
+      "comment": "Проверка через nginx магазина",
+      "page_url": "http://192.168.0.135/product/test-product-from-shop",
+      "status": "new",
+      "created_at": "2026-05-29T09:22:55.754Z",
+      "resolved_at": null,
+      "admin_note": null,
+      "source": "shop",
+      "client_ip_hash": "74b8774402e8622e24df10d9596a5e43a9d116ad917f7387743eb45390de5b3d",
+      "user_agent": "nginx-proxy-test",
+      "referer": null
+    },
+    {
+      "report_id": "product_report_81213ab4-19e7-4b1c-94a2-bb084533ce13",
+      "product_id": "test-product-1",
+      "product_name": "Тестовый товар",
+      "product_sku": "SKU-001",
+      "reason": "Некоректний опис",
+      "comment": "Тестовая жалоба",
+      "page_url": "http://192.168.0.135/product/test-product-1",
+      "status": "new",
+      "created_at": "2026-05-29T09:08:07.962Z",
+      "resolved_at": null,
+      "admin_note": null,
+      "source": "shop",
+      "client_ip_hash": "059749ed2832544177d88218bd8c58fa72929462dd5934030d6ffd3725efa372",
+      "user_agent": "test-client",
+      "referer": null
+    }
+  ]
+}

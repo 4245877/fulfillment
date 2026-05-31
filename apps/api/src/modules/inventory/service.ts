@@ -351,6 +351,12 @@ export async function consumeFilament(input: ConsumeFilamentInput) {
     const beforeG = stock.stockG;
     const afterG = beforeG - quantityG;
 
+    if (afterG < 0) {
+      throw new Error(
+        `Not enough filament stock: ${material} ${color}. Available: ${beforeG}g, requested: ${quantityG}g`
+      );
+    }
+
     stock.stockG = afterG;
     stock.updatedAt = nowIso();
 

@@ -6,6 +6,7 @@ import inventoryRoutes from "./modules/inventory/routes";
 import backupsRoutes from "./modules/backups/routes";
 import productReportsRoutes from "./modules/productReports/routes";
 import { getInventoryMaterialsSummary } from "./modules/inventory/service";
+import { checkDbConnection } from "./infra/db/knex";
 
 const app = Fastify({ logger: true });
 
@@ -16,6 +17,27 @@ app.register(cors, {
 });
 
 app.get("/health", async () => ({ ok: true }));
+
+app.get("/ready", async (_req, reply) => {
+  const dbOk = await checkDbConnection();
+
+  if (!dbOk) {
+    reply.code(503);
+    return {
+      ok: false,
+      services: {
+        db: "down",
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    services: {
+      db: "up",
+    },
+  };
+});
 
 app.get("/api/ops/overview", async () => {
   const materials = await getInventoryMaterialsSummary();
@@ -58,7 +80,7 @@ app.get("/api/ops/overview", async () => {
         shop: "down",
         fulfillment: "up",
         printers: "down",
-        db: "down",
+        db: (await checkDbConnection()) ? "up" : "down",
         redis: "down",
         indexer: "down",
       },

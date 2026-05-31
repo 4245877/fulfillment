@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fulfillment-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fulfillment
+      POSTGRES_USER: fulfillment
+      POSTGRES_PASSWORD: fulfillment_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - fulfillment_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fulfillment -d fulfillment"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   api:
     image: node:22-alpine
     container_name: fulfillment-api
@@ -10,6 +28,7 @@ services:
       CI: "true"
       PORT: 8080
       HOST: 0.0.0.0
+      DATABASE_URL: postgres://fulfillment:fulfillment_password@postgres:5432/fulfillment
       BACKUP_SSH_USER: miha
       BACKUP_SSH_HOST: 192.168.0.135
       BACKUP_SSH_KEY: /run/secrets/lite_forest_ops
@@ -29,6 +48,9 @@ services:
              pnpm --filter @drukarnya/fulfillment-api start"
     ports:
       - "3001:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   dashboard:
     build:
@@ -46,3 +68,4 @@ services:
 volumes:
   api_node_modules:
   api_api_node_modules:
+  fulfillment_pgdata:

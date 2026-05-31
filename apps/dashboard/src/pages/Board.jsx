@@ -1,14 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiWB as api } from "../api/wallboardApi.js";
-import { fetchPrinterStatuses } from "../api/printerFarmApi.js";
 import { useSSE } from "../hooks/useSSE.js";
 
 import "../styles/wallboard.css";
 
 const DEFAULT_OPS = { stats: {} };
 const DEFAULT_PRINTS = { printers: [], jobs: [], stats: {} };
-const DEFAULT_PRINTER_MONITOR = { printers: [], error: "" };
 
 const DEFAULT_BACKUP_STATUS = {
   status: "unknown",
@@ -20,12 +18,9 @@ const DEFAULT_BACKUP_STATUS = {
   updated_at: null,
 };
 
-const PRINTER_POLL_INTERVAL_MS = 5000;
 const BACKUP_POLL_INTERVAL_MS = 10000;
 const LAG_WARNING_MS = 5000;
 const LAG_DANGER_MS = 60000;
-const PROGRESS_SUCCESS_FROM = 80;
-const PROGRESS_WARNING_FROM = 35;
 
 const ORDER_STAGES = [
   ["PrePrintCheck", "Переддрукарська перевірка"],
@@ -206,10 +201,6 @@ function formatPercent(value) {
   return `${Math.round(normalizePercent(value))}%`;
 }
 
-function formatTemperature(value) {
-  return value == null ? "—" : `${formatInt(value)}°C`;
-}
-
 function getLagTone(value) {
   const ms = asNumber(value, 0);
 
@@ -233,31 +224,6 @@ function getAlertLabel(level) {
   if (v === "warn" || v === "warning") return "Попередження";
   if (v === "ok" || v === "success") return "Добре";
   return "Інфо";
-}
-
-function getPrinterTone(state) {
-  const v = String(state || "").toLowerCase();
-  if (v === "printing" || v === "ready") return "success";
-  if (v === "paused" || v === "maintenance") return "warning";
-  if (v === "error" || v === "offline") return "danger";
-  return "primary";
-}
-
-function getPrinterStateLabel(state) {
-  const v = String(state || "").toLowerCase();
-
-  const labels = {
-    printing: "Друкує",
-    ready: "Готовий",
-    idle: "Очікує",
-    paused: "Пауза",
-    maintenance: "Обслуговування",
-    error: "Помилка",
-    offline: "Офлайн",
-    unknown: "Невідомо",
-  };
-
-  return labels[v] || (state ? String(state) : "Невідомо");
 }
 
 function getServiceTone(status) {
@@ -327,15 +293,6 @@ function getBackupAgeHours(updatedAt) {
   if (Number.isNaN(date.getTime())) return null;
 
   return Math.max(0, (Date.now() - date.getTime()) / 36e5);
-}
-
-function getProgressClass(value) {
-  const percent = normalizePercent(value);
-
-  if (percent >= PROGRESS_SUCCESS_FROM) return "row-progress-fill--success";
-  if (percent >= PROGRESS_WARNING_FROM) return "row-progress-fill--warning";
-
-  return "row-progress-fill--danger";
 }
 
 function toTagClass(tone = "primary") {
@@ -408,22 +365,6 @@ function KpiCard({ label, value, context, icon = "•", variant = "primary" }) {
   );
 }
 
-function RowProgress({ value }) {
-  const percent = normalizePercent(value);
-
-  return (
-    <div className="row-progress">
-      <div className="row-progress-bar-track" aria-hidden="true">
-        <div
-          className={`row-progress-fill ${getProgressClass(percent)}`}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-      <span className="row-progress-pct">{Math.round(percent)}%</span>
-    </div>
-  );
-}
-
 function HeroHeader({ updatedAt, loading }) {
   return (
     <header className="wallboard-hero">
@@ -471,150 +412,6 @@ function SectionOrders({ data = {}, loading = false }) {
           />
         ))}
       </div>
-    </Panel>
-  );
-}
-
-function SectionPrintFarm({
-  printers = [],
-  jobs = [],
-  livePrinters = [],
-  monitorError = "",
-  loading = false,
-}) {
-  const visiblePrinters = livePrinters.length ? livePrinters : printers;
-
-  return (
-    <Panel
-      loading={loading}
-      title="3D-ферма — моніторинг принтерів"
-      subtitle="Живий стан обладнання, температури, файли та прогрес друку"
-      footer={
-        <>
-          <span className="panel-footer-meta">Принтерів: {formatInt(visiblePrinters.length)}</span>
-          <span className="panel-footer-meta">Активних робіт: {formatInt(jobs.length)}</span>
-        </>
-      }
-    >
-      {monitorError ? <div className="printer-monitor-alert">Помилка моніторингу: {monitorError}</div> : null}
-
-      {visiblePrinters.length ? (
-        <div className="printer-monitor-grid">
-          {visiblePrinters.map((printer) => {
-            const state =
-              printer.status ||
-              printer.state ||
-              (printer.online === false ? "offline" : "unknown");
-
-            const progress = normalizePercent(printer.progressPct ?? printer.progress ?? 0);
-
-            const meta = [
-              printer.protocol,
-              printer.host,
-              printer.model,
-              printer.nozzle ? `Сопло ${printer.nozzle}` : null,
-              printer.material_color || printer.material,
-            ]
-              .filter(Boolean)
-              .join(" • ");
-
-            return (
-              <div className="printer-monitor-card" key={printer.id}>
-                <div className="printer-monitor-top">
-                  <div>
-                    <div className="printer-monitor-name">
-                      {printer.name || "Принтер без назви"}
-                    </div>
-
-                    <div className="printer-monitor-meta">
-                      {meta || "Дані підключення не вказані"}
-                    </div>
-                  </div>
-
-                  <StatusTag tone={getPrinterTone(state)}>{getPrinterStateLabel(state)}</StatusTag>
-                </div>
-
-                <div className="printer-monitor-file">
-                  {printer.currentFile || "Файл не друкується"}
-                </div>
-
-                <div className="printer-monitor-progress">
-                  <div
-                    className={`printer-monitor-progress-fill ${getProgressClass(progress)}`}
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-
-                <div className="printer-monitor-details">
-                  <span>{Math.round(progress)}%</span>
-                  <span>{printer.printed || "—"}</span>
-                  <span>
-                    {printer.remainingMinutes != null
-                      ? `${formatInt(printer.remainingMinutes)} хв залишилося`
-                      : "—"}
-                  </span>
-                </div>
-
-                <div className="printer-monitor-details">
-                  <span>Сопло: {formatTemperature(printer.nozzleTemp)}</span>
-                  <span>Стіл: {formatTemperature(printer.bedTemp)}</span>
-                </div>
-
-                <div className="printer-monitor-updated">
-                  Оновлено: {formatDateTime(printer.updatedAt)}
-                </div>
-
-                {printer.error ? <div className="printer-monitor-error">{printer.error}</div> : null}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <EmptyState
-          title="Немає даних про принтери"
-          desc="Список принтерів зʼявиться після першого успішного опитування API."
-        />
-      )}
-
-      {jobs.length ? (
-        <div className="wboard-table-wrap">
-          <table className="wboard-table">
-            <thead>
-              <tr>
-                <th>Замовлення</th>
-                <th>SKU × кількість</th>
-                <th>Принтер</th>
-                <th>Прогрес</th>
-                <th>Час завершення</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {jobs.map((job) => (
-                <tr key={job.id}>
-                  <td>
-                    <div className="col-name">{job.order_number || "—"}</div>
-                  </td>
-
-                  <td>
-                    <div className="col-amount">
-                      {(job.sku || "—") + " ×" + formatInt(job.qty || 0)}
-                    </div>
-                  </td>
-
-                  <td>{job.printer_name || "—"}</td>
-
-                  <td>
-                    <RowProgress value={job.progress || 0} />
-                  </td>
-
-                  <td>{formatDateTime(job.eta)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
     </Panel>
   );
 }
@@ -1204,7 +1001,6 @@ function TopSummary({ prints, stats, alertsCount }) {
 export default function Board() {
   const [ops, setOps] = useState(DEFAULT_OPS);
   const [prints, setPrints] = useState(DEFAULT_PRINTS);
-  const [printerMonitor, setPrinterMonitor] = useState(DEFAULT_PRINTER_MONITOR);
   const [backupStatus, setBackupStatus] = useState(DEFAULT_BACKUP_STATUS);
   const [backupError, setBackupError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1243,51 +1039,6 @@ export default function Board() {
 
     return () => {
       isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    let inFlight = false;
-
-    const loadPrinterStatuses = async () => {
-      if (inFlight) return;
-
-      inFlight = true;
-
-      try {
-        const data = await fetchPrinterStatuses();
-
-        if (cancelled) return;
-
-        setPrinterMonitor({
-          printers: Array.isArray(data.printers) ? data.printers : [],
-          error: "",
-        });
-
-        setUpdatedAt(new Date());
-      } catch (error) {
-        if (cancelled) return;
-
-        setPrinterMonitor((current) => ({
-          ...current,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Не вдалося отримати статус принтерів",
-        }));
-      } finally {
-        inFlight = false;
-      }
-    };
-
-    loadPrinterStatuses();
-
-    const timer = window.setInterval(loadPrinterStatuses, PRINTER_POLL_INTERVAL_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
     };
   }, []);
 
@@ -1379,19 +1130,6 @@ export default function Board() {
         ),
       }));
 
-      setPrinterMonitor((current) => ({
-        ...current,
-        printers: current.printers.map((printer) =>
-          printer.id === event.entity_id
-            ? {
-                ...printer,
-                status: data.state ?? printer.status,
-                state: data.state ?? printer.state,
-              }
-            : printer
-        ),
-      }));
-
       return;
     }
 
@@ -1462,38 +1200,31 @@ export default function Board() {
 
       <div className="wallboard-sections">
         <div className="wallboard-row">
-          <SectionPrintFarm
-            printers={prints.printers}
-            jobs={prints.jobs}
-            livePrinters={printerMonitor.printers}
-            monitorError={printerMonitor.error}
-            loading={loading}
-          />
           <SectionAlerts alerts={alerts} loading={loading} />
-        </div>
-
-        <div className="wallboard-row">
           <SectionOrders data={stats} loading={loading} />
+        </div>
+
+        <div className="wallboard-row">
           <SectionServices services={stats.services} loading={loading} />
-        </div>
-
-        <div className="wallboard-row">
           <SectionBackups backup={backupStatus} loading={loading} />
+        </div>
+
+        <div className="wallboard-row">
           <SectionQueues queues={stats.queues} loading={loading} />
-        </div>
-
-        <div className="wallboard-row">
           <SectionPayments payments={stats.payments} loading={loading} />
+        </div>
+
+        <div className="wallboard-row">
           <SectionLogistics logistics={stats.logistics} loading={loading} />
-        </div>
-
-        <div className="wallboard-row">
           <SectionMaterials materials={stats.materials} loading={loading} />
-          <SectionWebhooks wh={stats.webhooks} loading={loading} />
         </div>
 
         <div className="wallboard-row">
+          <SectionWebhooks wh={stats.webhooks} loading={loading} />
           <SectionIndexer idx={stats.indexer} loading={loading} />
+        </div>
+
+        <div className="wallboard-row">
           <SectionIngester ing={stats.ingester} loading={loading} />
         </div>
       </div>
