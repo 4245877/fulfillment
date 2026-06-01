@@ -16,7 +16,9 @@
       "source": "shop",
       "client_ip_hash": "fc1fa43bcc0a3cce859fec16b0e70cedeb5781b245410e8c2e5f0d68ec877836",
       "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:151.0) Gecko/20100101 Firefox/151.0",
-      "referer": "http://192.168.0.135/products/-esp32-devkitc-v4-nodemc-PMDSHV"
+      "referer": "http://192.168.0.135/products/-esp32-devkitc-v4-nodemc-PMDSHV",
+      "archived_at": null,
+      "deleted_at": "2026-06-01T09:48:45.814Z"
     },
     {
       "report_id": "product_report_32789bc6-dd7d-4bd4-8331-e4d88fe8b230",
@@ -33,7 +35,9 @@
       "source": "shop",
       "client_ip_hash": "74b8774402e8622e24df10d9596a5e43a9d116ad917f7387743eb45390de5b3d",
       "user_agent": "reason-test",
-      "referer": null
+      "referer": null,
+      "archived_at": null,
+      "deleted_at": "2026-06-01T09:48:40.833Z"
     },
     {
       "report_id": "product_report_ba815fa5-7ec0-4c0a-8888-c0414fb8a252",
@@ -50,7 +54,9 @@
       "source": "shop",
       "client_ip_hash": "74b8774402e8622e24df10d9596a5e43a9d116ad917f7387743eb45390de5b3d",
       "user_agent": "nginx-proxy-test",
-      "referer": null
+      "referer": null,
+      "archived_at": null,
+      "deleted_at": "2026-06-01T09:48:42.213Z"
     },
     {
       "report_id": "product_report_81213ab4-19e7-4b1c-94a2-bb084533ce13",

@@ -1,5 +1,7 @@
 export type ProductReportStatus = "new" | "in_review" | "resolved" | "rejected";
 
+export type ProductReportView = "active" | "archived" | "deleted" | "all";
+
 export type ProductReport = {
   report_id: string;
   product_id: string;
@@ -12,6 +14,9 @@ export type ProductReport = {
   created_at: string;
   resolved_at: string | null;
   admin_note: string | null;
+
+  archived_at: string | null;
+  deleted_at: string | null;
 
   // Антиспам / источник
   source: "shop";
@@ -42,6 +47,7 @@ export type CreateProductReportMeta = {
 
 export type ListProductReportsInput = {
   status?: ProductReportStatus | "";
+  view?: ProductReportView | "";
   q?: string;
   limit?: number;
 };

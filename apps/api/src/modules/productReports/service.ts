@@ -11,6 +11,7 @@ import type {
   ListProductReportsInput,
   ProductReport,
   ProductReportStatus,
+  ProductReportView,
   UpdateProductReportInput,
 } from "./types";
 
@@ -19,6 +20,13 @@ const REPORT_STATUSES: ProductReportStatus[] = [
   "in_review",
   "resolved",
   "rejected",
+];
+
+const REPORT_VIEWS: ProductReportView[] = [
+  "active",
+  "archived",
+  "deleted",
+  "all",
 ];
 
 const MAX_REASON_LENGTH = 200;
@@ -72,6 +80,28 @@ function normalizeStatus(value: unknown): ProductReportStatus {
   }
 
   return status;
+}
+
+function normalizeView(value: unknown): ProductReportView {
+  const view = String(value || "active").trim() as ProductReportView;
+
+  if (!REPORT_VIEWS.includes(view)) {
+    throw new ProductReportError("Invalid reports view", 400);
+  }
+
+  return view;
+}
+
+function ensureVisibilityFields(report: ProductReport): ProductReport {
+  if (report.archived_at === undefined) {
+    report.archived_at = null;
+  }
+
+  if (report.deleted_at === undefined) {
+    report.deleted_at = null;
+  }
+
+  return report;
 }
 
 function normalizeProductId(productId: unknown, input?: CreateProductReportInput) {
@@ -187,6 +217,22 @@ function countRecentReports(
   }).length;
 }
 
+function findReportOrThrow(storeReports: ProductReport[], reportId: string) {
+  const cleanReportId = cleanString(reportId, 200);
+
+  if (!cleanReportId) {
+    throw new ProductReportError("report_id is required", 400);
+  }
+
+  const report = storeReports.find((item) => item.report_id === cleanReportId);
+
+  if (!report) {
+    throw new ProductReportError("Product report not found", 404);
+  }
+
+  return ensureVisibilityFields(report);
+}
+
 export async function createProductReport(
   productId: string,
   input: CreateProductReportInput = {},
@@ -223,10 +269,13 @@ export async function createProductReport(
 
   return updateProductReportsStore((store) => {
     const duplicate = store.reports.find((report) => {
+      ensureVisibilityFields(report);
+
       const freshEnough = getTime(report.created_at) >= Date.now() - SIX_HOURS_MS;
 
       return (
         freshEnough &&
+        report.deleted_at === null &&
         report.product_id === normalizedProductId &&
         report.client_ip_hash === ipHash &&
         report.reason === reason &&
@@ -275,6 +324,8 @@ export async function createProductReport(
       created_at: createdAt,
       resolved_at: null,
       admin_note: null,
+      archived_at: null,
+      deleted_at: null,
 
       source: "shop",
       client_ip_hash: ipHash,
@@ -296,6 +347,7 @@ export async function listProductReports(input: ListProductReportsInput = {}) {
   const store = await readProductReportsStore();
 
   const status = input.status ? normalizeStatus(input.status) : "";
+  const view = normalizeView(input.view || "active");
   const q = String(input.q || "").trim().toLowerCase();
 
   const limit = Math.max(
@@ -303,7 +355,19 @@ export async function listProductReports(input: ListProductReportsInput = {}) {
     Math.min(Number.isFinite(input.limit) ? Number(input.limit) : 100, 500),
   );
 
-  let reports = [...store.reports];
+  let reports = store.reports.map((report) => ensureVisibilityFields(report));
+
+  if (view === "active") {
+    reports = reports.filter((report) => !report.archived_at && !report.deleted_at);
+  }
+
+  if (view === "archived") {
+    reports = reports.filter((report) => report.archived_at && !report.deleted_at);
+  }
+
+  if (view === "deleted") {
+    reports = reports.filter((report) => report.deleted_at);
+  }
 
   if (status) {
     reports = reports.filter((report) => report.status === status);
@@ -339,6 +403,8 @@ export async function listProductReports(input: ListProductReportsInput = {}) {
     items: reports.slice(0, limit),
     total: reports.length,
     statuses: REPORT_STATUSES,
+    views: REPORT_VIEWS,
+    view,
   };
 }
 
@@ -346,17 +412,14 @@ export async function updateProductReport(
   reportId: string,
   input: UpdateProductReportInput,
 ): Promise<ProductReport> {
-  const cleanReportId = cleanString(reportId, 200);
-
-  if (!cleanReportId) {
-    throw new ProductReportError("report_id is required", 400);
-  }
-
   return updateProductReportsStore((store) => {
-    const report = store.reports.find((item) => item.report_id === cleanReportId);
+    const report = findReportOrThrow(store.reports, reportId);
 
-    if (!report) {
-      throw new ProductReportError("Product report not found", 404);
+    if (report.deleted_at) {
+      throw new ProductReportError(
+        "Deleted report cannot be edited. Restore it first.",
+        409,
+      );
     }
 
     if (input.status !== undefined) {
@@ -379,5 +442,72 @@ export async function updateProductReport(
     }
 
     return report;
+  });
+}
+
+export async function archiveProductReport(reportId: string): Promise<ProductReport> {
+  return updateProductReportsStore((store) => {
+    const report = findReportOrThrow(store.reports, reportId);
+
+    if (report.deleted_at) {
+      throw new ProductReportError(
+        "Deleted report cannot be archived. Restore it first.",
+        409,
+      );
+    }
+
+    report.archived_at = report.archived_at || nowIso();
+
+    return report;
+  });
+}
+
+export async function restoreProductReport(reportId: string): Promise<ProductReport> {
+  return updateProductReportsStore((store) => {
+    const report = findReportOrThrow(store.reports, reportId);
+
+    report.archived_at = null;
+    report.deleted_at = null;
+
+    return report;
+  });
+}
+
+export async function softDeleteProductReport(
+  reportId: string,
+): Promise<ProductReport> {
+  return updateProductReportsStore((store) => {
+    const report = findReportOrThrow(store.reports, reportId);
+
+    report.archived_at = null;
+    report.deleted_at = report.deleted_at || nowIso();
+
+    return report;
+  });
+}
+
+export async function permanentlyDeleteProductReport(
+  reportId: string,
+): Promise<{ report_id: string }> {
+  return updateProductReportsStore((store) => {
+    const cleanReportId = cleanString(reportId, 200);
+
+    if (!cleanReportId) {
+      throw new ProductReportError("report_id is required", 400);
+    }
+
+    const index = store.reports.findIndex(
+      (item) => item.report_id === cleanReportId,
+    );
+
+    if (index === -1) {
+      throw new ProductReportError("Product report not found", 404);
+    }
+
+    const [removed] = store.reports.splice(index, 1);
+
+    return {
+      report_id: removed.report_id,
+    };
   });
 }

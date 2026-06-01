@@ -3,6 +3,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client.js";
 import "./ProductReports.css";
 
+const VIEW_OPTIONS = [
+  { value: "active", label: "Активні" },
+  { value: "archived", label: "Архів" },
+  { value: "deleted", label: "Видалені" },
+];
+
 const STATUS_OPTIONS = [
   { value: "", label: "Усі статуси" },
   { value: "new", label: "Нові" },
@@ -44,6 +50,7 @@ function getProductTitle(report) {
 
 export default function ProductReports() {
   const [items, setItems] = useState([]);
+  const [view, setView] = useState("active");
   const [status, setStatus] = useState("");
   const [q, setQ] = useState("");
   const [draftNotes, setDraftNotes] = useState({});
@@ -79,6 +86,7 @@ export default function ProductReports() {
       try {
         const data = await api.listProductReports(
           {
+            view,
             status,
             q: q.trim(),
             limit: 200,
@@ -121,7 +129,7 @@ export default function ProductReports() {
     load();
 
     return () => ctrl.abort();
-  }, [status, q, refreshKey]);
+  }, [view, status, q, refreshKey]);
 
   async function updateReport(report, payload) {
     setActionId(report.report_id);
@@ -156,6 +164,51 @@ export default function ProductReports() {
     }
   }
 
+  async function runReportAction(report, action) {
+    setActionId(report.report_id);
+    setError("");
+
+    try {
+      if (action === "archive") {
+        await api.archiveProductReport(report.report_id);
+      }
+
+      if (action === "restore") {
+        await api.restoreProductReport(report.report_id);
+      }
+
+      if (action === "delete") {
+        const ok = window.confirm(
+          "Перемістити скаргу у «Видалені»? Її можна буде відновити."
+        );
+
+        if (!ok) return;
+
+        await api.deleteProductReport(report.report_id);
+      }
+
+      if (action === "delete-permanently") {
+        const ok = window.confirm(
+          "Скаргу буде видалено назавжди. Цю дію не можна скасувати. Продовжити?"
+        );
+
+        if (!ok) return;
+
+        await api.permanentlyDeleteProductReport(report.report_id);
+      }
+
+      setItems((prev) =>
+        prev.filter((item) => item.report_id !== report.report_id)
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Не вдалося виконати дію"
+      );
+    } finally {
+      setActionId("");
+    }
+  }
+
   function handleNoteChange(reportId, value) {
     setDraftNotes((prev) => ({
       ...prev,
@@ -165,13 +218,12 @@ export default function ProductReports() {
 
   return (
     <section className="product-reports-page">
-      {/* ── Page Header ── */}
       <header className="product-reports-page__header">
         <div>
           <h1>Скарги на товари</h1>
           <p>
-            Тут можна переглядати скарги з карток товарів, змінювати статус і
-            додавати внутрішню нотатку адміністратора.
+            Тут можна переглядати активні скарги, переносити завершені звернення
+            в архів, відновлювати їх або видаляти без втрати важливих заявок.
           </p>
         </div>
 
@@ -185,7 +237,24 @@ export default function ProductReports() {
         </button>
       </header>
 
-      {/* ── Filters ── */}
+      <nav className="product-reports-page__views" aria-label="Розділи скарг">
+        {VIEW_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={
+              view === option.value
+                ? "product-reports-page__view product-reports-page__view--active"
+                : "product-reports-page__view"
+            }
+            onClick={() => setView(option.value)}
+            disabled={loading && view === option.value}
+          >
+            {option.label}
+          </button>
+        ))}
+      </nav>
+
       <div className="product-reports-page__filters" role="search">
         <label htmlFor="reports-status-filter">
           <span>Статус</span>
@@ -214,13 +283,12 @@ export default function ProductReports() {
         </label>
       </div>
 
-      {/* ── Stats ── */}
       <dl
         className="product-reports-page__stats"
         aria-label="Статистика скарг"
       >
         <div>
-          <dt>Усього</dt>
+          <dt>У цьому розділі</dt>
           <dd>{stats.total}</dd>
         </div>
         <div>
@@ -241,14 +309,12 @@ export default function ProductReports() {
         </div>
       </dl>
 
-      {/* ── Error ── */}
       {error && (
         <div className="product-reports-page__error" role="alert">
           {error}
         </div>
       )}
 
-      {/* ── Content ── */}
       {loading ? (
         <div className="product-reports-page__empty" aria-live="polite">
           Завантаження…
@@ -263,6 +329,7 @@ export default function ProductReports() {
             const noteValue = draftNotes[report.report_id] ?? "";
             const isBusy = actionId === report.report_id;
             const cardId = `report-${report.report_id}`;
+            const isDeleted = Boolean(report.deleted_at);
 
             return (
               <article
@@ -272,7 +339,6 @@ export default function ProductReports() {
                 }`}
                 aria-labelledby={`${cardId}-title`}
               >
-                {/* Card Header */}
                 <header className="product-report-card__header">
                   <div>
                     <h2 id={`${cardId}-title`}>{getProductTitle(report)}</h2>
@@ -284,17 +350,30 @@ export default function ProductReports() {
                     </p>
                   </div>
 
-                  <span
-                    className={`product-report-status product-report-status--${report.status}`}
-                    aria-label={`Статус: ${
-                      STATUS_LABELS[report.status] || report.status
-                    }`}
-                  >
-                    {STATUS_LABELS[report.status] || report.status}
-                  </span>
+                  <div className="product-report-card__badges">
+                    {report.archived_at && !report.deleted_at && (
+                      <span className="product-report-visibility product-report-visibility--archived">
+                        Архів
+                      </span>
+                    )}
+
+                    {report.deleted_at && (
+                      <span className="product-report-visibility product-report-visibility--deleted">
+                        Видалено
+                      </span>
+                    )}
+
+                    <span
+                      className={`product-report-status product-report-status--${report.status}`}
+                      aria-label={`Статус: ${
+                        STATUS_LABELS[report.status] || report.status
+                      }`}
+                    >
+                      {STATUS_LABELS[report.status] || report.status}
+                    </span>
+                  </div>
                 </header>
 
-                {/* Meta */}
                 <dl className="product-report-card__meta">
                   <div>
                     <dt>Причина</dt>
@@ -320,15 +399,35 @@ export default function ProductReports() {
                       )}
                     </dd>
                   </div>
+
+                  {report.archived_at && !report.deleted_at && (
+                    <div>
+                      <dt>В архіві</dt>
+                      <dd>
+                        <time dateTime={report.archived_at}>
+                          {formatDate(report.archived_at)}
+                        </time>
+                      </dd>
+                    </div>
+                  )}
+
+                  {report.deleted_at && (
+                    <div>
+                      <dt>Видалено</dt>
+                      <dd>
+                        <time dateTime={report.deleted_at}>
+                          {formatDate(report.deleted_at)}
+                        </time>
+                      </dd>
+                    </div>
+                  )}
                 </dl>
 
-                {/* User comment */}
                 <div className="product-report-card__section">
                   <h3>Коментар користувача</h3>
                   <p>{report.comment || "Без коментаря."}</p>
                 </div>
 
-                {/* Page URL */}
                 {report.page_url && (
                   <div className="product-report-card__section">
                     <h3>Сторінка</h3>
@@ -342,51 +441,122 @@ export default function ProductReports() {
                   </div>
                 )}
 
-                {/* Controls */}
-                <div className="product-report-card__controls">
-                  <label htmlFor={`${cardId}-status`}>
-                    <span>Статус</span>
-                    <select
-                      id={`${cardId}-status`}
-                      value={report.status}
+                {!isDeleted && (
+                  <div className="product-report-card__controls">
+                    <label htmlFor={`${cardId}-status`}>
+                      <span>Статус</span>
+                      <select
+                        id={`${cardId}-status`}
+                        value={report.status}
+                        disabled={isBusy}
+                        onChange={(e) =>
+                          updateReport(report, { status: e.target.value })
+                        }
+                      >
+                        {STATUS_OPTIONS.filter((o) => o.value).map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label htmlFor={`${cardId}-note`}>
+                      <span>Нотатка адміністратора</span>
+                      <textarea
+                        id={`${cardId}-note`}
+                        rows={3}
+                        value={noteValue}
+                        disabled={isBusy}
+                        onChange={(e) =>
+                          handleNoteChange(report.report_id, e.target.value)
+                        }
+                        placeholder="Що перевірено, яке рішення прийнято…"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
                       disabled={isBusy}
-                      onChange={(e) =>
-                        updateReport(report, { status: e.target.value })
+                      aria-busy={isBusy}
+                      onClick={() =>
+                        updateReport(report, { admin_note: noteValue })
                       }
                     >
-                      {STATUS_OPTIONS.filter((o) => o.value).map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      {isBusy ? "Збереження…" : "Зберегти нотатку"}
+                    </button>
+                  </div>
+                )}
 
-                  <label htmlFor={`${cardId}-note`}>
-                    <span>Нотатка адміністратора</span>
-                    <textarea
-                      id={`${cardId}-note`}
-                      rows={3}
-                      value={noteValue}
-                      disabled={isBusy}
-                      onChange={(e) =>
-                        handleNoteChange(report.report_id, e.target.value)
-                      }
-                      placeholder="Що перевірено, яке рішення прийнято…"
-                    />
-                  </label>
+                <footer className="product-report-card__actions">
+                  {view === "active" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        data-variant="secondary"
+                        onClick={() => runReportAction(report, "archive")}
+                      >
+                        Архівувати
+                      </button>
 
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    aria-busy={isBusy}
-                    onClick={() =>
-                      updateReport(report, { admin_note: noteValue })
-                    }
-                  >
-                    {isBusy ? "Збереження…" : "Зберегти нотатку"}
-                  </button>
-                </div>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        data-variant="danger"
+                        onClick={() => runReportAction(report, "delete")}
+                      >
+                        Видалити
+                      </button>
+                    </>
+                  )}
+
+                  {view === "archived" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        data-variant="primary"
+                        onClick={() => runReportAction(report, "restore")}
+                      >
+                        Відновити
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        data-variant="danger"
+                        onClick={() => runReportAction(report, "delete")}
+                      >
+                        Видалити
+                      </button>
+                    </>
+                  )}
+
+                  {view === "deleted" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        data-variant="primary"
+                        onClick={() => runReportAction(report, "restore")}
+                      >
+                        Відновити
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        data-variant="danger"
+                        onClick={() =>
+                          runReportAction(report, "delete-permanently")
+                        }
+                      >
+                        Видалити назавжди
+                      </button>
+                    </>
+                  )}
+                </footer>
               </article>
             );
           })}

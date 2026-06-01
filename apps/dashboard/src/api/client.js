@@ -128,4 +128,32 @@ export const api = {
       body: payload,
       expect: "json",
     }),
+
+  archiveProductReport: (reportId, opts) =>
+    request(`/api/product-reports/${encodeURIComponent(reportId)}/archive`, {
+      ...(opts || {}),
+      method: "POST",
+      expect: "json",
+    }),
+
+  restoreProductReport: (reportId, opts) =>
+    request(`/api/product-reports/${encodeURIComponent(reportId)}/restore`, {
+      ...(opts || {}),
+      method: "POST",
+      expect: "json",
+    }),
+
+  deleteProductReport: (reportId, opts) =>
+    request(`/api/product-reports/${encodeURIComponent(reportId)}`, {
+      ...(opts || {}),
+      method: "DELETE",
+      expect: "json",
+    }),
+
+  permanentlyDeleteProductReport: (reportId, opts) =>
+    request(`/api/product-reports/${encodeURIComponent(reportId)}/permanent`, {
+      ...(opts || {}),
+      method: "DELETE",
+      expect: "json",
+    }),
 };

@@ -2,8 +2,12 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 
 import {
   ProductReportError,
+  archiveProductReport,
   createProductReport,
   listProductReports,
+  permanentlyDeleteProductReport,
+  restoreProductReport,
+  softDeleteProductReport,
   updateProductReport,
 } from "./service";
 
@@ -79,12 +83,14 @@ export default async function productReportsRoutes(app: FastifyInstance) {
     try {
       const query = req.query as {
         status?: string;
+        view?: string;
         q?: string;
         limit?: string | number;
       };
 
       return await listProductReports({
         status: query.status as any,
+        view: query.view as any,
         q: query.q,
         limit: Number(query.limit || 100),
       });
@@ -102,6 +108,68 @@ export default async function productReportsRoutes(app: FastifyInstance) {
         String(params.reportId || ""),
         req.body as any,
       );
+
+      return {
+        item,
+      };
+    } catch (error) {
+      reply.code(getErrorStatus(error));
+      return { error: getErrorMessage(error) };
+    }
+  });
+
+  app.post("/product-reports/:reportId/archive", async (req, reply) => {
+    try {
+      const params = req.params as { reportId?: string };
+
+      const item = await archiveProductReport(String(params.reportId || ""));
+
+      return {
+        item,
+      };
+    } catch (error) {
+      reply.code(getErrorStatus(error));
+      return { error: getErrorMessage(error) };
+    }
+  });
+
+  app.post("/product-reports/:reportId/restore", async (req, reply) => {
+    try {
+      const params = req.params as { reportId?: string };
+
+      const item = await restoreProductReport(String(params.reportId || ""));
+
+      return {
+        item,
+      };
+    } catch (error) {
+      reply.code(getErrorStatus(error));
+      return { error: getErrorMessage(error) };
+    }
+  });
+
+  app.delete("/product-reports/:reportId/permanent", async (req, reply) => {
+    try {
+      const params = req.params as { reportId?: string };
+
+      const item = await permanentlyDeleteProductReport(
+        String(params.reportId || ""),
+      );
+
+      return {
+        item,
+      };
+    } catch (error) {
+      reply.code(getErrorStatus(error));
+      return { error: getErrorMessage(error) };
+    }
+  });
+
+  app.delete("/product-reports/:reportId", async (req, reply) => {
+    try {
+      const params = req.params as { reportId?: string };
+
+      const item = await softDeleteProductReport(String(params.reportId || ""));
 
       return {
         item,
