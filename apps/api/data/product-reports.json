@@ -2,6 +2,25 @@
   "version": 1,
   "reports": [
     {
+      "report_id": "product_report_11992da8-d2f5-4ab2-a065-ae37b563facf",
+      "product_id": "04c27c6f-4d2d-465a-8a43-33fcfc5cc9b5",
+      "product_name": "Корпус для ESP32 DevKitC V4 NodeMCU",
+      "product_sku": "-esp32-devkitc-v4-nodemc-PMDSHV",
+      "reason": "Некоректний опис",
+      "comment": null,
+      "page_url": "http://192.168.0.135/products/-esp32-devkitc-v4-nodemc-PMDSHV",
+      "status": "new",
+      "created_at": "2026-06-01T15:50:16.648Z",
+      "resolved_at": null,
+      "admin_note": null,
+      "archived_at": null,
+      "deleted_at": null,
+      "source": "shop",
+      "client_ip_hash": "fc1fa43bcc0a3cce859fec16b0e70cedeb5781b245410e8c2e5f0d68ec877836",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:151.0) Gecko/20100101 Firefox/151.0",
+      "referer": "http://192.168.0.135/products/-esp32-devkitc-v4-nodemc-PMDSHV"
+    },
+    {
       "report_id": "product_report_a5b012ef-9140-457c-8e21-0eab8358287a",
       "product_id": "04c27c6f-4d2d-465a-8a43-33fcfc5cc9b5",
       "product_name": "Корпус для ESP32 DevKitC V4 NodeMCU",
@@ -73,7 +92,9 @@
       "source": "shop",
       "client_ip_hash": "059749ed2832544177d88218bd8c58fa72929462dd5934030d6ffd3725efa372",
       "user_agent": "test-client",
-      "referer": null
+      "referer": null,
+      "archived_at": null,
+      "deleted_at": "2026-06-01T15:49:59.515Z"
     }
   ]
 }
