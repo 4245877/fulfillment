@@ -1,7 +1,14 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 const PROGRESS_SUCCESS_FROM = 80;
 const PROGRESS_WARNING_FROM = 35;
+
+const PRINTER_IMAGES = {
+  default: "/printer-images/default-printer.png",
+  ender3v3ke: "/printer-images/ender-3v3-ke.png",
+  k2: "/printer-images/k2.png",
+  a1combo: "/printer-images/a1-combo.png",
+};
 
 function asNumber(value, fallback = 0) {
   const n = Number(value);
@@ -94,6 +101,150 @@ function toTagClass(tone = "primary") {
   return map[key] || "";
 }
 
+function normalizeLookupKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9а-яіїєґё.]+/gi, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getPrinterLookupKeys(printer) {
+  return [
+    printer?.id,
+    printer?.name,
+    printer?.model,
+    printer?.host,
+    printer?.ip,
+    printer?.deviceUi,
+  ]
+    .map(normalizeLookupKey)
+    .filter(Boolean);
+}
+
+function buildConfigMap(items) {
+  const map = new Map();
+
+  items.forEach((printer) => {
+    getPrinterLookupKeys(printer).forEach((key) => {
+      if (!map.has(key)) {
+        map.set(key, printer);
+      }
+    });
+  });
+
+  return map;
+}
+
+function findConfigForPrinter(printer, configMap) {
+  const keys = getPrinterLookupKeys(printer);
+
+  for (const key of keys) {
+    const config = configMap.get(key);
+
+    if (config) return config;
+  }
+
+  return null;
+}
+
+function isDefaultImageUrl(value) {
+  const imageUrl = String(value || "").trim().toLowerCase();
+
+  return (
+    !imageUrl ||
+    imageUrl.endsWith("/default-printer.png") ||
+    imageUrl.endsWith("default-printer.png")
+  );
+}
+
+function getPresetImage(printer, config) {
+  const text = [
+    printer?.id,
+    printer?.name,
+    printer?.model,
+    config?.id,
+    config?.name,
+    config?.model,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (text.includes("k2")) {
+    return PRINTER_IMAGES.k2;
+  }
+
+  if (text.includes("a1") || text.includes("bambu")) {
+    return PRINTER_IMAGES.a1combo;
+  }
+
+  if (text.includes("ender") || text.includes("v3 ke") || text.includes("v3-ke")) {
+    return PRINTER_IMAGES.ender3v3ke;
+  }
+
+  return "";
+}
+
+function normalizeImageUrl(value, presetImage = "") {
+  const imageUrl = String(value || "").trim();
+  const lower = imageUrl.toLowerCase();
+
+  if (isDefaultImageUrl(imageUrl)) {
+    return presetImage || PRINTER_IMAGES.default;
+  }
+
+  if (lower.includes("creality-k2")) {
+    return PRINTER_IMAGES.k2;
+  }
+
+  if (lower.includes("a1-combo") || lower.includes("bambu")) {
+    return PRINTER_IMAGES.a1combo;
+  }
+
+  if (lower.includes("ender")) {
+    return PRINTER_IMAGES.ender3v3ke;
+  }
+
+  return imageUrl;
+}
+
+function resolvePrinterImage(printer, config) {
+  const presetImage = getPresetImage(printer, config);
+
+  const liveImage = printer?.imageUrl;
+  const configImage = config?.imageUrl;
+
+  const imageUrl = isDefaultImageUrl(liveImage) ? configImage : liveImage;
+
+  return normalizeImageUrl(imageUrl, presetImage);
+}
+
+function mergePrinterWithConfig(printer, config) {
+  if (!config) {
+    return {
+      ...printer,
+      imageUrl: resolvePrinterImage(printer, null),
+    };
+  }
+
+  const merged = {
+    ...config,
+    ...printer,
+    name: printer.name || config.name,
+    model: printer.model || config.model,
+    protocol: printer.protocol || config.protocol,
+    host: printer.host || config.host,
+    nozzle: printer.nozzle || config.nozzle,
+    material: printer.material || config.material,
+  };
+
+  return {
+    ...merged,
+    imageUrl: resolvePrinterImage(printer, config),
+  };
+}
+
 function Panel({
   title,
   subtitle,
@@ -166,11 +317,24 @@ function RowProgress({ value }) {
 export default function PrinterMonitoringPanel({
   printers = [],
   jobs = [],
+  configs = [],
   livePrinters = [],
   monitorError = "",
   loading = false,
 }) {
-  const visiblePrinters = livePrinters.length ? livePrinters : printers;
+  const configMap = useMemo(() => {
+    return buildConfigMap([...configs, ...printers]);
+  }, [configs, printers]);
+
+  const visiblePrinters = useMemo(() => {
+    const source = livePrinters.length ? livePrinters : printers;
+
+    return source.map((printer) => {
+      const config = findConfigForPrinter(printer, configMap);
+
+      return mergePrinterWithConfig(printer, config);
+    });
+  }, [livePrinters, printers, configMap]);
 
   return (
     <Panel
@@ -224,12 +388,12 @@ export default function PrinterMonitoringPanel({
                 <div className="printer-monitor-image-wrap">
                   <img
                     className="printer-monitor-image"
-                    src={printer.imageUrl || "/printer-images/default-printer.png"}
+                    src={printer.imageUrl || PRINTER_IMAGES.default}
                     alt={printer.name || "3D-принтер"}
                     loading="lazy"
                     onError={(event) => {
                       event.currentTarget.onerror = null;
-                      event.currentTarget.src = "/printer-images/default-printer.png";
+                      event.currentTarget.src = PRINTER_IMAGES.default;
                     }}
                   />
                 </div>

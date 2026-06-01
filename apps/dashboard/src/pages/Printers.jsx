@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiWB as api } from "../api/wallboardApi.js";
-import { fetchPrinterStatuses } from "../api/printerFarmApi.js";
+import {
+  fetchPrinterConfigs,
+  fetchPrinterStatuses,
+} from "../api/printerFarmApi.js";
 import { useSSE } from "../hooks/useSSE.js";
 import PrinterMonitoringPanel from "../components/printers/PrinterMonitoringPanel.jsx";
 import PrinterManagerPanel from "../components/printers/PrinterManagerPanel.jsx";
@@ -134,6 +137,7 @@ function PrintersHero({ updatedAt, loading, hasError }) {
 
 export default function Printers() {
   const [prints, setPrints] = useState(DEFAULT_PRINTS);
+  const [printerConfigs, setPrinterConfigs] = useState([]);
   const [printerMonitor, setPrinterMonitor] = useState(DEFAULT_PRINTER_MONITOR);
   const [loading, setLoading] = useState(true);
   const [monitorLoading, setMonitorLoading] = useState(true);
@@ -141,10 +145,12 @@ export default function Printers() {
   const [updatedAt, setUpdatedAt] = useState(null);
 
   const refreshPrinters = useCallback(async () => {
-    const [printsResult, statusesResult] = await Promise.allSettled([
-      api.printsOverview(),
-      fetchPrinterStatuses(),
-    ]);
+    const [printsResult, configsResult, statusesResult] =
+      await Promise.allSettled([
+        api.printsOverview(),
+        fetchPrinterConfigs(),
+        fetchPrinterStatuses(),
+      ]);
 
     let hasSuccess = false;
 
@@ -157,6 +163,15 @@ export default function Printers() {
         printsResult.reason instanceof Error
           ? printsResult.reason.message
           : "Не вдалося оновити зведення друку"
+      );
+    }
+
+    if (configsResult.status === "fulfilled") {
+      hasSuccess = true;
+      setPrinterConfigs(
+        Array.isArray(configsResult.value?.printers)
+          ? configsResult.value.printers
+          : []
       );
     }
 
@@ -186,29 +201,45 @@ export default function Printers() {
   useEffect(() => {
     let isMounted = true;
 
-    api
-      .printsOverview()
-      .then((data) => {
-        if (!isMounted) return;
+    async function loadInitialData() {
+      const [printsResult, configsResult] = await Promise.allSettled([
+        api.printsOverview(),
+        fetchPrinterConfigs(),
+      ]);
 
-        setPrints((current) => mergePrints(current, data));
+      if (!isMounted) return;
+
+      let hasSuccess = false;
+
+      if (printsResult.status === "fulfilled") {
+        hasSuccess = true;
+        setPrints((current) => mergePrints(current, printsResult.value));
         setLoadError("");
-        setUpdatedAt(new Date());
-      })
-      .catch((error) => {
-        if (!isMounted) return;
-
+      } else {
         setLoadError(
-          error instanceof Error
-            ? error.message
+          printsResult.reason instanceof Error
+            ? printsResult.reason.message
             : "Не вдалося завантажити зведення друку"
         );
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
+      }
+
+      if (configsResult.status === "fulfilled") {
+        hasSuccess = true;
+        setPrinterConfigs(
+          Array.isArray(configsResult.value?.printers)
+            ? configsResult.value.printers
+            : []
+        );
+      }
+
+      if (hasSuccess) {
+        setUpdatedAt(new Date());
+      }
+
+      setLoading(false);
+    }
+
+    loadInitialData();
 
     return () => {
       isMounted = false;
@@ -364,6 +395,7 @@ export default function Printers() {
         <PrinterMonitoringPanel
           printers={prints.printers}
           jobs={prints.jobs}
+          configs={printerConfigs}
           livePrinters={printerMonitor.printers}
           monitorError={printerMonitor.error}
           loading={monitorLoading}
