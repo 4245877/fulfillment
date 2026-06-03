@@ -43,7 +43,9 @@ function formatMoney(value, currency = "UAH") {
 
   if (!Number.isFinite(n)) return "—";
 
-  return `${new Intl.NumberFormat("uk-UA").format(n)} ${currency === "UAH" ? "грн" : currency}`;
+  return `${new Intl.NumberFormat("uk-UA").format(n)} ${
+    currency === "UAH" ? "грн" : currency
+  }`;
 }
 
 function formatDate(value) {
@@ -57,6 +59,25 @@ function formatDate(value) {
     dateStyle: "short",
     timeStyle: "short",
   });
+}
+
+function pickItemImage(item) {
+  return item?.image_url ?? item?.imageUrl ?? item?.image ?? null;
+}
+
+function pickItemFiles(item) {
+  return asArray(item?.files).filter((file) => file?.url);
+}
+
+function fileTitle(file, index) {
+  const type = String(file?.type || "").toUpperCase();
+  const name = file?.filename || file?.name;
+
+  if (name && type) return `${type} · ${name}`;
+  if (name) return name;
+  if (type) return `${type} файл`;
+
+  return `Файл ${index + 1}`;
 }
 
 export default function Orders() {
@@ -268,7 +289,11 @@ export default function Orders() {
 
                 <div className={s.sideBlock}>
                   <div className={`text-muted ${s.customerInfo}`}>
-                    {o?.customer_name || o?.customer || o?.email || o?.phone || "Клієнт не вказаний"}
+                    {o?.customer_name ||
+                      o?.customer ||
+                      o?.email ||
+                      o?.phone ||
+                      "Клієнт не вказаний"}
                   </div>
 
                   <label className={s.statusEditor}>
@@ -294,17 +319,77 @@ export default function Orders() {
               </div>
 
               {items.length > 0 ? (
-                <div className={s.itemsLine}>
-                  {items.slice(0, 3).map((item, itemIdx) => (
-                    <span key={`${id}-item-${itemIdx}`}>
-                      {item.name || item.title || item.sku || "Товар"} ×{" "}
-                      {item.qty || item.quantity || 1}
-                    </span>
-                  ))}
+                <div className={s.itemsList}>
+                  {items.map((item, itemIdx) => {
+                    const imageUrl = pickItemImage(item);
+                    const files = pickItemFiles(item);
 
-                  {items.length > 3 ? (
-                    <span>+ ще {items.length - 3}</span>
-                  ) : null}
+                    return (
+                      <div key={`${id}-item-${itemIdx}`} className={s.itemCard}>
+                        <div className={s.itemImageBox}>
+                          {imageUrl ? (
+                            <img
+                              className={s.itemImage}
+                              src={imageUrl}
+                              alt={item.name || item.title || item.sku || "Товар"}
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className={s.itemImagePlaceholder}>Без фото</div>
+                          )}
+                        </div>
+
+                        <div className={s.itemBody}>
+                          <div className={s.itemTitle}>
+                            {item.name || item.title || item.sku || "Товар"}
+                          </div>
+
+                          <div className={s.itemMeta}>
+                            <span>Кількість: {item.qty || item.quantity || 1}</span>
+
+                            {item.sku ? <span>SKU: {item.sku}</span> : null}
+
+                            {item.price != null ? (
+                              <span>
+                                Ціна: {formatMoney(item.price, o?.currency)}
+                              </span>
+                            ) : null}
+
+                            {item.total != null ? (
+                              <span>
+                                Разом: {formatMoney(item.total, o?.currency)}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <div className={s.filesBlock}>
+                            <div className={s.filesTitle}>Файли моделі</div>
+
+                            {files.length > 0 ? (
+                              <div className={s.filesList}>
+                                {files.map((file, fileIdx) => (
+                                  <a
+                                    key={`${id}-item-${itemIdx}-file-${fileIdx}`}
+                                    className={s.fileLink}
+                                    href={file.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    download={file.filename || undefined}
+                                  >
+                                    Завантажити {fileTitle(file, fileIdx)}
+                                  </a>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className={s.noFiles}>
+                                STL/3MF файли не прикріплені
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
 
