@@ -5,7 +5,9 @@ import printersRoutes from "./modules/printers/routes";
 import inventoryRoutes from "./modules/inventory/routes";
 import backupsRoutes from "./modules/backups/routes";
 import productReportsRoutes from "./modules/productReports/routes";
+import ordersRoutes from "./modules/orders/routes";
 import { getInventoryMaterialsSummary } from "./modules/inventory/service";
+import { getOrdersStatusSummary } from "./modules/orders/service";
 import { checkDbConnection } from "./infra/db/knex";
 
 const app = Fastify({ logger: true });
@@ -44,17 +46,7 @@ app.get("/api/ops/overview", async () => {
 
   return {
     stats: {
-      orders: {
-        PrePrintCheck: 0,
-        Queued: 0,
-        Printing: 0,
-        PostProcess: 0,
-        Packaging: 0,
-        Shipment: 0,
-        Pickup: 0,
-        Delivered: 0,
-        Issued: 0,
-      },
+      orders: await getOrdersStatusSummary(),
       payments: {
         awaitingPrepay: 0,
         awaitingRest: 0,
@@ -142,5 +134,6 @@ app.register(printersRoutes, { prefix: "/api/printers" });
 app.register(inventoryRoutes, { prefix: "/api/inventory" });
 app.register(backupsRoutes, { prefix: "/api/ops/backup" });
 app.register(productReportsRoutes, { prefix: "/api" });
+app.register(ordersRoutes, { prefix: "/api/orders" });
 
 export default app;

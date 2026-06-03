@@ -106,6 +106,28 @@ export const api = {
   getText: (path, opts) =>
     request(path, { ...(opts || {}), method: "GET", expect: "text" }),
 
+  listOrders: (params, opts) =>
+    request(`/api/orders${buildQuery(params)}`, {
+      ...(opts || {}),
+      method: "GET",
+      expect: "json",
+    }),
+
+  getOrder: (orderId, opts) =>
+    request(`/api/orders/${encodeURIComponent(orderId)}`, {
+      ...(opts || {}),
+      method: "GET",
+      expect: "json",
+    }),
+
+  updateOrderStatus: (orderId, payload, opts) =>
+    request(`/api/orders/${encodeURIComponent(orderId)}/status`, {
+      ...(opts || {}),
+      method: "PATCH",
+      body: payload,
+      expect: "json",
+    }),
+
   reportProduct: (productId, payload, opts) =>
     request(`/api/products/${encodeURIComponent(productId)}/reports`, {
       ...(opts || {}),
