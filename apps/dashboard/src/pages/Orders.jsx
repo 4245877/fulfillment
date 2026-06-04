@@ -18,6 +18,26 @@ const ORDER_STATUSES = [
   "Problem",
 ];
 
+const ORDER_STATUS_LABELS = {
+  New: "Нове",
+  Accepted: "Прийнято",
+  PrePrintCheck: "Перевірка перед друком",
+  Queued: "У черзі",
+  Printing: "Друкується",
+  PostProcess: "Постобробка",
+  Packaging: "Пакування",
+  Shipment: "Відправлення",
+  Pickup: "Самовивіз",
+  Delivered: "Доставлено",
+  Issued: "Видано",
+  Cancelled: "Скасовано",
+  Problem: "Проблема",
+};
+
+function orderStatusLabel(status) {
+  return ORDER_STATUS_LABELS[status] ?? status;
+}
+
 function asArray(v) {
   return Array.isArray(v) ? v : [];
 }
@@ -65,8 +85,298 @@ function pickItemImage(item) {
   return item?.image_url ?? item?.imageUrl ?? item?.image ?? null;
 }
 
+function safeUrl(value) {
+  const url = String(value ?? "").trim();
+
+  if (!url) return "";
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+
+    if (!["http:", "https:", "blob:"].includes(parsed.protocol)) {
+      return "";
+    }
+
+    return parsed.href;
+  } catch {
+    return "";
+  }
+}
+
+function pickModelFiles(entity) {
+  const rawFiles = asArray(
+    entity?.files ??
+      entity?.model_files ??
+      entity?.modelFiles ??
+      entity?.attachments
+  );
+
+  return rawFiles
+    .map((file) => {
+      const url = safeUrl(file?.url ?? file?.href ?? file?.download_url);
+      const filename = file?.filename ?? file?.name ?? "";
+
+      return {
+        ...file,
+        url,
+        filename,
+      };
+    })
+    .filter((file) => {
+      if (!file.url) return false;
+
+      const hay = `${file.filename} ${file.url} ${file.type ?? ""}`.toLowerCase();
+
+      return (
+        hay.includes(".stl") ||
+        hay.includes(".3mf") ||
+        hay.includes("stl") ||
+        hay.includes("3mf")
+      );
+    });
+}
+
 function pickItemFiles(item) {
-  return asArray(item?.files).filter((file) => file?.url);
+  return pickModelFiles(item);
+}
+
+function pickModelSource(entity) {
+  const source =
+    entity?.source_url ??
+    entity?.sourceUrl ??
+    entity?.model_source_url ??
+    entity?.modelSourceUrl ??
+    entity?.model_url ??
+    entity?.modelUrl ??
+    entity?.source?.url ??
+    entity?.model?.source_url ??
+    entity?.model?.sourceUrl ??
+    "";
+
+  return safeUrl(source);
+}
+
+function sourceLabel(url) {
+  if (!url) return "";
+
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+
+    if (host.includes("makerworld")) return "MakerWorld";
+    if (host.includes("printables")) return "Printables";
+    if (host.includes("thingiverse")) return "Thingiverse";
+    if (host.includes("cults3d")) return "Cults3D";
+
+    return host;
+  } catch {
+    return "Джерело моделі";
+  }
+}
+
+function objectOrEmpty(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
+}
+
+function pickCustomer(order) {
+  const customerObj = objectOrEmpty(order?.customer);
+  const clientObj = objectOrEmpty(order?.client);
+  const buyerObj = objectOrEmpty(order?.buyer);
+
+  const name =
+    order?.customer_name ??
+    order?.customerName ??
+    order?.client_name ??
+    order?.clientName ??
+    customerObj?.name ??
+    customerObj?.full_name ??
+    clientObj?.name ??
+    buyerObj?.name ??
+    (typeof order?.customer === "string" ? order.customer : "");
+
+  const phone =
+    order?.phone ??
+    order?.customer_phone ??
+    order?.customerPhone ??
+    order?.client_phone ??
+    order?.clientPhone ??
+    customerObj?.phone ??
+    clientObj?.phone ??
+    buyerObj?.phone ??
+    "";
+
+  const email =
+    order?.email ??
+    order?.customer_email ??
+    order?.customerEmail ??
+    order?.client_email ??
+    order?.clientEmail ??
+    customerObj?.email ??
+    clientObj?.email ??
+    buyerObj?.email ??
+    "";
+
+  return { name, phone, email };
+}
+
+function telHref(phone) {
+  const cleaned = String(phone ?? "").replace(/[^\d+]/g, "");
+
+  return cleaned ? `tel:${cleaned}` : "";
+}
+
+function mailHref(email) {
+  const value = String(email ?? "").trim();
+
+  return value ? `mailto:${value}` : "";
+}
+
+function pickDelivery(order) {
+  const delivery = objectOrEmpty(
+    order?.delivery ??
+      order?.shipping ??
+      order?.shipment ??
+      order?.shipping_address ??
+      order?.shippingAddress
+  );
+
+  const address = objectOrEmpty(delivery?.address ?? order?.address);
+
+  return {
+    recipient:
+      delivery?.recipient ??
+      delivery?.recipient_name ??
+      delivery?.recipientName ??
+      order?.recipient_name ??
+      order?.recipientName ??
+      "",
+    phone:
+      delivery?.phone ??
+      delivery?.recipient_phone ??
+      delivery?.recipientPhone ??
+      order?.recipient_phone ??
+      "",
+    carrier:
+      delivery?.carrier ??
+      delivery?.service ??
+      delivery?.provider ??
+      order?.delivery_service ??
+      order?.carrier ??
+      "",
+    city: delivery?.city ?? address?.city ?? order?.city ?? "",
+    region:
+      delivery?.region ??
+      delivery?.state ??
+      address?.region ??
+      address?.state ??
+      order?.region ??
+      "",
+    address:
+      delivery?.address_line ??
+      delivery?.addressLine ??
+      delivery?.street ??
+      address?.line1 ??
+      address?.street ??
+      order?.shipping_address ??
+      "",
+    warehouse:
+      delivery?.warehouse ??
+      delivery?.branch ??
+      delivery?.office ??
+      delivery?.post_office ??
+      delivery?.postOffice ??
+      order?.warehouse ??
+      "",
+    postalCode:
+      delivery?.postal_code ??
+      delivery?.postalCode ??
+      delivery?.zip ??
+      address?.postal_code ??
+      order?.postal_code ??
+      "",
+    tracking:
+      delivery?.tracking_number ??
+      delivery?.trackingNumber ??
+      delivery?.ttn ??
+      order?.tracking_number ??
+      order?.ttn ??
+      "",
+    comment:
+      delivery?.comment ??
+      delivery?.note ??
+      order?.delivery_comment ??
+      "",
+  };
+}
+
+function hasDeliveryData(delivery) {
+  return Object.values(delivery).some((value) => String(value ?? "").trim());
+}
+
+function pickPayment(order) {
+  const payment = objectOrEmpty(order?.payment);
+
+  const statusRaw = norm(
+    order?.payment_status ??
+      order?.paymentStatus ??
+      payment?.status ??
+      payment?.type ??
+      payment?.kind
+  );
+
+  const paidAmount =
+    order?.paid_amount_uah ??
+    order?.paidAmountUah ??
+    order?.paid_amount ??
+    order?.paidAmount ??
+    payment?.paid_amount_uah ??
+    payment?.paidAmountUah ??
+    payment?.paid_amount ??
+    payment?.paidAmount ??
+    null;
+
+  const totalAmount = order?.total_uah ?? order?.total ?? payment?.total ?? null;
+
+  const paid = Number(paidAmount);
+  const total = Number(totalAmount);
+
+  const isPartial =
+    statusRaw.includes("partial") ||
+    statusRaw.includes("partly") ||
+    statusRaw.includes("част") ||
+    (Number.isFinite(paid) &&
+      Number.isFinite(total) &&
+      paid > 0 &&
+      paid < total);
+
+  const isFull =
+    statusRaw.includes("full") ||
+    statusRaw.includes("paid") ||
+    statusRaw.includes("complete") ||
+    statusRaw.includes("повн") ||
+    (Number.isFinite(paid) &&
+      Number.isFinite(total) &&
+      total > 0 &&
+      paid >= total);
+
+  return {
+    kind: isPartial ? "partial" : isFull ? "full" : "unknown",
+    label: isPartial ? "Часткова" : isFull ? "Повна" : "Не вказано",
+    paidAmount,
+  };
+}
+
+function InfoRow({ label, value, href }) {
+  if (!String(value ?? "").trim()) return null;
+
+  return (
+    <div className={s.infoRow}>
+      <span>{label}</span>
+
+      {href ? <a href={href}>{value}</a> : <strong>{value}</strong>}
+    </div>
+  );
 }
 
 function fileTitle(file, index) {
@@ -119,7 +429,7 @@ export default function Orders() {
 
   useEffect(() => {
     load();
-    // Первый раз грузим всё. Фильтрация ниже локальная.
+    // Перший раз завантажуємо всі замовлення. Фільтрація нижче локальна.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -144,6 +454,7 @@ export default function Orders() {
         pickId(o),
         pickShopId(o),
         pickStatus(o),
+        orderStatusLabel(pickStatus(o)),
         o?.customer,
         o?.customer_name,
         o?.email,
@@ -228,16 +539,18 @@ export default function Orders() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Пошук за ID, статусом або клієнтом…"
+            aria-label="Пошук замовлень"
           />
 
           <select
             className={`select ${s.statusSelect}`}
             value={status}
             onChange={(e) => setStatus(e.target.value)}
+            aria-label="Фільтр за статусом"
           >
             {statuses.map((x) => (
               <option key={x} value={x}>
-                {x === "all" ? "усі статуси" : x}
+                {x === "all" ? "усі статуси" : orderStatusLabel(x)}
               </option>
             ))}
           </select>
@@ -264,6 +577,15 @@ export default function Orders() {
           const currentStatus = pickStatus(o) || "New";
           const items = asArray(o?.items);
 
+          const customer = pickCustomer(o);
+          const customerSummary = [customer.name, customer.email, customer.phone]
+            .filter(Boolean)
+            .join(" · ");
+          const delivery = pickDelivery(o);
+          const payment = pickPayment(o);
+          const orderFiles = pickModelFiles(o);
+          const orderSource = pickModelSource(o);
+
           return (
             <div key={id || idx} className={`card ${s.orderCard}`}>
               <div className={s.cardHeader}>
@@ -289,11 +611,7 @@ export default function Orders() {
 
                 <div className={s.sideBlock}>
                   <div className={`text-muted ${s.customerInfo}`}>
-                    {o?.customer_name ||
-                      o?.customer ||
-                      o?.email ||
-                      o?.phone ||
-                      "Клієнт не вказаний"}
+                    {customerSummary || "Клієнт не вказаний"}
                   </div>
 
                   <label className={s.statusEditor}>
@@ -306,7 +624,7 @@ export default function Orders() {
                     >
                       {apiStatuses.map((x) => (
                         <option key={x} value={x}>
-                          {x}
+                          {orderStatusLabel(x)}
                         </option>
                       ))}
                     </select>
@@ -318,11 +636,124 @@ export default function Orders() {
                 </div>
               </div>
 
+              <div className={s.orderInfoGrid}>
+                <div className={s.infoCard}>
+                  <div className={s.infoTitle}>Клієнт</div>
+
+                  <InfoRow label="ФІО" value={customer.name} />
+                  <InfoRow
+                    label="Телефон"
+                    value={customer.phone}
+                    href={telHref(customer.phone)}
+                  />
+                  <InfoRow
+                    label="Email"
+                    value={customer.email}
+                    href={mailHref(customer.email)}
+                  />
+
+                  {!customer.name && !customer.phone && !customer.email ? (
+                    <div className={s.emptyInfo}>Дані клієнта не вказані</div>
+                  ) : null}
+                </div>
+
+                <div className={s.infoCard}>
+                  <div className={s.infoTitle}>Доставка</div>
+
+                  {hasDeliveryData(delivery) ? (
+                    <>
+                      <InfoRow label="Отримувач" value={delivery.recipient} />
+                      <InfoRow
+                        label="Телефон"
+                        value={delivery.phone}
+                        href={telHref(delivery.phone)}
+                      />
+                      <InfoRow label="Служба" value={delivery.carrier} />
+                      <InfoRow label="Місто" value={delivery.city} />
+                      <InfoRow label="Область" value={delivery.region} />
+                      <InfoRow label="Адреса" value={delivery.address} />
+                      <InfoRow label="Відділення" value={delivery.warehouse} />
+                      <InfoRow label="Індекс" value={delivery.postalCode} />
+                      <InfoRow label="ТТН" value={delivery.tracking} />
+                      <InfoRow label="Коментар" value={delivery.comment} />
+                    </>
+                  ) : (
+                    <div className={s.emptyInfo}>Дані доставки не вказані</div>
+                  )}
+                </div>
+
+                <div className={s.infoCard}>
+                  <div className={s.infoTitle}>Оплата</div>
+
+                  <div
+                    className={`${s.paymentBadge} ${
+                      payment.kind === "partial"
+                        ? s.paymentPartial
+                        : payment.kind === "full"
+                          ? s.paymentFull
+                          : s.paymentUnknown
+                    }`}
+                  >
+                    {payment.label}
+                  </div>
+
+                  {payment.kind === "partial" ? (
+                    <div className={s.paidAmount}>
+                      Оплачено:{" "}
+                      <strong>
+                        {formatMoney(payment.paidAmount, o?.currency)}
+                      </strong>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className={s.infoCard}>
+                  <div className={s.infoTitle}>Файли замовлення</div>
+
+                  {orderSource ? (
+                    <a
+                      className={s.sourceLink}
+                      href={orderSource}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Джерело моделі: {sourceLabel(orderSource)}
+                    </a>
+                  ) : (
+                    <div className={s.emptyInfo}>
+                      Джерело моделі не вказано
+                    </div>
+                  )}
+
+                  {orderFiles.length > 0 ? (
+                    <div className={s.filesList}>
+                      {orderFiles.map((file, fileIdx) => (
+                        <a
+                          key={`${id}-order-file-${fileIdx}`}
+                          className={s.fileLink}
+                          href={file.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          download={file.filename || undefined}
+                        >
+                          Завантажити {fileTitle(file, fileIdx)}
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={s.noFiles}>
+                      STL/3MF файли замовлення не прикріплені
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {items.length > 0 ? (
                 <div className={s.itemsList}>
                   {items.map((item, itemIdx) => {
                     const imageUrl = pickItemImage(item);
                     const files = pickItemFiles(item);
+                    const sourceUrl = pickModelSource(item) || orderSource;
 
                     return (
                       <div key={`${id}-item-${itemIdx}`} className={s.itemCard}>
@@ -331,11 +762,15 @@ export default function Orders() {
                             <img
                               className={s.itemImage}
                               src={imageUrl}
-                              alt={item.name || item.title || item.sku || "Товар"}
+                              alt={
+                                item.name || item.title || item.sku || "Товар"
+                              }
                               loading="lazy"
                             />
                           ) : (
-                            <div className={s.itemImagePlaceholder}>Без фото</div>
+                            <div className={s.itemImagePlaceholder}>
+                              Без фото
+                            </div>
                           )}
                         </div>
 
@@ -345,7 +780,9 @@ export default function Orders() {
                           </div>
 
                           <div className={s.itemMeta}>
-                            <span>Кількість: {item.qty || item.quantity || 1}</span>
+                            <span>
+                              Кількість: {item.qty ?? item.quantity ?? 1}
+                            </span>
 
                             {item.sku ? <span>SKU: {item.sku}</span> : null}
 
@@ -361,6 +798,19 @@ export default function Orders() {
                               </span>
                             ) : null}
                           </div>
+
+                          {sourceUrl ? (
+                            <div className={s.sourceBlock}>
+                              <a
+                                className={s.sourceLink}
+                                href={sourceUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Джерело моделі: {sourceLabel(sourceUrl)}
+                              </a>
+                            </div>
+                          ) : null}
 
                           <div className={s.filesBlock}>
                             <div className={s.filesTitle}>Файли моделі</div>
@@ -395,7 +845,7 @@ export default function Orders() {
 
               <details className={s.details}>
                 <summary className={`text-muted ${s.detailsSummary}`}>
-                  Деталі JSON
+                  Службові дані
                 </summary>
                 <pre className={s.pre}>{JSON.stringify(o, null, 2)}</pre>
               </details>

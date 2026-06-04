@@ -1,5 +1,14 @@
 /* Orders.module.css — styles for Orders.jsx */
 
+:root {
+  --payment-full-bg: #dcfce7;
+  --payment-full-text: #166534;
+  --payment-partial-bg: #fef3c7;
+  --payment-partial-text: #92400e;
+  --payment-unknown-bg: #e5e7eb;
+  --payment-unknown-text: #374151;
+}
+
 /* === Top Row === */
 .topRow {
   display: flex;
@@ -106,30 +115,6 @@
   opacity: 1;
 }
 
-.orderCard:nth-child(1) {
-  animation: slideUp 0.3s ease-out 0s backwards;
-}
-
-.orderCard:nth-child(2) {
-  animation: slideUp 0.3s ease-out 0.04s backwards;
-}
-
-.orderCard:nth-child(3) {
-  animation: slideUp 0.3s ease-out 0.08s backwards;
-}
-
-.orderCard:nth-child(4) {
-  animation: slideUp 0.3s ease-out 0.12s backwards;
-}
-
-.orderCard:nth-child(5) {
-  animation: slideUp 0.3s ease-out 0.16s backwards;
-}
-
-.orderCard:nth-child(n + 6) {
-  animation: slideUp 0.3s ease-out 0.2s backwards;
-}
-
 /* === Card Header === */
 .cardHeader {
   display: flex;
@@ -173,10 +158,6 @@
   transition: background 0.2s ease;
 }
 
-.statusValue {
-  color: var(--text, #2f2924);
-}
-
 /* === Side Block === */
 .sideBlock {
   display: flex;
@@ -216,6 +197,93 @@
   color: var(--muted, #6f6257);
   font-size: 12px;
   animation: pulse 1s ease-in-out infinite;
+}
+
+/* === Order Info Grid === */
+.orderInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.infoCard {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--surface-soft, #f9fafb);
+}
+
+.infoTitle {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.infoRow {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.35;
+  margin-top: 6px;
+}
+
+.infoRow span {
+  color: var(--text-muted, #6b7280);
+}
+
+.infoRow strong,
+.infoRow a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.emptyInfo {
+  color: var(--text-muted, #6b7280);
+  font-size: 14px;
+}
+
+.paymentBadge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.paymentFull {
+  background: var(--payment-full-bg);
+  color: var(--payment-full-text);
+}
+
+.paymentPartial {
+  background: var(--payment-partial-bg);
+  color: var(--payment-partial-text);
+}
+
+.paymentUnknown {
+  background: var(--payment-unknown-bg);
+  color: var(--payment-unknown-text);
+}
+
+.paidAmount {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.sourceBlock {
+  margin-top: 10px;
+}
+
+.sourceLink {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  color: var(--link, #2563eb);
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 /* === Order Items === */
@@ -320,8 +388,7 @@
   text-decoration: none;
   transition:
     border-color 0.2s ease,
-    background 0.2s ease,
-    transform 0.2s ease;
+    background 0.2s ease;
 }
 
 .fileLink:hover {
@@ -349,7 +416,7 @@
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--border, #e5ded4);
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease;
 }
 
 .details summary {
@@ -421,46 +488,11 @@
   animation: fadeIn 0.5s ease-out;
 }
 
-/* === Legacy / Optional Compact Items Line === */
-.itemsLine {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0;
-}
-
-.itemsLine span {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: color-mix(
-    in srgb,
-    var(--primary, #9b6a43) 10%,
-    transparent
-  );
-  color: var(--text, #2f2924);
-  font-size: 12px;
-  font-weight: 600;
-}
-
 /* === Animations === */
 @keyframes slideDown {
   from {
     opacity: 0;
     transform: translateY(-12px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
   }
 
   to {
@@ -503,6 +535,12 @@
 }
 
 /* === Responsive === */
+@media (max-width: 1100px) {
+  .orderInfoGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
   .topRow {
     gap: 12px;
@@ -561,6 +599,16 @@
 
   .list {
     gap: 12px;
+  }
+}
+
+@media (max-width: 720px) {
+  .orderInfoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .infoRow {
+    grid-template-columns: 1fr;
   }
 }
 
