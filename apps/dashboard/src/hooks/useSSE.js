@@ -1,41 +1,77 @@
 import { useEffect, useRef, useState } from "react";
 
+const MAX_RETRY_POWER = 6;
+const MAX_RETRY_DELAY_MS = 15000;
+const BASE_RETRY_DELAY_MS = 500;
+
 export function useSSE(url, { onEvent } = {}) {
   const onEventRef = useRef(onEvent);
-  const [status, setStatus] = useState("idle"); // idle | connecting | open | error | closed
+  const [status, setStatus] = useState("idle"); // idle | connecting | open | error
 
-  // чтобы не пересоздавать EventSource при каждом ререндере
   useEffect(() => {
     onEventRef.current = onEvent;
   }, [onEvent]);
 
   useEffect(() => {
-    if (!url) return;
+    if (!url) {
+      setStatus("idle");
+      return undefined;
+    }
 
     let es = null;
     let stopped = false;
     let retry = 0;
     let timer = null;
 
+    const closeEventSource = () => {
+      if (!es) return;
+
+      try {
+        es.close();
+      } catch {
+        // ignore close errors
+      }
+
+      es = null;
+    };
+
+    const clearRetryTimer = () => {
+      if (!timer) return;
+
+      clearTimeout(timer);
+      timer = null;
+    };
+
     const cleanup = () => {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      if (es) {
-        try { es.close(); } catch {}
-        es = null;
-      }
+      clearRetryTimer();
+      closeEventSource();
+    };
+
+    const scheduleReconnect = () => {
+      if (stopped) return;
+
+      setStatus("error");
+      cleanup();
+
+      const n = Math.min(MAX_RETRY_POWER, retry);
+      retry += 1;
+
+      const delay = Math.min(MAX_RETRY_DELAY_MS, BASE_RETRY_DELAY_MS * 2 ** n);
+
+      timer = setTimeout(() => {
+        if (!stopped) {
+          connect();
+        }
+      }, delay);
     };
 
     const connect = () => {
       if (stopped) return;
 
       setStatus("connecting");
-
       cleanup();
+
       try {
-        // withCredentials тут не нужен при same-origin через proxy/nginx
         es = new EventSource(url);
 
         es.onopen = () => {
@@ -43,30 +79,20 @@ export function useSSE(url, { onEvent } = {}) {
           setStatus("open");
         };
 
-        es.onmessage = (e) => {
+        es.onmessage = (event) => {
           try {
-            const data = JSON.parse(e.data);
-            onEventRef.current && onEventRef.current(data);
+            const data = JSON.parse(event.data);
+            onEventRef.current?.(data);
           } catch {
-            // игнорируем мусор/комментарии
+            // ignore invalid SSE payloads
           }
         };
 
         es.onerror = () => {
-          if (stopped) return;
-          setStatus("error");
-
-          // мягкий реконнект с backoff
-          cleanup();
-          const n = Math.min(6, retry++);
-          const delay = Math.min(15000, 500 * 2 ** n);
-
-          timer = setTimeout(() => {
-            if (!stopped) connect();
-          }, delay);
+          scheduleReconnect();
         };
       } catch {
-        setStatus("error");
+        scheduleReconnect();
       }
     };
 
@@ -74,7 +100,6 @@ export function useSSE(url, { onEvent } = {}) {
 
     return () => {
       stopped = true;
-      setStatus("closed");
       cleanup();
     };
   }, [url]);

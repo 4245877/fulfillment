@@ -1,43 +1,15 @@
-import { api, apiUrl } from "./client.js";
+import { api } from "./client.js";
 
-async function safeJson(p, fallback) {
-  try {
-    return await api.get(p, { timeoutMs: 10000 });
-  } catch {
-    return fallback;
-  }
+const REQUEST_TIMEOUT_MS = 10000;
+
+function getJson(path) {
+  return api.get(path, { timeoutMs: REQUEST_TIMEOUT_MS });
 }
 
 export const apiWB = {
-  printsOverview: () =>
-    safeJson("/api/prints/overview", { printers: [], jobs: [], stats: {} }),
+  printsOverview: () => getJson("/api/prints/overview"),
 
-  opsOverview: () =>
-    safeJson("/api/ops/overview", {
-      stats: {
-        orders: {},
-        payments: {},
-        logistics: {},
-        materials: {},
-        queues: {},
-        services: {},
-        indexer: {},
-        webhooks: {},
-        alerts: [],
-      },
-      printers: [],
-      jobs: [],
-    }),
+  opsOverview: () => getJson("/api/ops/overview"),
+
+  backupStatus: () => getJson("/api/ops/backup/status"),
 };
-
-export function openSSE(path, onEvent) {
-  let es;
-  try {
-    es = new EventSource(apiUrl(path));
-    es.onmessage = (e) => {
-      try { onEvent?.(JSON.parse(e.data)); } catch {}
-    };
-    es.onerror = () => { try { es.close(); } catch {} };
-  } catch {}
-  return () => { try { es?.close(); } catch {} };
-}

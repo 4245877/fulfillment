@@ -5,7 +5,20 @@ import { useSSE } from "../hooks/useSSE.js";
 
 import "../styles/wallboard.css";
 
-const DEFAULT_OPS = { stats: {} };
+const DEFAULT_OPS = {
+  stats: {
+    orders: {},
+    payments: {},
+    logistics: {},
+    materials: {},
+    queues: {},
+    services: {},
+    indexer: {},
+    webhooks: {},
+    ingester: {},
+    alerts: [],
+  },
+};
 const DEFAULT_PRINTS = { printers: [], jobs: [], stats: {} };
 
 const DEFAULT_BACKUP_STATUS = {
@@ -228,17 +241,23 @@ function getAlertLabel(level) {
 
 function getServiceTone(status) {
   const v = String(status || "").toLowerCase();
+
+  if (!v || v === "unknown") return "primary";
   if (v === "up" || v === "ok" || v === "healthy") return "success";
   if (v === "degraded" || v === "warning") return "warning";
+
   return "danger";
 }
 
 function getServiceLabel(status) {
   const v = String(status || "").toLowerCase();
+
+  if (!v || v === "unknown") return "Невідомо";
   if (v === "up" || v === "ok" || v === "healthy") return "Працює";
   if (v === "degraded" || v === "warning") return "Частково";
   if (v === "down") return "Недоступний";
-  return status ? String(status) : "Недоступний";
+
+  return String(status);
 }
 
 function getBackupTone(status) {
@@ -327,6 +346,8 @@ function Panel({ title, subtitle, children, footer = null, loading = false, flus
       </div>
 
       <div className={`panel-body${flush ? " panel-body--flush" : ""}`}>{children}</div>
+
+      {loading ? <span className="panel-loading-spinner" aria-hidden="true" /> : null}
 
       {footer ? <div className="panel-footer">{footer}</div> : null}
     </section>
@@ -528,10 +549,10 @@ function SectionMaterials({ materials = {}, loading = false }) {
                           }
                         >
                           {status === "critical"
-                            ? "CRITICAL"
+                            ? "Критично"
                             : status === "low"
-                              ? "LOW"
-                              : "OK"}
+                              ? "Низький"
+                              : "Норма"}
                         </StatusTag>
                       </td>
                     </tr>
@@ -654,10 +675,9 @@ function SectionPayments({ payments = {}, loading = false }) {
 
 function SectionServices({ services = {}, loading = false }) {
   const downCount = SERVICE_ROWS.reduce((count, [, key]) => {
-    const value = services[key];
-    const status = String(value || "down").toLowerCase();
+    const status = String(services[key] || "unknown").toLowerCase();
 
-    return status !== "up" && status !== "ok" && status !== "healthy"
+    return status === "down" || status === "error" || status === "failed"
       ? count + 1
       : count;
   }, 0);
@@ -724,7 +744,7 @@ function SectionBackups({ backup = DEFAULT_BACKUP_STATUS, loading = false }) {
         <KpiCard
           label="Етап"
           value={getBackupStepLabel(backup.step)}
-          context={backup.run_id ? `Run ID: ${backup.run_id}` : "Run ID ще немає"}
+          context={backup.run_id ? `ID запуску: ${backup.run_id}` : "ID запуску ще немає"}
           icon="≡"
           variant="primary"
         />
@@ -740,7 +760,7 @@ function SectionBackups({ backup = DEFAULT_BACKUP_STATUS, loading = false }) {
         <KpiCard
           label="Перевірка"
           value={backup.status === "success" ? "OK" : backup.status === "running" ? "У процесі" : "—"}
-          context="sha256, PostgreSQL dump і tar-архіви"
+          context="SHA256, дамп PostgreSQL і tar-архіви"
           icon={backup.status === "success" ? "✓" : "!"}
           variant={backup.status === "success" ? "success" : "info"}
         />
@@ -964,12 +984,20 @@ function SectionAlerts({ alerts = [], loading = false }) {
 }
 
 function TopSummary({ prints, stats, alertsCount }) {
+  const jobs = Array.isArray(prints.jobs) ? prints.jobs : [];
+
+  const activeJobs = jobs.filter((job) => {
+    const status = String(job.status || job.state || "").toLowerCase();
+
+    return ["printing", "running", "queued", "paused"].includes(status);
+  });
+
   return (
     <div className="kpi-grid">
       <KpiCard
         label="Друкується зараз"
         value={formatInt(prints.stats?.printing || 0)}
-        context={`Активних завдань: ${formatInt(prints.jobs?.length || 0)}`}
+        context={`Активних завдань: ${formatInt(activeJobs.length)}`}
         icon="◔"
         variant="success"
       />
@@ -988,7 +1016,7 @@ function TopSummary({ prints, stats, alertsCount }) {
         variant="primary"
       />
       <KpiCard
-        label="Проблеми / алерти"
+        label="Проблеми / оповіщення"
         value={formatInt(alertsCount + asNumber(stats.logistics?.problem, 0))}
         context={`Оповіщень: ${formatInt(alertsCount)}`}
         icon="!"
@@ -1052,17 +1080,7 @@ export default function Board() {
       inFlight = true;
 
       try {
-        const response = await fetch("/api/ops/backup/status", {
-          headers: {
-            Accept: "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
+        const data = await api.backupStatus();
 
         if (cancelled) return;
 
@@ -1101,34 +1119,42 @@ export default function Board() {
     setUpdatedAt(new Date());
 
     if (event.type === "print.progress") {
-      setPrints((current) => ({
-        ...current,
-        jobs: current.jobs.map((job) =>
-          job.id === event.entity_id
-            ? {
-                ...job,
-                progress: data.progress ?? job.progress,
-                eta: data.eta ?? job.eta,
-              }
-            : job
-        ),
-      }));
+      setPrints((current) => {
+        const jobs = Array.isArray(current.jobs) ? current.jobs : [];
+
+        return {
+          ...current,
+          jobs: jobs.map((job) =>
+            job.id === event.entity_id
+              ? {
+                  ...job,
+                  progress: data.progress ?? job.progress,
+                  eta: data.eta ?? job.eta,
+                }
+              : job
+          ),
+        };
+      });
 
       return;
     }
 
     if (event.type === "printer.state") {
-      setPrints((current) => ({
-        ...current,
-        printers: current.printers.map((printer) =>
-          printer.id === event.entity_id
-            ? {
-                ...printer,
-                state: data.state ?? printer.state,
-              }
-            : printer
-        ),
-      }));
+      setPrints((current) => {
+        const printers = Array.isArray(current.printers) ? current.printers : [];
+
+        return {
+          ...current,
+          printers: printers.map((printer) =>
+            printer.id === event.entity_id
+              ? {
+                  ...printer,
+                  state: data.state ?? printer.state,
+                }
+              : printer
+          ),
+        };
+      });
 
       return;
     }
@@ -1139,10 +1165,17 @@ export default function Board() {
     }
 
     if (event.domain === "backup" || event.type === "backup.status") {
-      setBackupStatus((current) => ({
-        ...current,
-        ...data,
-      }));
+      setBackupStatus((current) =>
+        event.type === "backup.status"
+          ? {
+              ...DEFAULT_BACKUP_STATUS,
+              ...data,
+            }
+          : {
+              ...current,
+              ...data,
+            }
+      );
       return;
     }
 
