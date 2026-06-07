@@ -179,6 +179,121 @@ function objectOrEmpty(value) {
     : {};
 }
 
+const COMPANY_NAME_RE =
+  /\b(тов|тзов|фоп|пп|пат|приватне підприємство|компанія|llc|ltd)\b/i;
+
+function cleanText(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function keyText(value) {
+  return norm(value).replace(/[\s-]+/g, "_");
+}
+
+function compareText(value) {
+  return cleanText(value)
+    .toLowerCase()
+    .replace(/[№#"'`’().,;:\s-]+/g, "");
+}
+
+function sameText(a, b) {
+  const aa = compareText(a);
+  const bb = compareText(b);
+
+  return Boolean(aa && bb && aa === bb);
+}
+
+function cleanLocation(value) {
+  const cleaned = cleanText(value)
+    .replace(/,\s*місто\s*,/gi, ", ")
+    .replace(/\bмісто\s+/gi, "");
+
+  return cleanText(cleaned).replace(/\s+,/g, ",").replace(/,\s+/g, ", ");
+}
+
+function splitPersonName(value) {
+  const fullName = cleanText(value);
+
+  if (!fullName || COMPANY_NAME_RE.test(fullName)) {
+    return { fullName };
+  }
+
+  const parts = fullName.split(/\s+/).filter(Boolean);
+
+  if (parts.length < 2 || parts.length > 4) {
+    return { fullName };
+  }
+
+  return {
+    fullName,
+    lastName: parts[0] ?? "",
+    firstName: parts[1] ?? "",
+    middleName: parts.slice(2).join(" "),
+  };
+}
+
+function formatDeliveryService(value) {
+  const raw = cleanText(value);
+  const key = keyText(raw);
+
+  if (!raw) return "";
+  if (
+    key.includes("nova_post") ||
+    key.includes("novaposhta") ||
+    raw.toLowerCase().includes("нова пошта")
+  ) {
+    return "Нова пошта";
+  }
+
+  if (key.includes("ukrposhta") || raw.toLowerCase().includes("укрпошта")) {
+    return "Укрпошта";
+  }
+
+  return raw;
+}
+
+function looksLikePickupPoint(value) {
+  return /відділен|поштомат|postomat|warehouse|branch|office|№\s*\d+/i.test(
+    cleanText(value)
+  );
+}
+
+function formatDeliveryMethod(method, carrier, warehouse) {
+  const raw = cleanText(method);
+  const key = keyText(raw);
+
+  if (key === "nova_post" || carrier === "Нова пошта") {
+    return warehouse ? "Відділення / поштомат" : "Нова пошта";
+  }
+
+  const labels = {
+    pickup: "Самовивіз",
+    courier: "Кур’єр",
+    delivery: "Доставка",
+    ukrposhta: "Укрпошта",
+  };
+
+  return labels[key] ?? raw;
+}
+
+function PersonNameRows({ value, fallbackLabel = "ПІБ" }) {
+  const person = splitPersonName(value);
+
+  if (!person.fullName) return null;
+
+  if (!person.lastName || !person.firstName) {
+    return <InfoRow label={fallbackLabel} value={person.fullName} />;
+  }
+
+  return (
+    <>
+      <InfoRow label="Прізвище" value={person.lastName} />
+      <InfoRow label="Ім’я" value={person.firstName} />
+      <InfoRow label="По батькові" value={person.middleName} />
+    </>
+  );
+}
+
 function pickCustomer(order) {
   const customerObj = objectOrEmpty(order?.customer);
   const clientObj = objectOrEmpty(order?.client);
@@ -238,56 +353,96 @@ function pickDelivery(order) {
       order?.shipping ??
       order?.shipment ??
       order?.shipping_address ??
-      order?.shippingAddress
+      order?.shippingAddress ??
+      order?.source_payload?.delivery ??
+      order?.source_payload?.shipping_address
   );
 
   const address = objectOrEmpty(delivery?.address ?? order?.address);
 
-  return {
-    recipient:
-      delivery?.recipient ??
-      delivery?.recipient_name ??
-      delivery?.recipientName ??
-      order?.recipient_name ??
-      order?.recipientName ??
-      "",
-    phone:
-      delivery?.phone ??
-      delivery?.recipient_phone ??
-      delivery?.recipientPhone ??
-      order?.recipient_phone ??
-      "",
-    carrier:
-      delivery?.carrier ??
-      delivery?.service ??
-      delivery?.provider ??
-      order?.delivery_service ??
-      order?.carrier ??
-      "",
-    city: delivery?.city ?? address?.city ?? order?.city ?? "",
-    region:
-      delivery?.region ??
-      delivery?.state ??
-      address?.region ??
-      address?.state ??
-      order?.region ??
-      "",
-    address:
+  const rawMethod =
+    delivery?.method ??
+    order?.shipping_method ??
+    order?.shippingMethod ??
+    "";
+
+  const rawCarrier =
+    delivery?.carrier ??
+    delivery?.service ??
+    delivery?.provider ??
+    order?.delivery_service ??
+    order?.carrier ??
+    "";
+
+  const carrier = formatDeliveryService(rawCarrier || rawMethod);
+
+  const recipient =
+    delivery?.recipient ??
+    delivery?.recipient_name ??
+    delivery?.recipientName ??
+    delivery?.name ??
+    order?.recipient_name ??
+    order?.recipientName ??
+    "";
+
+  const phone =
+    delivery?.phone ??
+    delivery?.recipient_phone ??
+    delivery?.recipientPhone ??
+    order?.recipient_phone ??
+    "";
+
+  const line = cleanText(
+    delivery?.line ??
       delivery?.address_line ??
       delivery?.addressLine ??
       delivery?.street ??
+      address?.line ??
       address?.line1 ??
       address?.street ??
-      order?.shipping_address ??
-      "",
-    warehouse:
-      delivery?.warehouse ??
+      ""
+  );
+
+  const rawWarehouse = cleanText(
+    delivery?.warehouse ??
       delivery?.branch ??
       delivery?.office ??
       delivery?.post_office ??
       delivery?.postOffice ??
-      order?.warehouse ??
-      "",
+      delivery?.warehouse_name ??
+      delivery?.warehouseName ??
+      ""
+  );
+
+  const isNovaPost = carrier === "Нова пошта" || keyText(rawMethod) === "nova_post";
+
+  const warehouse =
+    rawWarehouse || (isNovaPost && looksLikePickupPoint(line) ? line : "");
+
+  const addressLine = line && !sameText(line, warehouse) ? line : "";
+
+  return {
+    recipient: cleanText(recipient),
+    phone: cleanText(phone),
+    carrier,
+    method: formatDeliveryMethod(rawMethod, carrier, warehouse),
+
+    city: cleanLocation(delivery?.city ?? address?.city ?? order?.city ?? ""),
+    cityRef: delivery?.city_ref ?? delivery?.cityRef ?? "",
+
+    region: cleanLocation(
+      delivery?.region ??
+        delivery?.state ??
+        address?.region ??
+        address?.state ??
+        order?.region ??
+        ""
+    ),
+
+    address: addressLine,
+    warehouse,
+    warehouseRef: delivery?.warehouse_ref ?? delivery?.warehouseRef ?? "",
+
     postalCode:
       delivery?.postal_code ??
       delivery?.postalCode ??
@@ -295,6 +450,7 @@ function pickDelivery(order) {
       address?.postal_code ??
       order?.postal_code ??
       "",
+
     tracking:
       delivery?.tracking_number ??
       delivery?.trackingNumber ??
@@ -302,6 +458,7 @@ function pickDelivery(order) {
       order?.tracking_number ??
       order?.ttn ??
       "",
+
     comment:
       delivery?.comment ??
       delivery?.note ??
@@ -311,7 +468,19 @@ function pickDelivery(order) {
 }
 
 function hasDeliveryData(delivery) {
-  return Object.values(delivery).some((value) => String(value ?? "").trim());
+  return [
+    delivery.recipient,
+    delivery.phone,
+    delivery.carrier,
+    delivery.method,
+    delivery.city,
+    delivery.region,
+    delivery.address,
+    delivery.warehouse,
+    delivery.postalCode,
+    delivery.tracking,
+    delivery.comment,
+  ].some((value) => String(value ?? "").trim());
 }
 
 function pickPayment(order) {
@@ -640,7 +809,7 @@ export default function Orders() {
                 <div className={s.infoCard}>
                   <div className={s.infoTitle}>Клієнт</div>
 
-                  <InfoRow label="ФІО" value={customer.name} />
+                  <PersonNameRows value={customer.name} />
                   <InfoRow
                     label="Телефон"
                     value={customer.phone}
@@ -662,17 +831,31 @@ export default function Orders() {
 
                   {hasDeliveryData(delivery) ? (
                     <>
-                      <InfoRow label="Отримувач" value={delivery.recipient} />
+                      {delivery.recipient ? (
+                        <div className={s.infoSubTitle}>Отримувач</div>
+                      ) : null}
+
+                      <PersonNameRows
+                        value={delivery.recipient}
+                        fallbackLabel="Отримувач"
+                      />
+
                       <InfoRow
                         label="Телефон"
                         value={delivery.phone}
                         href={telHref(delivery.phone)}
                       />
+
+                      <div className={s.infoSubTitle}>Доставка</div>
+
                       <InfoRow label="Служба" value={delivery.carrier} />
+                      <InfoRow label="Спосіб" value={delivery.method} />
                       <InfoRow label="Місто" value={delivery.city} />
                       <InfoRow label="Область" value={delivery.region} />
-                      <InfoRow label="Адреса" value={delivery.address} />
+
                       <InfoRow label="Відділення" value={delivery.warehouse} />
+                      <InfoRow label="Адреса" value={delivery.address} />
+
                       <InfoRow label="Індекс" value={delivery.postalCode} />
                       <InfoRow label="ТТН" value={delivery.tracking} />
                       <InfoRow label="Коментар" value={delivery.comment} />

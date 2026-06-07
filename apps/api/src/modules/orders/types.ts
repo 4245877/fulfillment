@@ -94,6 +94,10 @@ export type ReceiveOrderInput = {
 
   customer?: {
     name?: string;
+    full_name?: string;
+    first_name?: string;
+    last_name?: string;
+    middle_name?: string;
     email?: string;
     phone?: string;
   };
@@ -114,6 +118,7 @@ export type ReceiveOrderInput = {
   items?: OrderItem[];
 
   shipping_address?: unknown;
+  delivery?: unknown;
   billing_address?: unknown;
 
   notes?: string;

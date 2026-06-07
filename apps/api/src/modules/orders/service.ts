@@ -112,14 +112,39 @@ function normalizeIncomingOrder(payload: ReceiveOrderInput) {
 
   const id = asText(payload.id ?? payload.order_id ?? shopOrderId) ?? makeId();
 
+  const shippingAddress = payload.shipping_address as any;
+  const billingAddress = payload.billing_address as any;
+  const delivery = (payload as any).delivery as any;
+
   const customerName = asText(
     payload.customer_name ??
       payload.customer?.name ??
-      (payload.shipping_address as any)?.name
+      payload.customer?.full_name ??
+      shippingAddress?.name ??
+      delivery?.recipient_name ??
+      [
+        payload.customer?.last_name ?? shippingAddress?.last_name,
+        payload.customer?.first_name ?? shippingAddress?.first_name,
+        payload.customer?.middle_name ?? shippingAddress?.middle_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
   );
 
-  const email = asText(payload.email ?? payload.customer?.email);
-  const phone = asText(payload.phone ?? payload.customer?.phone);
+  const email = asText(
+    payload.email ??
+      payload.customer?.email ??
+      shippingAddress?.email ??
+      billingAddress?.email
+  );
+
+  const phone = asText(
+    payload.phone ??
+      payload.customer?.phone ??
+      shippingAddress?.phone ??
+      billingAddress?.phone ??
+      delivery?.recipient_phone
+  );
 
   const total = asNumber(payload.total_uah ?? payload.total);
 
@@ -142,7 +167,7 @@ function normalizeIncomingOrder(payload: ReceiveOrderInput) {
     tracking_number: asText(payload.tracking_number),
 
     items: normalizeItems(payload.items),
-    shipping_address: payload.shipping_address ?? null,
+    shipping_address: payload.shipping_address ?? (payload as any).delivery ?? null,
     billing_address: payload.billing_address ?? null,
     source_payload: payload,
 
