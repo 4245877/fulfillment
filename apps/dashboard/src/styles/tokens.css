@@ -48,6 +48,8 @@
   --on-success: #F6EFE7;
   --warning: #D7A24A;
   --on-warning: #1F1712;
+  --warning-text: #6B4A00;
+  --warning-bg: #FFF6DD;
   --info: #6E8CA5;
   --on-info: #F6EFE7;
   
@@ -61,6 +63,8 @@
   --shadow-md: 0 4px 6px rgba(31, 23, 18, 0.08), 0 1px 3px rgba(31, 23, 18, 0.06);
   --shadow-lg: 0 10px 15px rgba(31, 23, 18, 0.08), 0 4px 6px rgba(31, 23, 18, 0.05);
   --shadow-xl: 0 20px 25px rgba(31, 23, 18, 0.08), 0 10px 10px rgba(31, 23, 18, 0.04);
+  --shadow-primary-sm: 0 1px 3px color-mix(in srgb, var(--primary) 28%, transparent);
+  --shadow-primary-md: 0 4px 12px color-mix(in srgb, var(--primary) 26%, transparent);
   
   /* Layout & Spacing */
   --radius: 12px;
@@ -80,7 +84,6 @@
   --transition-fast: 0.15s ease;
   --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Legacy aliases for old dashboard styles */
   --panel: var(--surface);

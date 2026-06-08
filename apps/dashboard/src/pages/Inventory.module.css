@@ -10,7 +10,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
-  padding: var(--space-xl);
   max-width: 1360px;
   margin-inline: auto;
   animation: pageEnter 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
@@ -22,7 +21,9 @@
 }
 
 @media (max-width: 768px) {
-  .page { padding: var(--space-md); gap: var(--space-lg); }
+  .page {
+    gap: var(--space-lg);
+  }
 }
 
 /* ── Hero Header ────────────────────────────────────────────── */
@@ -38,6 +39,7 @@
   box-shadow: var(--shadow-md);
   position: relative;
   overflow: hidden;
+  isolation: isolate;
 }
 
 /* Decorative diagonal slash */
@@ -56,6 +58,7 @@
     transparent 60%
   );
   pointer-events: none;
+  z-index: 0;
 }
 
 /* Crimson top accent line */
@@ -68,6 +71,12 @@
   height: 3px;
   background: var(--gradient-hair);
   border-radius: var(--radius) var(--radius) 0 0;
+  z-index: 0;
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1;
 }
 
 .hero > div:first-child {
@@ -241,9 +250,12 @@
   overflow: hidden;
 }
 
-.panel:hover {
-  box-shadow: var(--shadow-md);
-  border-color: color-mix(in srgb, var(--primary) 20%, var(--border));
+.panel h2,
+.form h2,
+.panelHeader h2 {
+  font-family: var(--font);
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .panel h2 {
@@ -347,17 +359,19 @@
 
 .table {
   width: 100%;
+  min-width: 680px;
   border-collapse: separate;
   border-spacing: 0;
   background: var(--surface);
   font-size: 0.9rem;
 }
 
+.movementsTable {
+  min-width: 920px;
+}
+
 .table thead {
   background: color-mix(in srgb, var(--neutral-50) 80%, var(--surface));
-  position: sticky;
-  top: 0;
-  z-index: 1;
 }
 
 .table th {
@@ -431,7 +445,7 @@
 
 .status_low {
   background: color-mix(in srgb, var(--warning) 14%, var(--surface));
-  color: color-mix(in srgb, var(--warning) 60%, var(--text));
+  color: var(--warning-text);
   border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
 }
 
@@ -439,7 +453,10 @@
   background: color-mix(in srgb, var(--danger-text) 10%, var(--surface));
   color: var(--danger-text);
   border: 1px solid color-mix(in srgb, var(--danger-text) 22%, var(--border));
-  animation: pulseCritical 2s ease-in-out infinite;
+}
+
+.status_critical::before {
+  animation: pulseCriticalDot 1.5s ease-in-out infinite;
 }
 
 .status_unknown {
@@ -448,9 +465,9 @@
   border: 1px solid color-mix(in srgb, var(--neutral-400) 25%, var(--border));
 }
 
-@keyframes pulseCritical {
+@keyframes pulseCriticalDot {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.75; }
+  50% { opacity: 0.35; }
 }
 
 /* ── Printer Cards ──────────────────────────────────────────── */
@@ -603,7 +620,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  box-shadow: 0 1px 3px rgba(178, 86, 52, 0.3);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--primary) 28%, transparent);
   transition:
     background var(--transition-fast),
     border-color var(--transition-fast),
@@ -627,7 +644,7 @@
 .form button[type="submit"]:hover:not(:disabled) {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
-  box-shadow: 0 4px 12px rgba(178, 86, 52, 0.28);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 26%, transparent);
   transform: translateY(-1px);
 }
 
@@ -695,7 +712,7 @@
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent),
     var(--shadow-sm);
-  background: color-mix(in srgb, var(--primary) 2%, var(--surface));
+  background-color: color-mix(in srgb, var(--primary) 2%, var(--surface));
 }
 
 /* Custom select arrow */
@@ -705,10 +722,6 @@
   background-repeat: no-repeat;
   background-position: right 0.625rem center;
   cursor: pointer;
-}
-
-.field select:focus {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238E2F3A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
 /* Number input: hide spinners */
@@ -737,7 +750,7 @@
   .notice,
   .success,
   .error,
-  .status_critical {
+  .status_critical::before {
     animation: none;
   }
 
@@ -745,7 +758,6 @@
   .hero,
   .totalCard,
   .panel,
-  .panel::before,
   .panelHeader button,
   .table td,
   .table tbody tr,

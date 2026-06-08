@@ -5,13 +5,13 @@ import { safeParseJSON } from "../utils";
 import styles from "../../Settings.module.css";
 
 export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
-  // ----- редактор statusMapping (черновик) -----
+  // ----- редактор statusMapping (чернетка) -----
   const [statusMappingDraft, setStatusMappingDraft] = useState(() =>
     JSON.stringify(cfg.logisticsPayments.statusMapping, null, 2)
   );
   const [statusMappingError, setStatusMappingError] = useState(null);
 
-  // синхронизируем черновик, если source-of-truth изменился (например, после import/reset)
+  // синхронізуємо чернетку, якщо source-of-truth змінився (наприклад, після import/reset)
   useEffect(() => {
     setStatusMappingDraft(JSON.stringify(cfg.logisticsPayments.statusMapping, null, 2));
     setStatusMappingError(null);
@@ -20,7 +20,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
   const validateStatusMappingDraft = (text) => {
     const parsed = safeParseJSON(text);
     if (!parsed) {
-      setStatusMappingError("Ошибка JSON: пожалуйста, проверь скобки, запятые и кавычки.");
+      setStatusMappingError("Помилка JSON: будь ласка, перевір дужки, коми та лапки.");
       return null;
     }
     setStatusMappingError(null);
@@ -31,15 +31,15 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
     const parsed = validateStatusMappingDraft(statusMappingDraft);
     if (!parsed) return;
     patch("logisticsPayments.statusMapping", parsed);
-    showToast?.({ kind: "success", text: "Маппинг применён ✅" }, 1200);
+    showToast?.({ kind: "success", text: "Мапінг застосовано ✅" }, 1200);
   };
 
   return (
     <Card
-      title="8) Логистика и оплаты"
-      sub="Провайдеры, лимиты, профили webhook, маппинг статусов, антифрод"
+      title="8) Логістика та оплати"
+      sub="Провайдери, ліміти, профілі webhook, мапінг статусів, антифрод"
     >
-      <FieldRow label="Провайдеры" hint="Включить/выключить, rate-limit, профиль секретов.">
+      <FieldRow label="Провайдери" hint="Увімкнути/вимкнути, rate-limit, профіль секретів.">
         <div className={styles.inputGroup}>
           {Object.entries(cfg.logisticsPayments.providers).map(([name, p]) => (
             <div key={name} className={styles.nestedCard}>
@@ -55,7 +55,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
                 <Toggle
                   value={p.enabled}
                   onChange={(v) => patch(`logisticsPayments.providers.${name}.enabled`, v)}
-                  label="включено"
+                  label="увімкнено"
                 />
               </div>
 
@@ -70,7 +70,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
                   />
                 </div>
                 <div>
-                  <div className={styles.inputLabel}>профиль</div>
+                  <div className={styles.inputLabel}>профіль</div>
                   <TextInput
                     value={p.profile}
                     onChange={(v) => patch(`logisticsPayments.providers.${name}.profile`, v)}
@@ -84,8 +84,8 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
       </FieldRow>
 
       <FieldRow
-        label="Маппинг статусов"
-        hint="Соответствие внешних статусов внутренним. Здесь редактируется как черновик и применяется кнопкой."
+        label="Мапінг статусів"
+        hint="Відповідність зовнішніх статусів внутрішнім. Тут редагується як чернетка й застосовується кнопкою."
       >
         <div className={styles.max720}>
           <TextArea
@@ -93,7 +93,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
             onChange={(v) => {
               setStatusMappingDraft(v);
               if (v.trim() === "") {
-                setStatusMappingError("Пусто: ожидается JSON-объект.");
+                setStatusMappingError("Порожньо: очікується JSON-об’єкт.");
                 return;
               }
               validateStatusMappingDraft(v);
@@ -111,7 +111,7 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
               className="btn btn-primary btn-sm"
               onClick={applyStatusMappingDraft}
             >
-              Применить
+              Застосувати
             </button>
 
             <button
@@ -122,10 +122,10 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
                 setStatusMappingError(null);
               }}
             >
-              Откатить
+              Відкотити
             </button>
 
-            <div className={styles.fieldHint}>Подсказка: Ctrl/⌘ + Enter — применить.</div>
+            <div className={styles.fieldHint}>Підказка: Ctrl/⌘ + Enter — застосувати.</div>
           </div>
 
           {statusMappingError ? (
@@ -136,12 +136,12 @@ export default function LogisticsPaymentsSection({ cfg, patch, showToast }) {
         </div>
       </FieldRow>
 
-      <FieldRow label="Антифрод (осторожно)" hint="Пороги/правила проверки заказов.">
+      <FieldRow label="Антифрод (обережно)" hint="Пороги/правила перевірки замовлень.">
         <div className={`${styles.inputGroup} ${styles.max720}`}>
           <Toggle
             value={cfg.logisticsPayments.antifraud.enabled}
             onChange={(v) => patch("logisticsPayments.antifraud.enabled", v)}
-            label="включено"
+            label="увімкнено"
           />
           <div className={styles.inputGrid2}>
             <div>

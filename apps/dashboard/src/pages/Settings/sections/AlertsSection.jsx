@@ -5,8 +5,8 @@ import styles from "../../Settings.module.css";
 
 export default function AlertsSection({ cfg, patch }) {
   return (
-    <Card title="10) Оповещения и уведомления" sub="Каналы, правила, тихие часы">
-      <FieldRow label="Каналы" hint="Telegram / Slack / Email / Webhook (профили сохраняются на сервере).">
+    <Card title="10) Оповіщення та повідомлення" sub="Канали, правила, тихі години">
+      <FieldRow label="Канали" hint="Telegram / Slack / Email / Webhook (профілі зберігаються на сервері).">
         <div className={styles.inputGroup}>
           {Object.entries(cfg.alerts.channels).map(([name, c]) => (
             <div key={name} className={styles.nestedCard}>
@@ -15,15 +15,15 @@ export default function AlertsSection({ cfg, patch }) {
                 <Toggle
                   value={c.enabled}
                   onChange={(v) => patch(`alerts.channels.${name}.enabled`, v)}
-                  label="включено"
+                  label="увімкнено"
                 />
               </div>
               <div className={styles.max360}>
-                <div className={styles.inputLabel}>Профиль</div>
+                <div className={styles.inputLabel}>Профіль</div>
                 <TextInput
                   value={c.profile}
                   onChange={(v) => patch(`alerts.channels.${name}.profile`, v)}
-                  placeholder="по умолчанию"
+                  placeholder="за замовчуванням"
                 />
               </div>
             </div>
@@ -31,10 +31,10 @@ export default function AlertsSection({ cfg, patch }) {
         </div>
       </FieldRow>
 
-      <FieldRow label="Правила" hint="Примеры: задержка очереди > X мс 5 мин, уровень ошибок, backlog, сбой резервного копирования.">
+      <FieldRow label="Правила" hint="Приклади: затримка черги > X мс протягом 5 хв, рівень помилок, відставання індексатора, збій резервного копіювання.">
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className={styles.inputLabel}>Задержка очереди (мс)</div>
+            <div className={styles.inputLabel}>Затримка черги (мс)</div>
             <NumberInput
               value={cfg.alerts.rules.queueLagMs}
               min={0}
@@ -44,7 +44,7 @@ export default function AlertsSection({ cfg, patch }) {
             />
           </div>
           <div>
-            <div className={styles.inputLabel}>Длительность задержки очереди (мин)</div>
+            <div className={styles.inputLabel}>Тривалість затримки черги (хв)</div>
             <NumberInput
               value={cfg.alerts.rules.queueLagForMinutes}
               min={0}
@@ -53,7 +53,7 @@ export default function AlertsSection({ cfg, patch }) {
             />
           </div>
           <div>
-            <div className={styles.inputLabel}>Процент ошибок</div>
+            <div className={styles.inputLabel}>Відсоток помилок</div>
             <NumberInput
               value={cfg.alerts.rules.errorRatePct}
               min={0}
@@ -63,7 +63,7 @@ export default function AlertsSection({ cfg, patch }) {
             />
           </div>
           <div>
-            <div className={styles.inputLabel}>Отставание индексатора</div>
+            <div className={styles.inputLabel}>Відставання індексатора</div>
             <NumberInput
               value={cfg.alerts.rules.indexerBacklog}
               min={0}
@@ -76,22 +76,22 @@ export default function AlertsSection({ cfg, patch }) {
             <Toggle
               value={cfg.alerts.rules.backupFailed}
               onChange={(v) => patch("alerts.rules.backupFailed", v)}
-              label="Сбой резервного копирования"
+              label="Збій резервного копіювання"
             />
           </div>
         </div>
       </FieldRow>
 
-      <FieldRow label="Тихие часы" hint="Когда не беспокоить (или отправлять только критические уведомления).">
+      <FieldRow label="Тихі години" hint="Коли не турбувати або надсилати лише критичні повідомлення.">
         <div className={`${styles.inputGroup} ${styles.max520}`}>
           <Toggle
             value={cfg.alerts.quietHours.enabled}
             onChange={(v) => patch("alerts.quietHours.enabled", v)}
-            label="включено"
+            label="увімкнено"
           />
           <div className={styles.inputGrid2}>
             <div>
-              <div className={styles.inputLabel}>Начало</div>
+              <div className={styles.inputLabel}>Початок</div>
               <TextInput
                 value={cfg.alerts.quietHours.start}
                 onChange={(v) => patch("alerts.quietHours.start", v)}
@@ -99,7 +99,7 @@ export default function AlertsSection({ cfg, patch }) {
               />
             </div>
             <div>
-              <div className={styles.inputLabel}>Конец</div>
+              <div className={styles.inputLabel}>Кінець</div>
               <TextInput
                 value={cfg.alerts.quietHours.end}
                 onChange={(v) => patch("alerts.quietHours.end", v)}
@@ -108,7 +108,7 @@ export default function AlertsSection({ cfg, patch }) {
             </div>
           </div>
           <div>
-            <div className={styles.inputLabel}>Часовой пояс</div>
+            <div className={styles.inputLabel}>Часовий пояс</div>
             <TextInput
               value={cfg.alerts.quietHours.timezone}
               onChange={(v) => patch("alerts.quietHours.timezone", v)}

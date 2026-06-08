@@ -4,7 +4,7 @@ import { Card, FieldRow, Toggle, ChipsEditor, NumberInput } from "../ui.jsx";
 
 const emptyPrinter = {
   id: "new-printer",
-  name: "Новый принтер",
+  name: "Новий принтер",
   profile: "fdm-0.4",
   material: "PLA",
   enabled: true,
@@ -18,17 +18,17 @@ const printerFields = [
   },
   {
     key: "name",
-    label: "Название",
+    label: "Назва",
     placeholder: "Creality Ender 3 V3 KE",
   },
   {
     key: "profile",
-    label: "Профиль",
+    label: "Профіль",
     placeholder: "fdm-0.4",
   },
   {
     key: "material",
-    label: "Материал",
+    label: "Матеріал",
     placeholder: "PLA / PETG",
   },
 ];
@@ -61,19 +61,19 @@ export default function PrintFarmSection({ cfg, patch }) {
       {
         ...emptyPrinter,
         id: `printer-${nextIndex}`,
-        name: `Новый принтер ${nextIndex}`,
+        name: `Новий принтер ${nextIndex}`,
       },
     ]);
   };
 
   return (
     <Card
-      title="7) Производство / Печатная ферма"
-      sub="Принтеры, профили, маршрутизация, SLA/тайм-ауты"
+      title="7) Виробництво / Ферма 3D-друку"
+      sub="Принтери, профілі, маршрутизація, SLA/тайм-аути"
     >
       <FieldRow
-        label="Принтеры"
-        hint="Сопоставление принтеров, профили сопел и материалов."
+        label="Принтери"
+        hint="Зіставлення принтерів, профілів сопел і матеріалів."
       >
         <div className={styles.tableWrap}>
           <table className={styles.table}>
@@ -82,7 +82,7 @@ export default function PrintFarmSection({ cfg, patch }) {
                 {printerFields.map((field) => (
                   <th key={field.key}>{field.label}</th>
                 ))}
-                <th>Включено</th>
+                <th>Увімкнено</th>
                 <th />
               </tr>
             </thead>
@@ -91,7 +91,7 @@ export default function PrintFarmSection({ cfg, patch }) {
               {printers.length === 0 ? (
                 <tr>
                   <td colSpan={printerFields.length + 2}>
-                    <div className="muted">Принтеры пока не добавлены.</div>
+                    <div className="muted">Принтери ще не додані.</div>
                   </td>
                 </tr>
               ) : (
@@ -131,7 +131,7 @@ export default function PrintFarmSection({ cfg, patch }) {
                         type="button"
                         onClick={() => removePrinter(index)}
                       >
-                        Удалить
+                        Видалити
                       </button>
                     </td>
                   </tr>
@@ -146,15 +146,15 @@ export default function PrintFarmSection({ cfg, patch }) {
               type="button"
               onClick={addPrinter}
             >
-              Добавить принтер
+              Додати принтер
             </button>
           </div>
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Маршрутизация задач"
-        hint="Простые правила: какая группа принтеров подходит для какого материала."
+        label="Маршрутизація завдань"
+        hint="Прості правила: яка група принтерів підходить для якого матеріалу."
       >
         <div className={styles.inputGroup}>
           <div className={styles.inputLabel}>Правила</div>
@@ -181,8 +181,8 @@ export default function PrintFarmSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="SLA / тайм-ауты"
-        hint="Автопауза при ошибке, уведомления о простое и ошибках."
+        label="SLA / тайм-аути"
+        hint="Автопауза в разі помилки, сповіщення про простій і помилки."
       >
         <div className={`${styles.inputGrid3} ${styles.max720}`}>
           <div style={{ display: "flex", alignItems: "center" }}>
@@ -191,13 +191,13 @@ export default function PrintFarmSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("printFarm.sla.autoPauseOnError", value)
               }
-              label="Автопауза при ошибке"
+              label="Автопауза в разі помилки"
             />
           </div>
 
           <div>
             <div className={styles.inputLabel}>
-              Уведомление о простое, мин.
+              Сповіщення про простій, хв.
             </div>
             <NumberInput
               value={printFarm.sla?.idleNotifyMinutes ?? 0}
@@ -211,7 +211,7 @@ export default function PrintFarmSection({ cfg, patch }) {
 
           <div>
             <div className={styles.inputLabel}>
-              Уведомление об ошибке, мин.
+              Сповіщення про помилку, хв.
             </div>
             <NumberInput
               value={printFarm.sla?.errorNotifyMinutes ?? 0}

@@ -7,11 +7,11 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
   return (
     <Card
       title="9) Вебхуки"
-      sub="Повторные попытки/backoff, идемпотентность, подписи, последние ошибки, тестовое событие"
+      sub="Повторні спроби/backoff, ідемпотентність, підписи, останні помилки, тестова подія"
     >
       <FieldRow
-        label="Политики"
-        hint="Основные рычаги надежности и безопасности вебхуков."
+        label="Політики"
+        hint="Основні інструменти надійності та безпеки вебхуків."
       >
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
@@ -56,16 +56,16 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
       </FieldRow>
 
       <FieldRow
-        label="Последние ошибки"
-        hint="Плейсхолдер (можно подключить к /api/webhooks/errors)."
+        label="Останні помилки"
+        hint="Плейсхолдер (можна підключити до /api/webhooks/errors)."
       >
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>время</th>
-                <th>источник</th>
-                <th>сообщение</th>
+                <th>час</th>
+                <th>джерело</th>
+                <th>повідомлення</th>
               </tr>
             </thead>
 
@@ -81,7 +81,7 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
               ) : (
                 <tr>
                   <td colSpan="3" className="text-muted">
-                    Данных пока нет.
+                    Даних поки немає.
                   </td>
                 </tr>
               )}
@@ -91,8 +91,8 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
       </FieldRow>
 
       <FieldRow
-        label="Отправить тестовое событие"
-        hint="Опционально: отправить тестовый вебхук (если API реализовано)."
+        label="Надіслати тестову подію"
+        hint="Опціонально: надіслати тестовий вебхук (якщо API реалізовано)."
       >
         <div className={styles.buttonGroup}>
           <button
@@ -100,14 +100,14 @@ export default function WebhooksSection({ cfg, patch, doAction }) {
             type="button"
             onClick={() =>
               doAction({
-                title: "Отправить тестовое событие",
-                description: "Отправить тестовое событие для проверки трассировки.",
+                title: "Надіслати тестову подію",
+                description: "Надіслати тестову подію для перевірки трасування.",
                 url: "/api/ops/webhooks/send-test",
                 body: { kind: "ping" },
               })
             }
           >
-            Отправить тест
+            Надіслати тест
           </button>
         </div>
       </FieldRow>

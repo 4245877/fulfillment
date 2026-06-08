@@ -6,12 +6,12 @@ import styles from "../../Settings.module.css";
 export default function QueuesSection({ cfg, patch }) {
   return (
     <Card
-      title="5) Очереди и воркеры"
-      sub="Конкурентность, повторные попытки, DLQ, дедупликация, батчи, тайм-ауты"
+      title="5) Черги та воркери"
+      sub="Конкурентність, повторні спроби, DLQ, дедуплікація, батчі, тайм-аути"
     >
       <FieldRow
         label="Пороги"
-        hint="Пороги ready/running для подсветки и оповещений."
+        hint="Пороги ready/running для підсвічування та сповіщень."
       >
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
@@ -57,8 +57,8 @@ export default function QueuesSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Повторные попытки / Backoff / DLQ"
-        hint="Политика повторных попыток и очередь dead-letter."
+        label="Повторні спроби / Backoff / DLQ"
+        hint="Політика повторних спроб і черга dead-letter."
       >
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
@@ -97,21 +97,21 @@ export default function QueuesSection({ cfg, patch }) {
             <Toggle
               value={cfg.queues.retries.dlqEnabled}
               onChange={(v) => patch("queues.retries.dlqEnabled", v)}
-              label="DLQ включена"
+              label="DLQ увімкнено"
             />
           </div>
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Политики обработки"
-        hint="Дедупликация вебхуков, батчи, тайм-ауты."
+        label="Політики обробки"
+        hint="Дедуплікація вебхуків, батчі, тайм-аути."
       >
         <div className={`${styles.inputGroup} ${styles.max720}`}>
           <Toggle
             value={cfg.queues.policies.webhookDedupEnabled}
             onChange={(v) => patch("queues.policies.webhookDedupEnabled", v)}
-            label="Дедупликация вебхуков"
+            label="Дедуплікація вебхуків"
           />
 
           <div className={styles.inputGrid2}>

@@ -5,10 +5,10 @@ import styles from "../../Settings.module.css";
 
 export default function SecuritySection({ cfg, patch }) {
   return (
-    <Card title="11) Безопасность и доступ" sub="RBAC для действий, журнал аудита изменений">
+    <Card title="11) Безпека та доступ" sub="RBAC для дій, журнал аудиту змін">
       <FieldRow
-        label="RBAC: кто может нажимать «опасные» кнопки"
-        hint="Списки ролей для операционных действий."
+        label="RBAC: хто може натискати «небезпечні» кнопки"
+        hint="Списки ролей для операційних дій."
       >
         <div className={`${styles.inputGroup} ${styles.max720}`}>
           {Object.entries(cfg.security.rbac).map(([k, roles]) => (
@@ -26,17 +26,17 @@ export default function SecuritySection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Журнал аудита"
-        hint="Заглушка. Позже можно подключить к /api/audit/recent."
+        label="Журнал аудиту"
+        hint="Заглушка. Пізніше можна підключити до /api/audit/recent."
       >
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>время</th>
-                <th>актор</th>
-                <th>действие</th>
-                <th>цель</th>
+                <th>час</th>
+                <th>виконавець</th>
+                <th>дія</th>
+                <th>ціль</th>
               </tr>
             </thead>
 

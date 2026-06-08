@@ -6,12 +6,12 @@ import styles from "../../Settings.module.css";
 export default function OpsSection({ cfg, patch, doAction }) {
   return (
     <Card
-      title="4) Состояние сервисов и действия оператора"
-      sub="Пороги деградации + кнопки оператора (с подтверждением)"
+      title="4) Стан сервісів і дії оператора"
+      sub="Пороги деградації + кнопки оператора (з підтвердженням)"
     >
       <FieldRow
-        label="Пороги деградации"
-        hint="% ошибок, p95 latency, тайм-ауты."
+        label="Пороги деградації"
+        hint="% помилок, затримка p95, тайм-аути."
       >
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
@@ -83,8 +83,8 @@ export default function OpsSection({ cfg, patch, doAction }) {
       </FieldRow>
 
       <FieldRow
-        label="Операционные действия"
-        hint="Кнопки безопасны: всегда с подтверждением. Работают, если API реализован."
+        label="Операційні дії"
+        hint="Кнопки безпечні: завжди з підтвердженням. Працюють, якщо API реалізовано."
       >
         <div className={styles.inputGroup}>
           <div className={styles.buttonGroup}>
@@ -94,14 +94,14 @@ export default function OpsSection({ cfg, patch, doAction }) {
               disabled={!cfg.ops.actions.allowed.restartService}
               onClick={() =>
                 doAction({
-                  title: "Перезапустить сервис",
-                  description: "Перезапуск сервиса (по имени).",
+                  title: "Перезапустити сервіс",
+                  description: "Перезапуск сервісу (за назвою).",
                   url: "/api/ops/service/restart",
                   body: { service: "api" },
                 })
               }
             >
-              Перезапустить API
+              Перезапустити API
             </button>
 
             <button
@@ -110,14 +110,14 @@ export default function OpsSection({ cfg, patch, doAction }) {
               disabled={!cfg.ops.actions.allowed.reloadConfig}
               onClick={() =>
                 doAction({
-                  title: "Перечитать конфиг",
-                  description: "Перечитать конфиг без перезапуска.",
+                  title: "Перечитати конфігурацію",
+                  description: "Перечитати конфігурацію без перезапуску.",
                   url: "/api/ops/config/reload",
                   body: {},
                 })
               }
             >
-              Перечитать конфиг
+              Перечитати конфігурацію
             </button>
 
             <button
@@ -126,8 +126,8 @@ export default function OpsSection({ cfg, patch, doAction }) {
               disabled={!cfg.ops.actions.allowed.pauseQueue}
               onClick={() =>
                 doAction({
-                  title: "Пауза очереди",
-                  description: "Пауза обработки очереди.",
+                  title: "Пауза черги",
+                  description: "Пауза обробки черги.",
                   url: "/api/ops/queue/pause",
                   body: { queue: "prints" },
                 })
@@ -142,21 +142,22 @@ export default function OpsSection({ cfg, patch, doAction }) {
               disabled={!cfg.ops.actions.allowed.drainQueue}
               onClick={() =>
                 doAction({
-                  title: "Очистить очередь",
-                  description: "Очистить очередь (осторожно).",
+                  title: "Очистити чергу",
+                  description: "Очистити чергу (обережно).",
                   url: "/api/ops/queue/drain",
                   body: { queue: "webhooks" },
                 })
               }
             >
-              Очистить webhooks
+              Очистити webhooks
             </button>
           </div>
 
-          <DangerZone title="Опасная зона">
+          <DangerZone title="Небезпечна зона">
             <div className={styles.fieldHint}>
-              Rebuild search index может остановить поиск и создать нагрузку на
-              инфраструктуру. Включай только если это действительно нужно.
+              Перебудова пошукового індексу може зупинити пошук і створити
+              навантаження на інфраструктуру. Вмикай лише якщо це справді
+              потрібно.
             </div>
 
             <button
@@ -165,14 +166,14 @@ export default function OpsSection({ cfg, patch, doAction }) {
               disabled={!cfg.ops.actions.allowed.rebuildSearchIndex}
               onClick={() =>
                 doAction({
-                  title: "Перестроить поисковый индекс",
-                  description: "Полная перестройка индекса (ОПАСНО).",
+                  title: "Перебудувати пошуковий індекс",
+                  description: "Повна перебудова індексу (НЕБЕЗПЕЧНО).",
                   url: "/api/ops/search/rebuild",
                   body: { mode: "full" },
                 })
               }
             >
-              Перестроить индекс
+              Перебудувати індекс
             </button>
           </DangerZone>
         </div>

@@ -5,27 +5,27 @@ import { Card, FieldRow } from "../ui.jsx";
 import styles from "../../Settings.module.css";
 
 const backupStages = [
-  { key: "preflight", label: "Проверка условий", percent: 5 },
+  { key: "preflight", label: "Перевірка умов", percent: 5 },
   { key: "postgres", label: "PostgreSQL", percent: 15 },
   { key: "uploads", label: "Uploads", percent: 25 },
   { key: "minio", label: "MinIO", percent: 35 },
   { key: "ingester", label: "Ingester data", percent: 45 },
   { key: "stl_large", label: "STL/3MF large", percent: 55 },
   { key: "stl_small", label: "STL/3MF small", percent: 65 },
-  { key: "config", label: "Конфигурация", percent: 72 },
+  { key: "config", label: "Конфігурація", percent: 72 },
   { key: "manifest", label: "Manifest", percent: 78 },
-  { key: "checksum", label: "Проверка sha256", percent: 84 },
-  { key: "remote", label: "Копирование на ПК", percent: 92 },
-  { key: "retention", label: "Очистка старых копий", percent: 97 },
+  { key: "checksum", label: "Перевірка sha256", percent: 84 },
+  { key: "remote", label: "Копіювання на ПК", percent: 92 },
+  { key: "retention", label: "Очищення старих копій", percent: 97 },
   { key: "done", label: "Готово", percent: 100 },
 ];
 
 const statusLabels = {
-  idle: "Нет активного процесса",
-  running: "Выполняется",
+  idle: "Немає активного процесу",
+  running: "Виконується",
   success: "Завершено",
-  failed: "Ошибка",
-  error: "Ошибка",
+  failed: "Помилка",
+  error: "Помилка",
   skipped: "Пропущено",
 };
 
@@ -46,7 +46,7 @@ function formatDateTime(value) {
 
   if (Number.isNaN(date.getTime())) return "—";
 
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat("uk-UA", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -79,7 +79,7 @@ function normalizeProgress(raw) {
       status: "idle",
       step: null,
       percent: 0,
-      message: "Резервное копирование сейчас не выполняется.",
+      message: "Резервне копіювання зараз не виконується.",
       updatedAt: null,
       runId: null,
       runDir: null,
@@ -104,7 +104,7 @@ function normalizeProgress(raw) {
     status,
     step,
     percent,
-    message: raw.message || "Ожидание статуса от сервера.",
+    message: raw.message || "Очікування статусу від сервера.",
     updatedAt: raw.updated_at || raw.updatedAt || null,
     runId: raw.run_id || raw.runId || null,
     runDir: raw.run_dir || raw.runDir || null,
@@ -149,7 +149,7 @@ async function runPostAction(doAction, action) {
     });
   }
 
-  throw new Error("POST action handler is not available");
+  throw new Error("Обробник POST-дії недоступний");
 }
 
 function BackupProgressPanel({ progress }) {
@@ -164,7 +164,7 @@ function BackupProgressPanel({ progress }) {
       <div className={styles.backupProgressHeader}>
         <div>
           <div className={styles.backupProgressEyebrow}>
-            Резервное копирование
+            Резервне копіювання
           </div>
 
           <div className={styles.backupProgressTitle}>
@@ -173,12 +173,12 @@ function BackupProgressPanel({ progress }) {
 
           <div className={styles.backupProgressMeta}>
             {progress.message}
-            {progress.updatedAt ? ` Обновлено: ${updatedAt}` : ""}
+            {progress.updatedAt ? ` Оновлено: ${updatedAt}` : ""}
           </div>
 
           {progress.runId ? (
             <div className={styles.backupProgressMeta}>
-              Run ID: {progress.runId}
+              ID запуску: {progress.runId}
             </div>
           ) : null}
         </div>
@@ -236,21 +236,21 @@ function BackupProgressPanel({ progress }) {
 function BackupContents() {
   return (
     <div className={styles.inputGroup}>
-      <div>PostgreSQL database</div>
+      <div>База даних PostgreSQL</div>
       <div>/srv/drukarnya/uploads</div>
       <div>Docker volume app_minio-data</div>
       <div>/home/miha/app/services/ingester/data</div>
       <div>/mnt/stl_large</div>
       <div>/mnt/stl_small</div>
       <div>docker-compose, nginx, migrations</div>
-      <div>manifest.json и sha256sums.txt</div>
+      <div>manifest.json і sha256sums.txt</div>
     </div>
   );
 }
 
 function ArchiveList({ archives }) {
   if (!archives.length) {
-    return <div className="text-muted">Список бэкапов пока не загружен.</div>;
+    return <div className="text-muted">Список резервних копій ще не завантажено.</div>;
   }
 
   return (
@@ -273,12 +273,12 @@ function ArchiveList({ archives }) {
           </span>
 
           <span className="text-muted">
-            Размер: {formatBytes(archive.sizeBytes)}
+            Розмір: {formatBytes(archive.sizeBytes)}
           </span>
 
           {archive.path ? (
             <span className="text-muted">
-              Путь: {archive.path}
+              Шлях: {archive.path}
             </span>
           ) : null}
         </div>
@@ -306,7 +306,7 @@ export default function BackupsSection({ doAction }) {
         status: "error",
         step: "error",
         percent: 100,
-        message: "Не удалось получить статус резервного копирования.",
+        message: "Не вдалося отримати статус резервного копіювання.",
         updatedAt: new Date().toISOString(),
       }));
     }
@@ -321,7 +321,7 @@ export default function BackupsSection({ doAction }) {
       setArchives(normalizeArchiveList(result));
       setListError(null);
     } catch {
-      setListError("Не удалось загрузить список бэкапов.");
+      setListError("Не вдалося завантажити список резервних копій.");
     }
   }, []);
 
@@ -344,7 +344,7 @@ export default function BackupsSection({ doAction }) {
       status: "running",
       step: "preflight",
       percent: 5,
-      message: "Запуск резервного копирования.",
+      message: "Запуск резервного копіювання.",
       updatedAt: new Date().toISOString(),
       runId: null,
       runDir: null,
@@ -353,8 +353,8 @@ export default function BackupsSection({ doAction }) {
 
     try {
       const result = await runPostAction(doAction, {
-        title: "Запустить резервное копирование",
-        description: "Запустить /home/miha/app/ops/backups/backup.sh на основном сервере.",
+        title: "Запустити резервне копіювання",
+        description: "Запустити /home/miha/app/ops/backups/backup.sh на основному сервері.",
         url: "/api/ops/backup/run",
         body: {},
         timeoutMs: 10000,
@@ -369,7 +369,7 @@ export default function BackupsSection({ doAction }) {
         status: "error",
         step: "error",
         percent: 100,
-        message: "Не удалось запустить резервное копирование.",
+        message: "Не вдалося запустити резервне копіювання.",
         updatedAt: new Date().toISOString(),
       }));
     } finally {
@@ -385,14 +385,14 @@ export default function BackupsSection({ doAction }) {
       status: "running",
       step: "checksum",
       percent: Math.max(prev.percent || 0, 84),
-      message: "Запущена проверка последнего бэкапа.",
+      message: "Запущено перевірку останньої резервної копії.",
       updatedAt: new Date().toISOString(),
     }));
 
     try {
       const result = await runPostAction(doAction, {
-        title: "Проверить последний бэкап",
-        description: "Запустить check-backup.sh для archives/latest.",
+        title: "Перевірити останню резервну копію",
+        description: "Запустити check-backup.sh для archives/latest.",
         url: "/api/ops/backup/test-restore",
         body: {},
         timeoutMs: 10000,
@@ -406,7 +406,7 @@ export default function BackupsSection({ doAction }) {
         status: "error",
         step: "error",
         percent: 100,
-        message: "Не удалось запустить проверку последнего бэкапа.",
+        message: "Не вдалося запустити перевірку останньої резервної копії.",
         updatedAt: new Date().toISOString(),
       }));
     } finally {
@@ -416,26 +416,26 @@ export default function BackupsSection({ doAction }) {
 
   return (
     <Card
-      title="2) Резервные копии"
-      sub="Ручной запуск, проверка, статус и список архивов Lite Forest"
+      title="2) Резервні копії"
+      sub="Ручний запуск, перевірка, статус і список архівів Lite Forest"
     >
       <FieldRow
-        label="Что входит в бэкап"
-        hint="Текущий состав соответствует backup.sh на основном сервере."
+        label="Що входить до резервної копії"
+        hint="Поточний склад відповідає backup.sh на основному сервері."
       >
         <BackupContents />
       </FieldRow>
 
       <FieldRow
-        label="Текущий статус"
-        hint="Читается из /mnt/fast_data/backups/lite-forest/state/backup-status.json через API."
+        label="Поточний статус"
+        hint="Зчитується з /mnt/fast_data/backups/lite-forest/state/backup-status.json через API."
       >
         <BackupProgressPanel progress={progress} />
       </FieldRow>
 
       <FieldRow
-        label="Ручные действия"
-        hint="Кнопки запускают реальные серверные скрипты через backend API."
+        label="Ручні дії"
+        hint="Кнопки запускають реальні серверні скрипти через backend API."
       >
         <div className={styles.buttonGroup}>
           <button
@@ -444,7 +444,7 @@ export default function BackupsSection({ doAction }) {
             disabled={isBusy}
             onClick={runBackup}
           >
-            Запустить бэкап
+            Запустити резервне копіювання
           </button>
 
           <button
@@ -453,7 +453,7 @@ export default function BackupsSection({ doAction }) {
             disabled={isBusy}
             onClick={checkLatestBackup}
           >
-            Проверить latest
+            Перевірити latest
           </button>
 
           <button
@@ -465,14 +465,14 @@ export default function BackupsSection({ doAction }) {
               loadBackupList();
             }}
           >
-            Обновить
+            Оновити
           </button>
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Архивы"
-        hint="Локальные бэкапы из /mnt/fast_data/backups/lite-forest/archives."
+        label="Архіви"
+        hint="Локальні резервні копії з /mnt/fast_data/backups/lite-forest/archives."
       >
         {listError ? (
           <div className="text-muted">{listError}</div>

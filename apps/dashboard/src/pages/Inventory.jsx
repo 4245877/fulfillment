@@ -51,10 +51,18 @@ function formatKg(value) {
   })} кг`;
 }
 
+function formatDate(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return date.toLocaleString("uk-UA");
+}
+
 function getStatusLabel(status) {
-  if (status === "critical") return "Критично";
-  if (status === "low") return "Мало";
-  if (status === "good") return "Добре";
+  if (status === "critical") return "Критичний";
+  if (status === "low") return "Низький";
+  if (status === "good") return "Достатньо";
 
   return "Невідомо";
 }
@@ -96,6 +104,7 @@ export default function Inventory() {
   const [movements, setMovements] = useState([]);
   const [printerFilament, setPrinterFilament] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -131,8 +140,11 @@ export default function Inventory() {
     return stock.reduce((sum, item) => sum + Number(item.stockG || 0), 0);
   }, [stock]);
 
-  async function loadData() {
+  async function loadData({ silent = false } = {}) {
     setError("");
+
+    if (!silent) setLoading(true);
+    setRefreshing(true);
 
     try {
       const [stockResult, movementsResult, printerResult] = await Promise.all([
@@ -148,12 +160,23 @@ export default function Inventory() {
       setError(err instanceof Error ? err.message : "Не вдалося завантажити склад");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    const timer = window.setTimeout(() => {
+      setMessage("");
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [message]);
 
   async function runAction(action, successText) {
     setBusy(true);
@@ -194,7 +217,7 @@ export default function Inventory() {
     <div className={styles.page}>
       <header className={styles.hero}>
         <div>
-          <div className={styles.eyebrow}>Inventory Atelier</div>
+          <div className={styles.eyebrow}>Облік складу</div>
           <h1>Склад філаменту</h1>
           <p>
             Простий облік залишків за типом і кольором без нумерації кожної
@@ -216,12 +239,16 @@ export default function Inventory() {
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
             <h2>Залишки</h2>
-            <button type="button" onClick={loadData} disabled={busy}>
-              Оновити
+            <button
+              type="button"
+              onClick={() => loadData({ silent: true })}
+              disabled={busy || refreshing}
+            >
+              {refreshing ? "Оновлення…" : "Оновити"}
             </button>
           </div>
 
-          {stock.length ? (
+          {loading ? null : stock.length ? (
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
@@ -260,9 +287,9 @@ export default function Inventory() {
         </section>
 
         <section className={styles.panel}>
-          <h2>Що стоїть на принтерах</h2>
+          <h2>Філамент на принтерах</h2>
 
-          {printerFilament.length ? (
+          {loading ? null : printerFilament.length ? (
             <div className={styles.cards}>
               {printerFilament.map((item) => (
                 <div key={item.id} className={styles.smallCard}>
@@ -304,7 +331,7 @@ export default function Inventory() {
             );
           }}
         >
-          <h2>Додати пластик</h2>
+          <h2>Додати філамент</h2>
 
           <Field label="Матеріал">
             <select
@@ -514,11 +541,11 @@ export default function Inventory() {
                   ...loadForm,
                   colorName: getColorName(loadForm.color),
                 }),
-              "Матеріал принтера оновлено"
+              "Філамент на принтері оновлено"
             );
           }}
         >
-          <h2>Пластик на принтері</h2>
+          <h2>Філамент на принтері</h2>
 
           <Field label="Принтер">
             <select
@@ -568,9 +595,9 @@ export default function Inventory() {
       <section className={styles.panel}>
         <h2>Останні рухи</h2>
 
-        {movements.length ? (
+        {loading ? null : movements.length ? (
           <div className={styles.tableWrap}>
-            <table className={styles.table}>
+            <table className={`${styles.table} ${styles.movementsTable}`}>
               <thead>
                 <tr>
                   <th>Час</th>
@@ -586,7 +613,7 @@ export default function Inventory() {
               <tbody>
                 {movements.map((item) => (
                   <tr key={item.id}>
-                    <td>{new Date(item.createdAt).toLocaleString("uk-UA")}</td>
+                    <td>{formatDate(item.createdAt)}</td>
                     <td>{getMovementTypeLabel(item.type)}</td>
                     <td>{formatGram(item.quantityG)}</td>
                     <td>{formatGram(item.beforeG)}</td>

@@ -5,38 +5,38 @@ import styles from "../../Settings.module.css";
 
 const ROLE_OPTIONS = [
   { value: "api", label: "API" },
-  { value: "dashboard", label: "Панель управления" },
-  { value: "worker", label: "Общий воркер" },
-  { value: "slicer", label: "Нарезка STL" },
-  { value: "media", label: "Медиа / превью" },
-  { value: "storage", label: "Хранилище STL / G-code" },
-  { value: "db", label: "База данных" },
-  { value: "cache", label: "Кэш / Redis" },
-  { value: "queue", label: "Очереди" },
-  { value: "search", label: "Поиск / индексация" },
-  { value: "printers", label: "Принтеры / шлюз фермы" },
+  { value: "dashboard", label: "Панель керування" },
+  { value: "worker", label: "Загальний воркер" },
+  { value: "slicer", label: "Нарізання STL" },
+  { value: "media", label: "Медіа / прев’ю" },
+  { value: "storage", label: "Сховище STL / G-code" },
+  { value: "db", label: "База даних" },
+  { value: "cache", label: "Кеш / Redis" },
+  { value: "queue", label: "Черги" },
+  { value: "search", label: "Пошук / індексація" },
+  { value: "printers", label: "Принтери / шлюз ферми" },
   { value: "webhooks", label: "Вебхуки" },
-  { value: "edge", label: "Интернет-фильтр / edge-узел" },
-  { value: "reverse_proxy", label: "Обратный прокси" },
-  { value: "backup", label: "Бэкапы" },
-  { value: "monitoring", label: "Мониторинг" },
-  { value: "failover", label: "Отказоустойчивость / резерв" },
-  { value: "replication", label: "Репликация" },
-  { value: "vpn", label: "VPN / защищённая сеть" },
+  { value: "edge", label: "Інтернет-фільтр / edge-вузол" },
+  { value: "reverse_proxy", label: "Зворотний проксі" },
+  { value: "backup", label: "Резервні копії" },
+  { value: "monitoring", label: "Моніторинг" },
+  { value: "failover", label: "Відмовостійкість / резерв" },
+  { value: "replication", label: "Реплікація" },
+  { value: "vpn", label: "VPN / захищена мережа" },
 ];
 
 const NODE_PURPOSE_OPTIONS = [
-  { value: "primary", label: "Основной" },
-  { value: "standby", label: "Резервный" },
-  { value: "support", label: "Вспомогательный" },
-  { value: "edge", label: "Входной узел / интернет-фильтр" },
-  { value: "worker", label: "Вычислительный воркер" },
-  { value: "storage", label: "Хранилище" },
-  { value: "other", label: "Другое" },
+  { value: "primary", label: "Основний" },
+  { value: "standby", label: "Резервний" },
+  { value: "support", label: "Допоміжний" },
+  { value: "edge", label: "Вхідний вузол / інтернет-фільтр" },
+  { value: "worker", label: "Обчислювальний воркер" },
+  { value: "storage", label: "Сховище" },
+  { value: "other", label: "Інше" },
 ];
 
 const STORAGE_PROVIDER_OPTIONS = [
-  { value: "local", label: "Локальное" },
+  { value: "local", label: "Локальне" },
   { value: "s3", label: "S3" },
   { value: "minio", label: "MinIO" },
 ];
@@ -51,43 +51,43 @@ const SEARCH_PROVIDER_OPTIONS = [
   { value: "meilisearch", label: "Meilisearch" },
   { value: "elasticsearch", label: "Elasticsearch" },
   { value: "opensearch", label: "OpenSearch" },
-  { value: "database", label: "База данных" },
-  { value: "disabled", label: "Отключено" },
+  { value: "database", label: "База даних" },
+  { value: "disabled", label: "Вимкнено" },
 ];
 
 const FAILOVER_MODE_OPTIONS = [
-  { value: "manual", label: "Ручной" },
-  { value: "semi_auto", label: "Полуавтоматический" },
-  { value: "automatic", label: "Автоматический" },
+  { value: "manual", label: "Ручний" },
+  { value: "semi_auto", label: "Напівавтоматичний" },
+  { value: "automatic", label: "Автоматичний" },
 ];
 
 const FAILOVER_STRATEGY_OPTIONS = [
-  { value: "active_standby", label: "Активный + резервный" },
-  { value: "active_active", label: "Два активных узла" },
-  { value: "cold_standby", label: "Холодный резерв" },
+  { value: "active_standby", label: "Активний + резервний" },
+  { value: "active_active", label: "Два активні вузли" },
+  { value: "cold_standby", label: "Холодний резерв" },
 ];
 
 const TLS_TERMINATION_OPTIONS = [
-  { value: "edge", label: "На интернет-фильтре / edge-узле" },
-  { value: "app", label: "На сервере приложения" },
-  { value: "external", label: "Внешний балансировщик / CDN" },
-  { value: "disabled", label: "Отключено" },
+  { value: "edge", label: "На інтернет-фільтрі / edge-вузлі" },
+  { value: "app", label: "На сервері застосунку" },
+  { value: "external", label: "Зовнішній балансувальник / CDN" },
+  { value: "disabled", label: "Вимкнено" },
 ];
 
 const MAINTENANCE_SERVED_BY_OPTIONS = [
-  { value: "edge", label: "Edge-узел / интернет-фильтр" },
-  { value: "active_app", label: "Активный сервер приложения" },
-  { value: "standby_app", label: "Резервный сервер приложения" },
-  { value: "disabled", label: "Не отдавать страницу техработ" },
+  { value: "edge", label: "Edge-вузол / інтернет-фільтр" },
+  { value: "active_app", label: "Активний сервер застосунку" },
+  { value: "standby_app", label: "Резервний сервер застосунку" },
+  { value: "disabled", label: "Не показувати сторінку технічних робіт" },
 ];
 
 const REPLICATION_MODE_OPTIONS = [
-  { value: "async", label: "Асинхронная" },
-  { value: "sync", label: "Синхронная" },
-  { value: "semi_sync", label: "Полусинхронная" },
-  { value: "snapshot", label: "Снимок" },
-  { value: "manual", label: "Ручная" },
-  { value: "disabled", label: "Отключено" },
+  { value: "async", label: "Асинхронна" },
+  { value: "sync", label: "Синхронна" },
+  { value: "semi_sync", label: "Напівсинхронна" },
+  { value: "snapshot", label: "Знімок" },
+  { value: "manual", label: "Ручна" },
+  { value: "disabled", label: "Вимкнено" },
 ];
 
 function getNodeRoles(node) {
@@ -115,7 +115,7 @@ function getNodeKey(node, index) {
 
 function buildNodeOptionLabel(node, index) {
   const id = node.id || `node-${index + 1}`;
-  const name = node.name || "Без названия";
+  const name = node.name || "Без назви";
 
   return `${name} (${id})`;
 }
@@ -160,7 +160,7 @@ export default function InfraSection({ cfg, patch }) {
     });
   };
 
-  const renderNodeSelect = (value, onChange, placeholder = "Не выбран") => (
+  const renderNodeSelect = (value, onChange, placeholder = "Не вибрано") => (
     <select
       className="select"
       value={value || ""}
@@ -177,26 +177,26 @@ export default function InfraSection({ cfg, patch }) {
 
   return (
     <Card
-      title="3) Инфраструктура"
-      sub="Ноды, входной трафик, отказоустойчивость, репликация, хранилище, воркеры, поиск, ресурсы и режим технических работ"
+      title="3) Інфраструктура"
+      sub="Вузли, вхідний трафік, відмовостійкість, реплікація, сховище, воркери, пошук, ресурси та режим технічних робіт"
     >
       <FieldRow
-        label="Ноды"
-        hint="Физические или виртуальные серверы. Назначение сервера хранится отдельно от технических ролей."
+        label="Вузли"
+        hint="Фізичні або віртуальні сервери. Призначення сервера зберігається окремо від технічних ролей."
       >
         <div className={styles.inputGroup}>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Название</th>
-                  <th>Назначение</th>
-                  <th>Роли</th>
+                  <th>Назва</th>
+                  <th>Призначення</th>
+                  <th>Ролі</th>
                   <th>Хост</th>
                   <th>Статус</th>
                   <th>Диск</th>
-                  <th>Задачи</th>
-                  <th>Действия</th>
+                  <th>Завдання</th>
+                  <th>Дії</th>
                 </tr>
               </thead>
 
@@ -272,7 +272,7 @@ export default function InfraSection({ cfg, patch }) {
                               patch("infra.nodes", next);
                             }}
                           >
-                            Удалить
+                            Видалити
                           </button>
                         </td>
                       </tr>
@@ -280,7 +280,7 @@ export default function InfraSection({ cfg, patch }) {
                       <tr>
                         <td colSpan={8}>
                           <details>
-                            <summary>Детали ноды</summary>
+                            <summary>Деталі вузла</summary>
 
                             <div className={styles.inputGroup}>
                               <div
@@ -302,7 +302,7 @@ export default function InfraSection({ cfg, patch }) {
 
                                 <div>
                                   <div className={styles.inputLabel}>
-                                    Приоритет
+                                    Пріоритет
                                   </div>
                                   <NumberInput
                                     value={node.priority}
@@ -316,7 +316,7 @@ export default function InfraSection({ cfg, patch }) {
 
                                 <div>
                                   <div className={styles.inputLabel}>
-                                    Площадка
+                                    Майданчик
                                   </div>
                                   <input
                                     className="input"
@@ -332,7 +332,7 @@ export default function InfraSection({ cfg, patch }) {
 
                                 <div>
                                   <div className={styles.inputLabel}>
-                                    URL проверки состояния
+                                    URL перевірки стану
                                   </div>
                                   <input
                                     className="input"
@@ -348,7 +348,7 @@ export default function InfraSection({ cfg, patch }) {
 
                                 <div>
                                   <div className={styles.inputLabel}>
-                                    Публичный хост
+                                    Публічний хост
                                   </div>
                                   <input
                                     className="input"
@@ -364,7 +364,7 @@ export default function InfraSection({ cfg, patch }) {
 
                                 <div>
                                   <div className={styles.inputLabel}>
-                                    Внутренний хост
+                                    Внутрішній хост
                                   </div>
                                   <input
                                     className="input"
@@ -387,7 +387,7 @@ export default function InfraSection({ cfg, patch }) {
                                   onChange={(value) =>
                                     updateNode(index, { enabled: value })
                                   }
-                                  label="Нода включена"
+                                  label="Вузол увімкнено"
                                 />
 
                                 <Toggle
@@ -397,7 +397,7 @@ export default function InfraSection({ cfg, patch }) {
                                       canBePromoted: value,
                                     })
                                   }
-                                  label="Можно повысить до активной"
+                                  label="Можна зробити активним"
                                 />
 
                                 <Toggle
@@ -407,12 +407,12 @@ export default function InfraSection({ cfg, patch }) {
                                       isTrafficEntry: value,
                                     })
                                   }
-                                  label="Входная точка трафика"
+                                  label="Вхідна точка трафіку"
                                 />
                               </div>
 
                               <div>
-                                <div className={styles.inputLabel}>Роли</div>
+                                <div className={styles.inputLabel}>Ролі</div>
                                 <div className={styles.inputGroup}>
                                   {ROLE_OPTIONS.map((role) => (
                                     <label
@@ -441,7 +441,7 @@ export default function InfraSection({ cfg, patch }) {
                               >
                                 <div>
                                   <div className={styles.inputLabel}>
-                                    Последняя проверка
+                                    Остання перевірка
                                   </div>
                                   <input
                                     className="input"
@@ -456,7 +456,7 @@ export default function InfraSection({ cfg, patch }) {
 
                                 <div>
                                   <div className={styles.inputLabel}>
-                                    Версия
+                                    Версія
                                   </div>
                                   <input
                                     className="input"
@@ -501,7 +501,7 @@ export default function InfraSection({ cfg, patch }) {
 
                                 <div>
                                   <div className={styles.inputLabel}>
-                                    Свободный диск, ГБ
+                                    Вільний диск, ГБ
                                   </div>
                                   <NumberInput
                                     value={node.diskFreeGb}
@@ -517,7 +517,7 @@ export default function InfraSection({ cfg, patch }) {
 
                                 <div>
                                   <div className={styles.inputLabel}>
-                                    Задержка очереди
+                                    Затримка черги
                                   </div>
                                   <NumberInput
                                     value={node.queueLag}
@@ -536,7 +536,7 @@ export default function InfraSection({ cfg, patch }) {
                                   updateNode(index, { notes: value })
                                 }
                                 rows={3}
-                                placeholder="Заметки по серверу"
+                                placeholder="Нотатки щодо сервера"
                               />
                             </div>
                           </details>
@@ -557,7 +557,7 @@ export default function InfraSection({ cfg, patch }) {
                 ...nodes,
                 {
                   id: `node-${nodes.length + 1}`,
-                  name: "Новая нода",
+                  name: "Новий вузол",
                   purpose: "worker",
                   roles: ["worker"],
                   host: "",
@@ -582,18 +582,18 @@ export default function InfraSection({ cfg, patch }) {
               ])
             }
           >
-            Добавить ноду
+            Додати вузол
           </button>
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Трафик и входная точка"
-        hint="Путь пользователя: интернет-фильтр → активный сервер приложения. При аварии активный сервер можно заменить резервным."
+        label="Трафік і вхідна точка"
+        hint="Шлях користувача: інтернет-фільтр → активний сервер застосунку. У разі аварії активний сервер можна замінити резервним."
       >
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className={styles.inputLabel}>Входной узел</div>
+            <div className={styles.inputLabel}>Вхідний вузол</div>
             {renderNodeSelect(traffic.entryNodeId, (value) =>
               patch("infra.traffic.entryNodeId", value),
             )}
@@ -601,7 +601,7 @@ export default function InfraSection({ cfg, patch }) {
 
           <div>
             <div className={styles.inputLabel}>
-              Активный сервер приложения
+              Активний сервер застосунку
             </div>
             {renderNodeSelect(traffic.activeAppNodeId, (value) =>
               patch("infra.traffic.activeAppNodeId", value),
@@ -610,7 +610,7 @@ export default function InfraSection({ cfg, patch }) {
 
           <div>
             <div className={styles.inputLabel}>
-              Резервный сервер приложения
+              Резервний сервер застосунку
             </div>
             {renderNodeSelect(traffic.standbyAppNodeId, (value) =>
               patch("infra.traffic.standbyAppNodeId", value),
@@ -618,7 +618,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Публичный домен</div>
+            <div className={styles.inputLabel}>Публічний домен</div>
             <input
               className="input"
               value={traffic.publicDomain || ""}
@@ -630,7 +630,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Завершение TLS</div>
+            <div className={styles.inputLabel}>Завершення TLS</div>
             <select
               className="select"
               value={traffic.tlsTermination || "edge"}
@@ -647,7 +647,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Страница техработ</div>
+            <div className={styles.inputLabel}>Сторінка технічних робіт</div>
             <select
               className="select"
               value={traffic.maintenanceServedBy || "edge"}
@@ -670,20 +670,20 @@ export default function InfraSection({ cfg, patch }) {
             onChange={(value) =>
               patch("infra.traffic.allowDirectAppAccess", value)
             }
-            label="Разрешить прямой доступ к серверу приложения"
+            label="Дозволити прямий доступ до сервера застосунку"
           />
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Отказоустойчивость"
-        hint="Для начала безопаснее ручное переключение: автоматическое переключение без надёжной репликации БД может создать больше проблем."
+        label="Відмовостійкість"
+        hint="Для початку безпечніше ручне перемикання: автоматичне перемикання без надійної реплікації БД може створити більше проблем."
       >
         <div className={styles.inputGroup}>
           <Toggle
             value={failover.enabled === true}
             onChange={(value) => patch("infra.failover.enabled", value)}
-            label="Включить отказоустойчивость"
+            label="Увімкнути відмовостійкість"
           />
 
           <div className={`${styles.inputGrid2} ${styles.max720}`}>
@@ -705,7 +705,7 @@ export default function InfraSection({ cfg, patch }) {
             </div>
 
             <div>
-              <div className={styles.inputLabel}>Стратегия</div>
+              <div className={styles.inputLabel}>Стратегія</div>
               <select
                 className="select"
                 value={failover.strategy || "active_standby"}
@@ -722,28 +722,28 @@ export default function InfraSection({ cfg, patch }) {
             </div>
 
             <div>
-              <div className={styles.inputLabel}>Основной узел</div>
+              <div className={styles.inputLabel}>Основний вузол</div>
               {renderNodeSelect(failover.primaryNodeId, (value) =>
                 patch("infra.failover.primaryNodeId", value),
               )}
             </div>
 
             <div>
-              <div className={styles.inputLabel}>Резервный узел</div>
+              <div className={styles.inputLabel}>Резервний вузол</div>
               {renderNodeSelect(failover.standbyNodeId, (value) =>
                 patch("infra.failover.standbyNodeId", value),
               )}
             </div>
 
             <div>
-              <div className={styles.inputLabel}>Входной узел трафика</div>
+              <div className={styles.inputLabel}>Вхідний вузол трафіку</div>
               {renderNodeSelect(failover.trafficEntryNodeId, (value) =>
                 patch("infra.failover.trafficEntryNodeId", value),
               )}
             </div>
 
             <div>
-              <div className={styles.inputLabel}>Интервал проверки, с</div>
+              <div className={styles.inputLabel}>Інтервал перевірки, с</div>
               <NumberInput
                 value={failover.healthcheckIntervalSec}
                 min={1}
@@ -756,7 +756,7 @@ export default function InfraSection({ cfg, patch }) {
 
             <div>
               <div className={styles.inputLabel}>
-                Ошибок до статуса недоступности
+                Помилок до статусу недоступності
               </div>
               <NumberInput
                 value={failover.unhealthyAfterFailures}
@@ -769,7 +769,7 @@ export default function InfraSection({ cfg, patch }) {
             </div>
 
             <div>
-              <div className={styles.inputLabel}>RTO, мин</div>
+              <div className={styles.inputLabel}>RTO, хв</div>
               <NumberInput
                 value={failover.rtoMinutes}
                 min={0}
@@ -779,7 +779,7 @@ export default function InfraSection({ cfg, patch }) {
             </div>
 
             <div>
-              <div className={styles.inputLabel}>RPO, мин</div>
+              <div className={styles.inputLabel}>RPO, хв</div>
               <NumberInput
                 value={failover.rpoMinutes}
                 min={0}
@@ -795,7 +795,7 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.failover.autoPromoteStandby", value)
               }
-              label="Автоматически делать резервный узел активным"
+              label="Автоматично робити резервний вузол активним"
             />
 
             <Toggle
@@ -803,13 +803,13 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.failover.requireManualApproval", value)
               }
-              label="Требовать ручное подтверждение"
+              label="Вимагати ручного підтвердження"
             />
           </div>
 
           <div className={`${styles.inputGrid2} ${styles.max720}`}>
             <div>
-              <div className={styles.inputLabel}>Последнее переключение</div>
+              <div className={styles.inputLabel}>Останнє перемикання</div>
               <input
                 className="input"
                 type="datetime-local"
@@ -827,24 +827,24 @@ export default function InfraSection({ cfg, patch }) {
               patch("infra.failover.lastFailoverReason", value)
             }
             rows={3}
-            placeholder="Причина последнего переключения"
+            placeholder="Причина останнього перемикання"
           />
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Репликация"
-        hint="Отдельно настраиваются база данных, файлы, поисковый индекс, настройки и очереди."
+        label="Реплікація"
+        hint="Окремо налаштовуються база даних, файли, пошуковий індекс, налаштування та черги."
       >
         <div className={styles.inputGroup}>
           <Toggle
             value={replication.enabled === true}
             onChange={(value) => patch("infra.replication.enabled", value)}
-            label="Включить репликацию"
+            label="Увімкнути реплікацію"
           />
 
           <details open>
-            <summary>База данных</summary>
+            <summary>База даних</summary>
 
             <div className={`${styles.inputGrid2} ${styles.max720}`}>
               <Toggle
@@ -852,7 +852,7 @@ export default function InfraSection({ cfg, patch }) {
                 onChange={(value) =>
                   patch("infra.replication.database.enabled", value)
                 }
-                label="Реплицировать БД"
+                label="Реплікувати БД"
               />
 
               <div>
@@ -873,21 +873,21 @@ export default function InfraSection({ cfg, patch }) {
               </div>
 
               <div>
-                <div className={styles.inputLabel}>Исходный узел</div>
+                <div className={styles.inputLabel}>Вузол-джерело</div>
                 {renderNodeSelect(replication.database?.sourceNodeId, (value) =>
                   patch("infra.replication.database.sourceNodeId", value),
                 )}
               </div>
 
               <div>
-                <div className={styles.inputLabel}>Целевой узел</div>
+                <div className={styles.inputLabel}>Цільовий вузол</div>
                 {renderNodeSelect(replication.database?.targetNodeId, (value) =>
                   patch("infra.replication.database.targetNodeId", value),
                 )}
               </div>
 
               <div>
-                <div className={styles.inputLabel}>Макс. задержка, с</div>
+                <div className={styles.inputLabel}>Макс. затримка, с</div>
                 <NumberInput
                   value={replication.database?.maxLagSeconds}
                   min={0}
@@ -901,7 +901,7 @@ export default function InfraSection({ cfg, patch }) {
           </details>
 
           <details open>
-            <summary>Файлы</summary>
+            <summary>Файли</summary>
 
             <div className={`${styles.inputGrid2} ${styles.max720}`}>
               <Toggle
@@ -909,25 +909,25 @@ export default function InfraSection({ cfg, patch }) {
                 onChange={(value) =>
                   patch("infra.replication.files.enabled", value)
                 }
-                label="Реплицировать файлы"
+                label="Реплікувати файли"
               />
 
               <div>
-                <div className={styles.inputLabel}>Исходный узел</div>
+                <div className={styles.inputLabel}>Вузол-джерело</div>
                 {renderNodeSelect(replication.files?.sourceNodeId, (value) =>
                   patch("infra.replication.files.sourceNodeId", value),
                 )}
               </div>
 
               <div>
-                <div className={styles.inputLabel}>Целевой узел</div>
+                <div className={styles.inputLabel}>Цільовий вузол</div>
                 {renderNodeSelect(replication.files?.targetNodeId, (value) =>
                   patch("infra.replication.files.targetNodeId", value),
                 )}
               </div>
 
               <div>
-                <div className={styles.inputLabel}>Интервал, мин</div>
+                <div className={styles.inputLabel}>Інтервал, хв</div>
                 <NumberInput
                   value={replication.files?.intervalMinutes}
                   min={1}
@@ -961,7 +961,7 @@ export default function InfraSection({ cfg, patch }) {
                 onChange={(value) =>
                   patch("infra.replication.files.includeMedia", value)
                 }
-                label="Изображения и медиа"
+                label="Зображення та медіа"
               />
 
               <Toggle
@@ -969,13 +969,13 @@ export default function InfraSection({ cfg, patch }) {
                 onChange={(value) =>
                   patch("infra.replication.files.includeSettings", value)
                 }
-                label="Настройки"
+                label="Налаштування"
               />
             </div>
           </details>
 
           <details>
-            <summary>Поисковый индекс и очереди</summary>
+            <summary>Пошуковий індекс і черги</summary>
 
             <div className={`${styles.inputGrid2} ${styles.max720}`}>
               <Toggle
@@ -983,7 +983,7 @@ export default function InfraSection({ cfg, patch }) {
                 onChange={(value) =>
                   patch("infra.replication.searchIndex.rebuildOnPromote", value)
                 }
-                label="Перестраивать индекс при переключении на резервный узел"
+                label="Перебудовувати індекс під час перемикання на резервний вузол"
               />
 
               <Toggle
@@ -991,7 +991,7 @@ export default function InfraSection({ cfg, patch }) {
                 onChange={(value) =>
                   patch("infra.replication.searchIndex.replicateIndex", value)
                 }
-                label="Реплицировать поисковый индекс"
+                label="Реплікувати пошуковий індекс"
               />
 
               <Toggle
@@ -999,7 +999,7 @@ export default function InfraSection({ cfg, patch }) {
                 onChange={(value) =>
                   patch("infra.replication.queues.replicatePendingJobs", value)
                 }
-                label="Реплицировать ожидающие задачи"
+                label="Реплікувати завдання в очікуванні"
               />
 
               <Toggle
@@ -1007,7 +1007,7 @@ export default function InfraSection({ cfg, patch }) {
                 onChange={(value) =>
                   patch("infra.replication.queues.replaySafeOnly", value)
                 }
-                label="Повторять только безопасные задачи"
+                label="Повторювати лише безпечні завдання"
               />
             </div>
           </details>
@@ -1015,26 +1015,26 @@ export default function InfraSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Связь с бэкапами"
-        hint="Здесь только топология бэкапов. Расписание, срок хранения, экспорт и архивы лучше оставить в разделе «Бэкапы»."
+        label="Зв’язок із резервними копіями"
+        hint="Тут лише топологія резервних копій. Розклад, строк зберігання, експорт і архіви краще залишити в розділі «Резервні копії»."
       >
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className={styles.inputLabel}>Узел бэкапов</div>
+            <div className={styles.inputLabel}>Вузол резервних копій</div>
             {renderNodeSelect(backupTopology.backupNodeId, (value) =>
               patch("infra.backupTopology.backupNodeId", value),
             )}
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Основной узел для бэкапа</div>
+            <div className={styles.inputLabel}>Основний вузол для резервної копії</div>
             {renderNodeSelect(backupTopology.backupPrimaryNodeId, (value) =>
               patch("infra.backupTopology.backupPrimaryNodeId", value),
             )}
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Резервный узел для бэкапа</div>
+            <div className={styles.inputLabel}>Резервний вузол для резервної копії</div>
             {renderNodeSelect(backupTopology.backupStandbyNodeId, (value) =>
               patch("infra.backupTopology.backupStandbyNodeId", value),
             )}
@@ -1045,18 +1045,18 @@ export default function InfraSection({ cfg, patch }) {
             onChange={(value) =>
               patch("infra.backupTopology.monitorBackups", value)
             }
-            label="Мониторить состояние бэкапов"
+            label="Моніторити стан резервних копій"
           />
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Хранилище файлов"
-        hint="STL, G-code, изображения, превью, временные файлы и защита от дублей."
+        label="Сховище файлів"
+        hint="STL, G-code, зображення, прев’ю, тимчасові файли та захист від дублікатів."
       >
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className={styles.inputLabel}>Тип хранилища</div>
+            <div className={styles.inputLabel}>Тип сховища</div>
             <select
               className="select"
               value={storage.provider || "local"}
@@ -1073,7 +1073,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Макс. размер STL, МБ</div>
+            <div className={styles.inputLabel}>Макс. розмір STL, МБ</div>
             <NumberInput
               value={storage.maxStlFileMb}
               min={1}
@@ -1083,7 +1083,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Макс. размер архива, МБ</div>
+            <div className={styles.inputLabel}>Макс. розмір архіву, МБ</div>
             <NumberInput
               value={storage.maxArchiveMb}
               min={1}
@@ -1093,7 +1093,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>TTL временных файлов, часов</div>
+            <div className={styles.inputLabel}>TTL тимчасових файлів, год</div>
             <NumberInput
               value={storage.tempFilesTtlHours}
               min={1}
@@ -1105,7 +1105,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Мин. свободный диск, ГБ</div>
+            <div className={styles.inputLabel}>Мін. вільний диск, ГБ</div>
             <NumberInput
               value={storage.minFreeDiskGb}
               min={0}
@@ -1115,7 +1115,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Контрольная сумма</div>
+            <div className={styles.inputLabel}>Контрольна сума</div>
             <select
               className="select"
               value={storage.checksumAlgorithm || "sha256"}
@@ -1138,7 +1138,7 @@ export default function InfraSection({ cfg, patch }) {
             onChange={(value) =>
               patch("infra.storage.keepGeneratedGcode", value)
             }
-            label="Хранить G-code после нарезки"
+            label="Зберігати G-code після нарізання"
           />
 
           <Toggle
@@ -1146,31 +1146,31 @@ export default function InfraSection({ cfg, patch }) {
             onChange={(value) =>
               patch("infra.storage.enableDeduplication", value)
             }
-            label="Включить дедупликацию STL"
+            label="Увімкнути дедуплікацію STL"
           />
 
           <Toggle
             value={storage.enableChecksum !== false}
             onChange={(value) => patch("infra.storage.enableChecksum", value)}
-            label="Проверять контрольные суммы файлов"
+            label="Перевіряти контрольні суми файлів"
           />
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Нарезка STL"
-        hint="Подготовка G-code, расчёт расхода пластика и тяжёлые задачи slicer-воркеров."
+        label="Нарізання STL"
+        hint="Підготовка G-code, розрахунок витрати пластику та важкі завдання воркерів слайсера."
       >
         <div className={styles.inputGroup}>
           <Toggle
             value={slicing.enabled}
             onChange={(value) => patch("infra.slicing.enabled", value)}
-            label="Включить нарезку STL"
+            label="Увімкнути нарізання STL"
           />
 
           <div className={`${styles.inputGrid2} ${styles.max720}`}>
             <div>
-              <div className={styles.inputLabel}>Макс. параллельных задач</div>
+              <div className={styles.inputLabel}>Макс. паралельних завдань</div>
               <NumberInput
                 value={slicing.maxConcurrentJobs}
                 min={0}
@@ -1182,7 +1182,7 @@ export default function InfraSection({ cfg, patch }) {
             </div>
 
             <div>
-              <div className={styles.inputLabel}>Тайм-аут, мин</div>
+              <div className={styles.inputLabel}>Тайм-аут, хв</div>
               <NumberInput
                 value={slicing.timeoutMinutes}
                 min={1}
@@ -1194,7 +1194,7 @@ export default function InfraSection({ cfg, patch }) {
             </div>
 
             <div>
-              <div className={styles.inputLabel}>Профиль по умолчанию</div>
+              <div className={styles.inputLabel}>Профіль за замовчуванням</div>
               <input
                 className="input"
                 value={slicing.defaultProfile || ""}
@@ -1212,7 +1212,7 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.slicing.keepFailedArtifacts", value)
               }
-              label="Хранить артефакты неудачной нарезки"
+              label="Зберігати артефакти невдалого нарізання"
             />
 
             <Toggle
@@ -1220,7 +1220,7 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.slicing.autoSliceOnProductImport", value)
               }
-              label="Автонарезка при импорте товара"
+              label="Автонарізання під час імпорту товару"
             />
 
             <Toggle
@@ -1228,19 +1228,19 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.slicing.autoSliceBeforePrint", value)
               }
-              label="Автонарезка перед печатью"
+              label="Автонарізання перед друком"
             />
           </div>
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Воркеры и очереди"
-        hint="Отдельные лимиты по типам фоновых задач."
+        label="Воркери та черги"
+        hint="Окремі ліміти за типами фонових завдань."
       >
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className={styles.inputLabel}>Импорт товаров</div>
+            <div className={styles.inputLabel}>Імпорт товарів</div>
             <NumberInput
               value={pools.imports?.maxWorkers}
               min={0}
@@ -1252,7 +1252,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Нарезка STL</div>
+            <div className={styles.inputLabel}>Нарізання STL</div>
             <NumberInput
               value={pools.slicing?.maxWorkers}
               min={0}
@@ -1264,7 +1264,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Медиа / превью</div>
+            <div className={styles.inputLabel}>Медіа / прев’ю</div>
             <NumberInput
               value={pools.media?.maxWorkers}
               min={0}
@@ -1276,7 +1276,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Индексация поиска</div>
+            <div className={styles.inputLabel}>Індексація пошуку</div>
             <NumberInput
               value={pools.searchIndexing?.maxWorkers}
               min={0}
@@ -1300,7 +1300,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Синхронизация остатков</div>
+            <div className={styles.inputLabel}>Синхронізація залишків</div>
             <NumberInput
               value={pools.inventorySync?.maxWorkers}
               min={0}
@@ -1314,14 +1314,14 @@ export default function InfraSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Поиск и индексация"
-        hint="Подготовка к каталогу на сотни тысяч товаров."
+        label="Пошук та індексація"
+        hint="Підготовка до каталогу на сотні тисяч товарів."
       >
         <div className={styles.inputGroup}>
           <Toggle
             value={search.enabled}
             onChange={(value) => patch("infra.search.enabled", value)}
-            label="Включить поиск"
+            label="Увімкнути пошук"
           />
 
           <div className={`${styles.inputGrid2} ${styles.max720}`}>
@@ -1343,7 +1343,7 @@ export default function InfraSection({ cfg, patch }) {
             </div>
 
             <div>
-              <div className={styles.inputLabel}>Размер пакета</div>
+              <div className={styles.inputLabel}>Розмір пакета</div>
               <NumberInput
                 value={search.indexBatchSize}
                 min={1}
@@ -1356,7 +1356,7 @@ export default function InfraSection({ cfg, patch }) {
 
             <div>
               <div className={styles.inputLabel}>
-                Параллельность переиндексации
+                Паралельність переіндексації
               </div>
               <NumberInput
                 value={search.reindexConcurrency}
@@ -1375,7 +1375,7 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.search.autoReindexOnProductChange", value)
               }
-              label="Автоиндексация при изменении товара"
+              label="Автоіндексація під час зміни товару"
             />
 
             <Toggle
@@ -1383,15 +1383,15 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.search.rebuildIndexAllowed", value)
               }
-              label="Разрешить полную перестройку индекса"
+              label="Дозволити повну перебудову індексу"
             />
           </div>
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Ограничения ресурсов"
-        hint="Защита от перегрузки CPU, RAM и переполнения диска временными файлами."
+        label="Обмеження ресурсів"
+        hint="Захист від перевантаження CPU, RAM і переповнення диска тимчасовими файлами."
       >
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
@@ -1419,7 +1419,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Мин. свободный диск, ГБ</div>
+            <div className={styles.inputLabel}>Мін. вільний диск, ГБ</div>
             <NumberInput
               value={resources.minFreeDiskGb}
               min={0}
@@ -1437,7 +1437,7 @@ export default function InfraSection({ cfg, patch }) {
             onChange={(value) =>
               patch("infra.resources.pauseWorkersOnLowDisk", value)
             }
-            label="Ставить воркеры на паузу при нехватке диска"
+            label="Ставити воркери на паузу за нестачі диска"
           />
 
           <Toggle
@@ -1445,18 +1445,18 @@ export default function InfraSection({ cfg, patch }) {
             onChange={(value) =>
               patch("infra.resources.pauseSlicingOnHighLoad", value)
             }
-            label="Ставить нарезку на паузу при высокой нагрузке"
+            label="Ставити нарізання на паузу за високого навантаження"
           />
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Лимиты внешних интеграций"
-        hint="Отдельные лимиты запросов по сервисам вместо одного общего externalApiRateLimitRps."
+        label="Ліміти зовнішніх інтеграцій"
+        hint="Окремі ліміти запитів за сервісами замість одного загального externalApiRateLimitRps."
       >
         <div className={`${styles.inputGrid2} ${styles.max720}`}>
           <div>
-            <div className={styles.inputLabel}>Новая Почта, RPS</div>
+            <div className={styles.inputLabel}>Нова Пошта, RPS</div>
             <NumberInput
               value={rateLimits.novaPoshtaRps}
               min={0}
@@ -1468,7 +1468,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Укрпочта, RPS</div>
+            <div className={styles.inputLabel}>Укрпошта, RPS</div>
             <NumberInput
               value={rateLimits.ukrposhtaRps}
               min={0}
@@ -1492,7 +1492,7 @@ export default function InfraSection({ cfg, patch }) {
           </div>
 
           <div>
-            <div className={styles.inputLabel}>Платёжный провайдер, RPS</div>
+            <div className={styles.inputLabel}>Платіжний провайдер, RPS</div>
             <NumberInput
               value={rateLimits.paymentProviderRps}
               min={0}
@@ -1506,14 +1506,14 @@ export default function InfraSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Режим технических работ"
-        hint="Можно отдельно ограничить каталог, заказы, загрузки, очереди, нарезку и отправку заданий на принтеры."
+        label="Режим технічних робіт"
+        hint="Можна окремо обмежити каталог, замовлення, завантаження, черги, нарізання та надсилання завдань на принтери."
       >
         <div className={styles.inputGroup}>
           <Toggle
             value={maintenance.enabled}
             onChange={(value) => patch("infra.maintenance.enabled", value)}
-            label="Включить режим техработ"
+            label="Увімкнути режим технічних робіт"
           />
 
           <div className={`${styles.inputGrid2} ${styles.max720}`}>
@@ -1522,7 +1522,7 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.maintenance.allowCatalogRead", value)
               }
-              label="Разрешить чтение каталога"
+              label="Дозволити читання каталогу"
             />
 
             <Toggle
@@ -1530,7 +1530,7 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.maintenance.allowAdminLogin", value)
               }
-              label="Разрешить вход в админку"
+              label="Дозволити вхід в адмінпанель"
             />
 
             <Toggle
@@ -1538,7 +1538,7 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.maintenance.blockCheckout", value)
               }
-              label="Запретить оформление заказа"
+              label="Заборонити оформлення замовлення"
             />
 
             <Toggle
@@ -1546,7 +1546,7 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.maintenance.blockUploads", value)
               }
-              label="Запретить загрузку STL"
+              label="Заборонити завантаження STL"
             />
 
             <Toggle
@@ -1554,7 +1554,7 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.maintenance.pauseQueues", value)
               }
-              label="Поставить очереди на паузу"
+              label="Поставити черги на паузу"
             />
 
             <Toggle
@@ -1562,7 +1562,7 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.maintenance.pauseSlicing", value)
               }
-              label="Поставить нарезку на паузу"
+              label="Поставити нарізання на паузу"
             />
 
             <Toggle
@@ -1570,13 +1570,13 @@ export default function InfraSection({ cfg, patch }) {
               onChange={(value) =>
                 patch("infra.maintenance.pausePrinterDispatch", value)
               }
-              label="Остановить отправку заданий на принтеры"
+              label="Зупинити надсилання завдань на принтери"
             />
           </div>
 
           <div className={`${styles.inputGrid2} ${styles.max720}`}>
             <div>
-              <div className={styles.inputLabel}>Начало техработ</div>
+              <div className={styles.inputLabel}>Початок технічних робіт</div>
               <input
                 className="input"
                 type="datetime-local"
@@ -1588,7 +1588,7 @@ export default function InfraSection({ cfg, patch }) {
             </div>
 
             <div>
-              <div className={styles.inputLabel}>Окончание техработ</div>
+              <div className={styles.inputLabel}>Завершення технічних робіт</div>
               <input
                 className="input"
                 type="datetime-local"
@@ -1604,7 +1604,7 @@ export default function InfraSection({ cfg, patch }) {
             value={maintenance.message || ""}
             onChange={(value) => patch("infra.maintenance.message", value)}
             rows={3}
-            placeholder="Сообщение для пользователей"
+            placeholder="Повідомлення для користувачів"
           />
         </div>
       </FieldRow>

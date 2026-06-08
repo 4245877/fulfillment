@@ -3,54 +3,54 @@ import React from "react";
 import { Card, FieldRow, Toggle, ChipsEditor, NumberInput, Select, TextInput } from "../ui.jsx";
 
 const ingesterFieldLabels = {
-  batchSizeRows: "Размер пакета (строк)",
-  concurrency: "Параллелизм",
+  batchSizeRows: "Розмір пакета (рядків)",
+  concurrency: "Паралелізм",
 };
 
 const mediaFieldLabels = {
-  maxFileMb: "Максимальный размер файла (МБ)",
-  retries: "Количество повторных попыток",
-  allowedFormats: "Разрешённые форматы",
-  queue: "Очередь",
+  maxFileMb: "Максимальний розмір файлу (МБ)",
+  retries: "Кількість повторних спроб",
+  allowedFormats: "Дозволені формати",
+  queue: "Черга",
 };
 
 const indexerFieldLabels = {
-  shards: "Шарды",
-  replicas: "Реплики",
-  ratePerMin: "Лимит в минуту",
-  reindexMode: "Режим переиндексации",
-  stopWordsProfile: "Профиль стоп-слов",
-  indexedFields: "Индексируемые поля",
+  shards: "Шарди",
+  replicas: "Репліки",
+  ratePerMin: "Ліміт за хвилину",
+  reindexMode: "Режим переіндексації",
+  stopWordsProfile: "Профіль стоп-слів",
+  indexedFields: "Індексовані поля",
 };
 
 const retentionFieldLabels = {
-  importLogsDays: "Логи импорта (дней)",
-  importErrorsDays: "Ошибки импорта (дней)",
-  auditDays: "Аудит (дней)",
+  importLogsDays: "Журнали імпорту (днів)",
+  importErrorsDays: "Помилки імпорту (днів)",
+  auditDays: "Аудит (днів)",
 };
 
 const normalizeLabels = {
-  trim: "Обрезать пробелы",
-  lowercase: "Приводить к нижнему регистру",
-  uppercase: "Приводить к верхнему регистру",
-  collapseSpaces: "Сжимать пробелы",
-  removeHtml: "Удалять HTML",
-  stripHtml: "Удалять HTML-разметку",
-  removeAccents: "Удалять диакритику",
-  transliterate: "Транслитерировать",
-  normalizeUnicode: "Нормализовать Unicode",
-  dedupe: "Удалять дубликаты",
+  trim: "Обрізати пробіли",
+  lowercase: "Приводити до нижнього регістру",
+  uppercase: "Приводити до верхнього регістру",
+  collapseSpaces: "Стискати пробіли",
+  removeHtml: "Видаляти HTML",
+  stripHtml: "Видаляти HTML-розмітку",
+  removeAccents: "Видаляти діакритику",
+  transliterate: "Транслітерувати",
+  normalizeUnicode: "Нормалізувати Unicode",
+  dedupe: "Видаляти дублікати",
 };
 
 export default function CatalogSection({ cfg, patch }) {
   return (
     <Card
-      title="6) Каталог 3M SKU: индексатор / загрузчик / импорт"
-      sub="Пакеты, параллелизм, нормализация, медиа, индекс, хранение логов"
+      title="6) Каталог 3M SKU: індексатор / завантажувач / імпорт"
+      sub="Пакети, паралелізм, нормалізація, медіа, індекс, зберігання журналів"
     >
       <FieldRow
-        label="Загрузчик"
-        hint="Размер пакета, параллелизм, правила нормализации, медиа-конвейер."
+        label="Завантажувач"
+        hint="Розмір пакета, паралелізм, правила нормалізації, медіаконвеєр."
       >
         <div style={{ display: "grid", gap: 12 }}>
           <div
@@ -87,7 +87,7 @@ export default function CatalogSection({ cfg, patch }) {
           </div>
 
           <div className="card" style={{ padding: 12 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Нормализация</div>
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>Нормалізація</div>
             <div style={{ display: "grid", gap: 6 }}>
               {Object.entries(cfg.catalog.ingester.normalize).map(([k, v]) => (
                 <Toggle
@@ -101,7 +101,7 @@ export default function CatalogSection({ cfg, patch }) {
           </div>
 
           <div className="card" style={{ padding: 12 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Медиа</div>
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>Медіа</div>
             <div
               style={{
                 display: "grid",
@@ -160,8 +160,8 @@ export default function CatalogSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Индексатор / поиск"
-        hint="Шарды/реплики, лимит в минуту, частичная/полная переиндексация, поля индекса."
+        label="Індексатор / пошук"
+        hint="Шарди/репліки, ліміт за хвилину, часткова/повна переіндексація, поля індексу."
       >
         <div style={{ display: "grid", gap: 12 }}>
           <div
@@ -224,8 +224,8 @@ export default function CatalogSection({ cfg, patch }) {
                 value={cfg.catalog.indexer.reindexMode}
                 onChange={(v) => patch("catalog.indexer.reindexMode", v)}
                 options={[
-                  { value: "partial", label: "Частичная" },
-                  { value: "full", label: "Полная" },
+                  { value: "partial", label: "Часткова" },
+                  { value: "full", label: "Повна" },
                 ]}
               />
             </div>
@@ -255,8 +255,8 @@ export default function CatalogSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Хранение данных / аудит"
-        hint="Сколько хранить логи импорта, ошибки и данные аудита."
+        label="Зберігання даних / аудит"
+        hint="Скільки зберігати журнали імпорту, помилки та дані аудиту."
       >
         <div
           style={{
