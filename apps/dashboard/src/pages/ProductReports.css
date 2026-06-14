@@ -35,7 +35,7 @@
 }
 
 .product-reports-page__header h1 {
-  font-family: 'DM Serif Display', Georgia, serif;
+  font-family: var(--font-display);
   font-size: clamp(1.6rem, 2vw + 1rem, 2.5rem);
   font-weight: 400;
   color: var(--text);
@@ -83,7 +83,7 @@
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', var(--font);
+  font-family: var(--font);
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text);
@@ -175,7 +175,7 @@
   background: var(--bg);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', var(--font);
+  font-family: var(--font);
   font-size: 0.9375rem;
   color: var(--text);
   appearance: none;
@@ -188,7 +188,7 @@
 
 .product-reports-page__filters select {
   padding-right: 2.5rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237A6A60' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2375676C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   cursor: pointer;
@@ -369,7 +369,7 @@
 }
 
 .product-report-card__header h2 {
-  font-family: 'DM Sans', var(--font);
+  font-family: var(--font);
   font-size: 1rem;
   font-weight: 700;
   color: var(--text);
@@ -493,7 +493,7 @@
 }
 
 .product-report-card__section h3 {
-  font-family: 'DM Sans', var(--font);
+  font-family: var(--font);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -567,7 +567,7 @@
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', var(--font);
+  font-family: var(--font);
   font-size: 0.9rem;
   color: var(--text);
   appearance: none;
@@ -580,7 +580,7 @@
 
 .product-report-card__controls select {
   padding-right: 2.5rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237A6A60' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2375676C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   cursor: pointer;
@@ -629,13 +629,13 @@
   background: var(--primary);
   border: 1.5px solid var(--primary);
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', var(--font);
+  font-family: var(--font);
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--on-primary);
   cursor: pointer;
   letter-spacing: 0.01em;
-  box-shadow: 0 1px 3px rgba(178, 86, 52, 0.3);
+  box-shadow: var(--shadow-primary-sm);
   transition:
     background var(--transition-fast),
     border-color var(--transition-fast),
@@ -651,7 +651,7 @@
 .product-report-card__controls > button:hover {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
-  box-shadow: 0 4px 12px rgba(178, 86, 52, 0.28);
+  box-shadow: var(--shadow-primary-md);
   transform: translateY(-1px);
 }
 
@@ -776,7 +776,7 @@
   color: var(--text-muted);
   border-radius: var(--radius-sm);
   padding: 0.55rem 0.95rem;
-  font-family: 'DM Sans', var(--font);
+  font-family: var(--font);
   font-size: 0.875rem;
   font-weight: 700;
   cursor: pointer;
@@ -859,7 +859,7 @@
   border: 1.5px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-family: 'DM Sans', var(--font);
+  font-family: var(--font);
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;

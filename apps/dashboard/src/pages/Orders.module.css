@@ -320,7 +320,7 @@
   padding: 12px;
   border: 1px solid var(--border, #e5ded4);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.55);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
 }
 
 .itemImageBox {
@@ -329,7 +329,7 @@
   overflow: hidden;
   border: 1px solid var(--border, #e5ded4);
   border-radius: 12px;
-  background: #f4efe8;
+  background: var(--surface-2);
 }
 
 .itemImage {
@@ -345,7 +345,7 @@
   width: 100%;
   height: 100%;
   padding: 8px;
-  color: #8a7d70;
+  color: var(--text-muted);
   font-size: 12px;
   line-height: 1.25;
   text-align: center;
@@ -367,7 +367,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px 12px;
-  color: #6f6257;
+  color: var(--text-muted);
   font-size: 13px;
   line-height: 1.35;
 }
@@ -401,7 +401,7 @@
   padding: 6px 10px;
   border: 1px solid var(--border, #d8cfc4);
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   color: inherit;
   font-size: 13px;
   line-height: 1.2;
@@ -417,7 +417,7 @@
     var(--primary, #9b6a43) 45%,
     var(--border, #d8cfc4)
   );
-  background: color-mix(in srgb, var(--primary, #9b6a43) 6%, #fff);
+  background: color-mix(in srgb, var(--primary, #9b6a43) 6%, var(--surface));
   text-decoration: underline;
 }
 
@@ -427,7 +427,7 @@
 }
 
 .noFiles {
-  color: #8a7d70;
+  color: var(--text-muted);
   font-size: 13px;
 }
 

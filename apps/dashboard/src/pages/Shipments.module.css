@@ -256,7 +256,7 @@
 }
 
 .emptyTitle {
-  font-family: "DM Serif Display", Georgia, serif;
+  font-family: var(--font-display);
   color: var(--text);
   font-size: 1.25rem;
   line-height: 1.2;
