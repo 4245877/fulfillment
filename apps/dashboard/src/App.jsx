@@ -12,10 +12,20 @@ import Audit from "./pages/Audit.jsx";
 import ProductReports from "./pages/ProductReports.jsx";
 import SettingsPage from "./pages/Settings/SettingsPage.jsx";
 import NotFound from "./pages/NotFound.jsx";
+import stateStyles from "./components/SystemState.module.css";
 
 export default function App() {
   return (
-    <Suspense fallback={<div style={{ padding: 16 }}>Loading…</div>}>
+    <Suspense
+      fallback={
+        <main className={stateStyles.page} aria-live="polite" aria-busy="true">
+          <section className={`${stateStyles.card} ${stateStyles.compactCard}`}>
+            <span className={stateStyles.spinner} aria-hidden="true" />
+            <p className={stateStyles.statusText}>Завантаження...</p>
+          </section>
+        </main>
+      }
+    >
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Board />} />

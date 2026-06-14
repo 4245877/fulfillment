@@ -1,9 +1,10 @@
 {
-"name": "Fulfillment Dashboard",
-"short_name": "Dashboard",
-"start_url": "/",
-"display": "standalone",
-"background_color": "#0f172a",
-"theme_color": "#0f172a",
-"icons": []
+  "name": "Fulfillment Dashboard",
+  "short_name": "Dashboard",
+  "lang": "uk",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6EFE7",
+  "theme_color": "#B25634",
+  "icons": []
 }

@@ -455,12 +455,29 @@ a:hover {
   inset: 0;
   background: white;
   opacity: 0;
+  pointer-events: none;
   transition: opacity var(--transition-fast);
 }
 
-.btn:active::after { opacity: 0.08; }
+.btn:not(:disabled):not([aria-disabled="true"]):active::after {
+  opacity: 0.08;
+}
 
-.btn:active { transform: translateY(1px); }
+.btn:not(:disabled):not([aria-disabled="true"]):active {
+  transform: translateY(1px);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn[aria-disabled="true"] {
+  pointer-events: none;
+}
 
 /* Primary */
 .btn-primary {
@@ -470,7 +487,7 @@ a:hover {
   box-shadow: 0 1px 3px rgba(178, 86, 52, 0.35);
 }
 
-.btn-primary:hover {
+.btn-primary:not(:disabled):not([aria-disabled="true"]):hover {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
   box-shadow: 0 4px 12px rgba(178, 86, 52, 0.3);
@@ -488,7 +505,7 @@ a:hover {
   color: var(--text);
 }
 
-.btn-secondary:hover {
+.btn-secondary:not(:disabled):not([aria-disabled="true"]):hover {
   background: color-mix(in srgb, var(--primary) 6%, var(--surface));
   border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
   color: var(--primary);
@@ -501,7 +518,7 @@ a:hover {
   color: var(--neutral-600);
 }
 
-.btn-ghost:hover {
+.btn-ghost:not(:disabled):not([aria-disabled="true"]):hover {
   background: color-mix(in srgb, var(--primary) 8%, transparent);
   color: var(--primary);
 }
@@ -514,7 +531,7 @@ a:hover {
   box-shadow: 0 1px 3px rgba(142, 46, 59, 0.3);
 }
 
-.btn-danger:hover {
+.btn-danger:not(:disabled):not([aria-disabled="true"]):hover {
   background: color-mix(in srgb, var(--danger-text) 85%, black);
   box-shadow: 0 4px 12px rgba(142, 46, 59, 0.28);
   transform: translateY(-1px);

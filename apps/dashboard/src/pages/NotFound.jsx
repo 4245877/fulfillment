@@ -1,4 +1,22 @@
 import React from "react";
-export default function NotFound(){
-return <div>Сторінку не знайдено.</div>;
+import { Link } from "react-router-dom";
+import styles from "../components/SystemState.module.css";
+
+export default function NotFound() {
+  return (
+    <main className={styles.page}>
+      <section className={styles.card}>
+        <p className={styles.eyebrow}>Помилка 404</p>
+        <h1 className={styles.title}>Сторінку не знайдено</h1>
+        <p className={styles.description}>
+          Адреса могла змінитися або сторінка більше не існує.
+        </p>
+        <div className={styles.actions}>
+          <Link className="btn btn-primary" to="/">
+            Повернутися на дошку
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
 }

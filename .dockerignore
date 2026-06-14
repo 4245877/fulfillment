@@ -1,8 +1,26 @@
-node_modules
+# Dependencies
 **/node_modules
-dist
-**/dist
 .git
 .gitignore
 .pnpm-store
+
+# Build and test output
+**/dist
+**/.vite
+**/coverage
+**/playwright-report
+**/test-results
+
+# Local configuration and editor files
+.env
+.env.*
+!**/.env.example
+.idea
+.vscode
 **/.DS_Store
+**/Thumbs.db
+**/*.swp
+
+# Logs and package-manager leftovers
+**/*.log
+**/package-lock.json
