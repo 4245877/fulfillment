@@ -56,7 +56,17 @@ export default function Layout() {
         className={`${s.sidebar} ${menuOpen ? s.sidebarOpen : ""}`}
       >
         <div className={s.brandRow}>
-          <div className={s.brand}>Lite Forest • Fulfillment</div>
+          <div className={s.brand}>
+            <span className={s.brandMark} aria-hidden="true">
+              <span />
+              <span />
+            </span>
+
+            <span className={s.brandCopy}>
+              <span className={s.brandEyebrow}>Fulfillment</span>
+              <span className={s.brandName}>Lite Forest</span>
+            </span>
+          </div>
 
           <button
             type="button"
@@ -70,7 +80,13 @@ export default function Layout() {
 
         <Nav onNavigate={() => setMenuOpen(false)} />
 
-        <div className={s.sidebarFooter}>Безпека: RBAC • 2FA • Audit</div>
+        <div className={s.sidebarFooter}>
+          <span className={s.securityDot} aria-hidden="true" />
+          <span>
+            <strong>Захищений контур</strong>
+            <small>RBAC · 2FA · Audit</small>
+          </span>
+        </div>
       </aside>
 
       <main className={s.main}>

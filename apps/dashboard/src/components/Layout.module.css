@@ -1,8 +1,8 @@
-/* Layout.module.css — adaptive dashboard layout */
+/* Adaptive application shell. */
 
 .shell {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 264px minmax(0, 1fr);
   min-height: 100vh;
   background: var(--bg);
   isolation: isolate;
@@ -10,124 +10,206 @@
 }
 
 .sidebar {
-  background: linear-gradient(
-    165deg,
-    var(--surface) 0%,
-    color-mix(in srgb, var(--primary) 3%, var(--surface)) 100%
-  );
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
   position: sticky;
   top: 0;
-  height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  transition:
-    transform var(--transition-base),
-    box-shadow var(--transition-base);
-  box-shadow: 2px 0 12px color-mix(in srgb, var(--border) 25%, transparent);
   z-index: 100;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  color: #fff8f5;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(159, 40, 66, 0.34), transparent 19rem),
+    linear-gradient(175deg, #2b1d24 0%, #21171c 55%, #171014 100%);
+  border-right: 1px solid rgba(197, 161, 92, 0.22);
+  box-shadow: 12px 0 36px rgba(35, 20, 28, 0.1);
+  transition:
+    transform var(--transition-spring),
+    box-shadow var(--transition-base);
 }
 
-.sidebar:hover,
-.sidebar:focus-within {
-  box-shadow: 4px 0 20px color-mix(in srgb, var(--primary) 12%, transparent);
-}
-
-.brandRow {
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 8%, transparent) 0%,
-    color-mix(in srgb, var(--primary) 5%, transparent) 100%
-  );
-  position: relative;
-  overflow: hidden;
-}
-
-.brand {
-  padding: 28px 24px;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--primary);
-  transition: color var(--transition-base);
-}
-
-.brandRow::before {
+.sidebar::after {
   content: "";
   position: absolute;
-  inset: 0 auto 0 -100%;
-  width: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    color-mix(in srgb, var(--accent) 15%, transparent) 50%,
-    transparent 100%
-  );
-  animation: shimmer 3s ease-in-out infinite;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(226, 199, 131, 0.65), transparent);
   pointer-events: none;
 }
 
-.brandRow:hover .brand {
-  color: var(--primary-hover);
+.brandRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 102px;
+  padding: 24px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-@keyframes shimmer {
-  0%,
-  100% {
-    left: -100%;
-  }
+.brandRow::after {
+  content: "";
+  position: absolute;
+  right: -22px;
+  bottom: -38px;
+  width: 112px;
+  height: 112px;
+  border: 1px solid rgba(197, 161, 92, 0.08);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 14px rgba(197, 161, 92, 0.025),
+    0 0 0 30px rgba(159, 40, 66, 0.025);
+  pointer-events: none;
+}
 
-  50% {
-    left: 100%;
-  }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+.brandMark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  border: 1px solid rgba(226, 199, 131, 0.58);
+  border-radius: 15px 15px 15px 5px;
+  background: linear-gradient(145deg, #b43550 0%, #781c31 68%, #451d2a 100%);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform: rotate(3deg);
+}
+
+.brandMark::before,
+.brandMark::after,
+.brandMark span {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #f1d99c, transparent);
+}
+
+.brandMark::before {
+  transform: rotate(45deg);
+}
+
+.brandMark::after {
+  transform: rotate(-45deg);
+}
+
+.brandMark span:first-child {
+  transform: rotate(90deg);
+}
+
+.brandMark span:last-child {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f5dfaa;
+  box-shadow: 0 0 10px rgba(245, 223, 170, 0.65);
+}
+
+.brandCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.brandEyebrow {
+  color: #d9bb78;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.2em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.brandName {
+  overflow: hidden;
+  color: #fffaf7;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebarFooter {
-  margin-top: auto;
-  padding: 20px 24px;
-  font-size: 12px;
-  color: var(--muted);
-  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  background: color-mix(in srgb, var(--primary) 3%, transparent);
-  text-align: center;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  transition:
-    color var(--transition-base),
-    background-color var(--transition-base);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: auto 14px 16px;
+  padding: 13px 14px;
+  color: rgba(255, 248, 245, 0.76);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 14px;
 }
 
-.sidebarFooter:hover {
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 6%, transparent);
+.sidebarFooter > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.sidebarFooter strong {
+  color: #fffaf7;
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.sidebarFooter small {
+  color: rgba(255, 248, 245, 0.46);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.securityDot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #74b58f;
+  box-shadow: 0 0 0 4px rgba(116, 181, 143, 0.1);
 }
 
 .main {
+  position: relative;
   min-width: 0;
   min-height: 100vh;
-  padding: 32px 40px;
   overflow-x: hidden;
-  background: var(--bg);
-  position: relative;
-  animation: fadeIn 0.4s ease-out;
+  padding: clamp(24px, 3vw, 44px);
+  background:
+    radial-gradient(circle at 98% 2%, rgba(159, 40, 66, 0.06), transparent 24rem),
+    radial-gradient(circle at 4% 100%, rgba(197, 161, 92, 0.07), transparent 28rem),
+    var(--bg);
 }
 
 .main::before {
   content: "";
   position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: linear-gradient(
-    90deg,
-    var(--primary) 0%,
-    var(--accent) 50%,
-    var(--secondary) 100%
-  );
-  opacity: 0.4;
-  animation: gradientShift 8s ease-in-out infinite;
+  top: -130px;
+  right: -145px;
+  width: 350px;
+  height: 350px;
+  border: 1px solid rgba(159, 40, 66, 0.06);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 30px rgba(159, 40, 66, 0.018),
+    0 0 0 64px rgba(197, 161, 92, 0.018);
+  pointer-events: none;
 }
 
 .menuButton,
@@ -136,162 +218,118 @@
   display: none;
 }
 
-@keyframes gradientShift {
-  0%,
-  100% {
-    opacity: 0.4;
-  }
-
-  50% {
-    opacity: 0.7;
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Tablets */
-@media (max-width: 1024px) {
+@media (max-width: 1100px) {
   .shell {
-    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-columns: 232px minmax(0, 1fr);
   }
 
-  .brand {
+  .brandRow {
+    padding-inline: 16px;
+  }
+
+  .brandName {
     font-size: 18px;
-    padding: 24px 20px;
   }
 
   .main {
-    padding: 24px 28px;
+    padding: 26px;
   }
 }
 
-/* Mobile */
 @media (max-width: 768px) {
   .shell {
     display: block;
   }
 
   .menuButton {
-    display: inline-flex;
     position: fixed;
     top: 14px;
     left: 14px;
     z-index: 900;
-    width: 44px;
-    height: 44px;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--surface) 92%, transparent);
-    box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 10%, transparent);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-direction: column;
     gap: 5px;
+    width: 46px;
+    height: 46px;
+    padding: 0;
     cursor: pointer;
+    background: linear-gradient(145deg, #33222b 0%, #21171c 100%);
+    border: 1px solid rgba(197, 161, 92, 0.35);
+    border-radius: 15px;
+    box-shadow: 0 10px 28px rgba(35, 20, 28, 0.2);
     transition:
-      border-color var(--transition-fast),
-      box-shadow var(--transition-fast),
-      transform var(--transition-fast);
+      transform var(--transition-fast),
+      box-shadow var(--transition-fast);
   }
 
   .menuButton span {
     width: 18px;
-    height: 2px;
+    height: 1.5px;
     border-radius: 999px;
-    background: var(--text);
+    background: #fff8f5;
   }
 
   .menuButton:active {
-    transform: translateY(1px);
-  }
-
-  .menuButton:focus-visible,
-  .closeButton:focus-visible,
-  .backdrop:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 3px;
+    transform: translateY(1px) scale(0.98);
   }
 
   .backdrop {
-    display: block;
     position: fixed;
     inset: 0;
     z-index: 999;
-    border: 0;
-    background: color-mix(in srgb, var(--text) 42%, transparent);
-    backdrop-filter: blur(2px);
+    display: block;
+    padding: 0;
     cursor: pointer;
+    background: rgba(30, 19, 25, 0.48);
+    border: 0;
+    backdrop-filter: blur(5px);
   }
 
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
-    width: min(320px, 86vw);
-    height: 100dvh;
-    transform: translateX(-100%);
-    box-shadow: none;
     z-index: 1000;
+    width: min(300px, 86vw);
+    height: 100dvh;
+    box-shadow: none;
+    transform: translateX(-105%);
   }
 
   .sidebarOpen {
+    box-shadow: 12px 0 48px rgba(20, 12, 16, 0.34);
     transform: translateX(0);
-    box-shadow: 8px 0 32px color-mix(in srgb, var(--text) 18%, transparent);
-  }
-
-  .brandRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .brand {
-    min-width: 0;
-    padding: 20px 16px;
-    font-size: 16px;
-    line-height: 1.25;
   }
 
   .closeButton {
-    display: inline-flex;
-    width: 40px;
-    height: 40px;
-    margin-right: 10px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--surface);
-    color: var(--text);
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
+    position: relative;
+    z-index: 2;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    padding: 0 0 2px;
+    color: rgba(255, 248, 245, 0.78);
+    font-size: 25px;
     line-height: 1;
     cursor: pointer;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
   }
 
   .main {
     min-height: 100dvh;
-    padding: 84px 16px 24px;
+    padding: 82px 16px 28px;
+  }
+
+  .main::before {
+    opacity: 0.65;
   }
 }
 
-@media (max-width: 768px) and (hover: hover) {
-  .menuButton:hover {
-    border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
-    box-shadow: 0 10px 28px color-mix(in srgb, var(--primary) 16%, transparent);
-  }
-}
-
-/* Small phones */
 @media (max-width: 480px) {
   .menuButton {
     top: 12px;
@@ -299,58 +337,28 @@
   }
 
   .sidebar {
-    width: min(300px, 88vw);
+    width: min(292px, 90vw);
+  }
+
+  .brandRow {
+    min-height: 92px;
   }
 
   .main {
-    padding: 76px 12px 20px;
-  }
-
-  .sidebarFooter {
-    padding: 16px 18px;
-    font-size: 11px;
+    padding: 76px 12px 22px;
   }
 }
 
-/* Motion */
 @media (prefers-reduced-motion: no-preference) {
   .main > * {
-    animation: slideUp 0.5s ease-out backwards;
-  }
-
-  .main > *:nth-child(1) {
-    animation-delay: 0.05s;
-  }
-
-  .main > *:nth-child(2) {
-    animation-delay: 0.1s;
-  }
-
-  .main > *:nth-child(3) {
-    animation-delay: 0.15s;
-  }
-
-  .main > *:nth-child(4) {
-    animation-delay: 0.2s;
+    animation: contentReveal 420ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sidebar,
-  .main,
-  .brand,
-  .brandRow::before,
-  .main::before,
-  .main > * {
-    animation: none !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-@keyframes slideUp {
+@keyframes contentReveal {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(10px);
   }
 
   to {
@@ -359,16 +367,24 @@
   }
 }
 
-/* Scrollbars */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .main,
+  .main > * {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 .sidebar,
 .main {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-color: rgba(159, 40, 66, 0.35) transparent;
 }
 
 .sidebar::-webkit-scrollbar,
 .main::-webkit-scrollbar {
-  width: 8px;
+  width: 7px;
 }
 
 .sidebar::-webkit-scrollbar-track,
@@ -378,16 +394,10 @@
 
 .sidebar::-webkit-scrollbar-thumb,
 .main::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
+  background: rgba(159, 40, 66, 0.32);
+  border-radius: 999px;
 }
 
-.sidebar::-webkit-scrollbar-thumb:hover,
-.main::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
-}
-
-/* Print */
 @media print {
   .menuButton,
   .closeButton,

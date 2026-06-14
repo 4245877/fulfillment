@@ -40,6 +40,9 @@ export function Toggle({ value, onChange, label }) {
         checked={!!value}
         onChange={(e) => onChange(e.target.checked)}
       />
+      <span className={styles.toggleTrack} aria-hidden="true">
+        <span className={styles.toggleThumb} />
+      </span>
       <span className={styles.toggleLabel}>{label}</span>
     </label>
   );
@@ -111,7 +114,7 @@ export function ChipsEditor({ value, onChange, placeholder = "Введи та н
               className={styles.chipRemove}
               type="button"
               onClick={() => onChange(items.filter((_, idx) => idx !== i))}
-              aria-label={`Удалить ${x}`}
+              aria-label={`Видалити ${x}`}
             >
               ×
             </button>

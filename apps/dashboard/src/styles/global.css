@@ -6,7 +6,6 @@
    ============================================================ */
 
 /* ── Fonts ─────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400&display=swap');
 
 /* ── Reset & Base ───────────────────────────────────────────── */
 *,
@@ -1735,5 +1734,97 @@ a:hover {
 
   body {
     background: white;
+  }
+}
+/* ============================================================
+   2026 visual refresh
+   ============================================================ */
+
+body {
+  font-family: var(--font);
+  line-height: 1.55;
+  background-image:
+    radial-gradient(circle at 86% 4%, rgba(159, 40, 66, 0.07), transparent 27rem),
+    radial-gradient(circle at 24% 110%, rgba(197, 161, 92, 0.08), transparent 32rem);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+h4,
+h5,
+h6 {
+  font-family: var(--font);
+  font-weight: 650;
+}
+
+.card {
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-soft) 100%);
+  border-color: var(--border);
+}
+
+.card:hover {
+  border-color: color-mix(in srgb, var(--primary) 20%, var(--border));
+}
+
+.card-title,
+.modal-title,
+.fieldset legend {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.btn {
+  border-width: 1px;
+  font-family: var(--font);
+  font-weight: 650;
+}
+
+.btn-primary {
+  background: var(--gradient-primary);
+  box-shadow: var(--shadow-primary-sm);
+}
+
+.btn-primary:not(:disabled):not([aria-disabled="true"]):hover {
+  background: linear-gradient(135deg, #b23853 0%, var(--primary-hover) 100%);
+  box-shadow: var(--shadow-primary-md);
+}
+
+.btn-secondary {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow-xs);
+}
+
+.input,
+.select,
+.textarea {
+  background-color: color-mix(in srgb, var(--surface) 96%, var(--bg));
+  border-width: 1px;
+  font-family: var(--font);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  background-color: var(--surface);
+  box-shadow: var(--shadow-focus), var(--shadow-xs);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }

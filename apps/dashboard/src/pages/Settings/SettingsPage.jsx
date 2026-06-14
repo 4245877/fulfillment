@@ -219,10 +219,9 @@ export default function SettingsPage() {
     >
       <aside className={styles.sidebar} aria-label="Панель навігації та дій">
         <div>
-          <h1 className={styles.sidebarTitle}>Налаштування</h1>
+          <h1 className={styles.sidebarTitle}>Центр керування</h1>
           <p className={styles.sidebarSubtitle}>
-            Зміни зберігаються локально в браузері. Синхронізація з сервером
-            буде додана пізніше.
+            Конфігурація інтерфейсу, сервісів і операцій в одному місці.
           </p>
         </div>
 
@@ -257,7 +256,7 @@ export default function SettingsPage() {
         <hr className={styles.sidebarDivider} />
 
         <nav className={styles.navMenu} aria-label="Розділи налаштувань">
-          {SECTIONS.map((section) => {
+          {SECTIONS.map((section, index) => {
             const isActive = activeSection === section.id;
 
             return (
@@ -271,7 +270,10 @@ export default function SettingsPage() {
                 }
                 aria-current={isActive ? "location" : undefined}
               >
-                {section.navTitle}
+                <span className={styles.navIndex}>
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span>{section.navTitle}</span>
               </a>
             );
           })}
@@ -294,6 +296,22 @@ export default function SettingsPage() {
       </aside>
 
       <main className={styles.content}>
+        <header className={styles.pageIntro}>
+          <div>
+            <div className={styles.pageEyebrow}>Адміністрування</div>
+            <h2 className={styles.pageTitle}>Налаштування системи</h2>
+            <p className={styles.pageDescription}>
+              Керуйте інтерфейсом, інфраструктурою, інтеграціями та правилами
+              безпеки з єдиного робочого простору.
+            </p>
+          </div>
+
+          <div className={styles.localStatus}>
+            <span aria-hidden="true" />
+            Локальні зміни
+          </div>
+        </header>
+
         {SECTIONS.map((section) => (
           <section
             key={section.id}

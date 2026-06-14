@@ -1,143 +1,153 @@
-/* Nav.module.css */
+/* Sidebar navigation. */
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 20px;
   width: 100%;
-  padding: 16px 12px;
+  padding: 22px 13px 18px;
+}
+
+.group {
+  display: grid;
+  gap: 4px;
+}
+
+.groupLabel {
+  padding: 0 12px 7px;
+  color: rgba(226, 199, 131, 0.62);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .link {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 42px;
-  padding: 10px 14px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--muted);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  transition:
-    color var(--transition-base),
-    background-color var(--transition-base),
-    border-color var(--transition-base),
-    box-shadow var(--transition-base),
-    transform var(--transition-fast);
-  white-space: nowrap;
-  z-index: 1;
+  gap: 11px;
+  min-height: 44px;
+  padding: 9px 12px;
   overflow: hidden;
+  color: rgba(255, 248, 245, 0.58);
+  font-size: 13.5px;
+  font-weight: 520;
+  text-decoration: none;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.icon {
+  flex: 0 0 19px;
+  width: 19px;
+  height: 19px;
+  color: rgba(226, 199, 131, 0.58);
+  transition:
+    color var(--transition-fast),
+    transform var(--transition-base);
 }
 
 .link:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  color: #fffaf7;
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.055);
+}
+
+.link:hover .icon {
+  color: #e4c881;
+  transform: translateX(1px);
 }
 
 .link.active {
-  color: var(--text);
-  font-weight: 600;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--primary) 12%, var(--bg)),
-    color-mix(in srgb, var(--accent) 10%, var(--bg))
-  );
+  color: #fffaf7;
+  font-weight: 620;
+  background:
+    linear-gradient(90deg, rgba(159, 40, 66, 0.27), rgba(255, 255, 255, 0.055));
+  border-color: rgba(226, 199, 131, 0.14);
   box-shadow:
-    0 2px 6px color-mix(in srgb, var(--primary) 15%, transparent),
-    inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent);
-  border-color: color-mix(in srgb, var(--primary) 25%, var(--border));
+    inset 3px 0 0 #c8a45e,
+    0 10px 22px rgba(0, 0, 0, 0.09);
 }
 
-.link.active::before {
-  content: "";
+.link.active .icon {
+  color: #f0d99f;
+}
+
+.activeMark {
   position: absolute;
-  inset: 0 auto 0 -100%;
-  width: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, #fff 15%, transparent),
-    transparent
-  );
-  animation: shine 3s ease-in-out infinite;
-  pointer-events: none;
+  right: 11px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: transparent;
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
-@keyframes shine {
-  0%,
-  100% {
-    left: -100%;
-  }
-
-  50% {
-    left: 100%;
-  }
+.link.active .activeMark {
+  background: #e2c783;
+  box-shadow: 0 0 0 4px rgba(226, 199, 131, 0.08);
 }
 
 .link:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 3px;
+  outline: 2px solid rgba(226, 199, 131, 0.85);
+  outline-offset: 2px;
 }
 
 .link:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 
-/* Tablets */
-@media (max-width: 1024px) {
+@media (max-width: 1100px) {
   .nav {
-    padding: 14px 10px;
+    padding-inline: 10px;
   }
 
   .link {
-    padding: 10px 12px;
+    padding-inline: 11px;
   }
 }
 
-/* Mobile */
 @media (max-width: 768px) {
   .nav {
-    padding: 14px 12px;
-    gap: 8px;
+    gap: 18px;
+    padding: 18px 12px;
   }
 
   .link {
-    min-height: 46px;
-    padding: 12px 14px;
-    font-size: 15px;
-  }
-
-  .link.active::before {
-    animation: none;
+    min-height: 47px;
+    padding: 11px 13px;
+    font-size: 14px;
   }
 }
 
-/* High contrast */
 @media (prefers-contrast: high) {
   .link.active {
-    border: 2px solid var(--text);
-    background: var(--surface);
+    border-color: currentColor;
   }
 }
 
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .link,
-  .link::before {
-    animation: none !important;
+  .icon,
+  .activeMark {
     transition-duration: 0.01ms !important;
   }
 }
 
-/* Print */
 @media print {
   .link.active {
+    color: #000;
     background: #f0f0f0;
     box-shadow: none;
-  }
-
-  .link::before {
-    display: none;
   }
 }

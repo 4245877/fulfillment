@@ -6,7 +6,6 @@
 
 /* ============================================================================
    LOCAL DERIVED TOKENS + LAYOUT
-   ============================================================================ */
 
 .container {
   --settings-muted: var(--neutral-600);
@@ -38,7 +37,6 @@
 
 /* ============================================================================
    SIDEBAR
-   ============================================================================ */
 
 .sidebar {
   position: sticky;
@@ -108,7 +106,6 @@
 
 /* ============================================================================
    NAVIGATION
-   ============================================================================ */
 
 .navMenu {
   display: grid;
@@ -178,7 +175,6 @@
 
 /* ============================================================================
    TOAST
-   ============================================================================ */
 
 .toastWrapper {
   margin-top: 16px;
@@ -218,7 +214,6 @@
 
 /* ============================================================================
    CARDS
-   ============================================================================ */
 
 .card {
   position: relative;
@@ -312,7 +307,6 @@
 
 /* ============================================================================
    SECTION ANCHORS
-   ============================================================================ */
 
 .sectionAnchor {
   position: relative;
@@ -327,7 +321,6 @@
 
 /* ============================================================================
    FORM LAYOUT
-   ============================================================================ */
 
 .fieldRow {
   display: grid;
@@ -469,7 +462,6 @@
 
 /* ============================================================================
    NESTED CARDS
-   ============================================================================ */
 
 .nestedCard {
   background: var(--bg);
@@ -498,7 +490,6 @@
 
 /* ============================================================================
    TABLES
-   ============================================================================ */
 
 .tableWrap {
   max-width: 100%;
@@ -570,7 +561,6 @@
 
 /* ============================================================================
    PRINTER STATUS
-   ============================================================================ */
 
 .printerStatusGrid {
   display: grid;
@@ -670,7 +660,6 @@
 
 /* ============================================================================
    CHIPS
-   ============================================================================ */
 
 .chipsContainer {
   display: flex;
@@ -730,7 +719,6 @@
 
 /* ============================================================================
    DANGER ZONE
-   ============================================================================ */
 
 .dangerZone {
   position: relative;
@@ -790,7 +778,6 @@
 
 /* ============================================================================
    TOGGLE
-   ============================================================================ */
 
 .toggle {
   display: inline-flex;
@@ -815,7 +802,6 @@
 
 /* ============================================================================
    BUTTON GROUPS / TEXTAREA
-   ============================================================================ */
 
 .buttonGroup {
   display: flex;
@@ -845,7 +831,6 @@
 
 /* ============================================================================
    FOOTER
-   ============================================================================ */
 
 .footerNote {
   padding: 10px 0 16px;
@@ -856,7 +841,6 @@
 
 /* ============================================================================
    FILE INPUT
-   ============================================================================ */
 
 .visuallyHiddenInput {
   position: absolute;
@@ -872,7 +856,6 @@
 
 /* ============================================================================
    LOADING
-   ============================================================================ */
 
 .skeleton {
   border-radius: var(--radius-sm);
@@ -897,7 +880,6 @@
 
 /* ============================================================================
    RESPONSIVE
-   ============================================================================ */
 
 @media (max-width: 1024px) {
   .container {
@@ -1004,7 +986,6 @@
 
 /* ============================================================================
    ACCESSIBILITY
-   ============================================================================ */
 
 @media (prefers-reduced-motion: reduce) {
   .container *,
@@ -1019,7 +1000,6 @@
 
 /* ============================================================================
    PRINT
-   ============================================================================ */
 
 @media print {
   .sidebar,
@@ -1060,7 +1040,6 @@
 
 /* ============================================================================
    BACKUP PROGRESS
-   ============================================================================ */
 
 .backupProgressCard {
   width: 100%;
@@ -1220,5 +1199,508 @@
 
   .backupProgressSteps {
     grid-template-columns: 1fr;
+  }
+}
+/* ============================================================
+   Refined settings workspace
+   ============================================================ */
+
+.container {
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: 24px;
+  max-width: 1480px;
+  padding: 0;
+}
+
+.content {
+  gap: 18px;
+}
+
+.sidebar {
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 20px 18px 18px;
+  background:
+    radial-gradient(circle at 110% -10%, rgba(159, 40, 66, 0.08), transparent 10rem),
+    linear-gradient(180deg, var(--surface) 0%, var(--surface-soft) 100%);
+  border-color: color-mix(in srgb, var(--primary) 10%, var(--border));
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+  scrollbar-width: thin;
+}
+
+.sidebarTitle {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.sidebarTitle::before {
+  display: none;
+}
+
+.sidebarTitle::after {
+  content: "";
+  display: block;
+  width: 38px;
+  height: 2px;
+  margin-top: 10px;
+  background: linear-gradient(90deg, var(--primary), var(--yor-gold));
+  border-radius: 999px;
+}
+
+.sidebarSubtitle {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.sidebarActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.sidebarActions :global(.btn) {
+  min-width: 0;
+  padding-inline: 9px;
+  font-size: 11.5px;
+}
+
+.sidebarActions :global(.btn-danger) {
+  grid-column: 1 / -1;
+  color: var(--danger-text);
+  background: color-mix(in srgb, var(--error) 6%, var(--surface));
+  border-color: color-mix(in srgb, var(--error) 22%, var(--border));
+  box-shadow: none;
+}
+
+.sidebarActions :global(.btn-danger):hover {
+  color: #fff;
+  background: var(--danger-text);
+}
+
+.sidebarDivider {
+  margin: 16px 0 13px;
+}
+
+.sidebarDivider::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  padding: 0;
+  background: var(--yor-gold);
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px var(--surface);
+}
+
+.navMenu {
+  gap: 2px;
+}
+
+.navLink {
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 37px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  border-radius: 10px;
+}
+
+.navLink::after {
+  display: none;
+}
+
+.navIndex {
+  flex: 0 0 22px;
+  color: color-mix(in srgb, var(--yor-gold) 76%, var(--neutral-600));
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.navLinkActive {
+  color: var(--primary);
+  background: linear-gradient(90deg, var(--primary-light), color-mix(in srgb, var(--surface) 88%, transparent));
+  border-color: color-mix(in srgb, var(--primary) 16%, var(--border));
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.pageIntro {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 174px;
+  overflow: hidden;
+  padding: 30px 32px;
+  color: #fffaf7;
+  background:
+    radial-gradient(circle at 88% 20%, rgba(194, 63, 88, 0.28), transparent 15rem),
+    linear-gradient(135deg, #2d1d25 0%, #21171c 55%, #3c1c29 100%);
+  border: 1px solid rgba(197, 161, 92, 0.22);
+  border-radius: 24px;
+  box-shadow: var(--shadow-lg);
+}
+
+.pageIntro::before,
+.pageIntro::after {
+  content: "";
+  position: absolute;
+  border: 1px solid rgba(226, 199, 131, 0.1);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.pageIntro::before {
+  top: -92px;
+  right: -54px;
+  width: 230px;
+  height: 230px;
+  box-shadow: 0 0 0 22px rgba(226, 199, 131, 0.025);
+}
+
+.pageIntro::after {
+  right: 106px;
+  bottom: -108px;
+  width: 170px;
+  height: 170px;
+}
+
+.pageIntro > * {
+  position: relative;
+  z-index: 1;
+}
+
+.pageEyebrow {
+  margin-bottom: 8px;
+  color: #d9bb78;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.pageTitle {
+  margin: 0;
+  color: #fffaf7;
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+
+.pageDescription {
+  max-width: 630px;
+  margin: 10px 0 0;
+  color: rgba(255, 250, 247, 0.62);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.localStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  color: rgba(255, 250, 247, 0.78);
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+
+.localStatus span {
+  width: 7px;
+  height: 7px;
+  background: #d8b86f;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(216, 184, 111, 0.1);
+}
+
+.card {
+  padding: 24px;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-soft) 100%);
+  border-color: color-mix(in srgb, var(--primary) 8%, var(--border));
+  border-radius: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card::before {
+  right: 24px;
+  left: 24px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--yor-gold), var(--primary), transparent);
+}
+
+.card:hover {
+  border-color: color-mix(in srgb, var(--primary) 16%, var(--border));
+  box-shadow: var(--shadow-md);
+}
+
+.cardHeader {
+  align-items: flex-start;
+  margin-bottom: 8px;
+  padding-bottom: 17px;
+}
+
+.cardTitle {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.cardTitle::before {
+  width: 7px;
+  height: 7px;
+  background: var(--gradient-gold);
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--yor-gold) 9%, transparent);
+}
+
+.cardSubtitle {
+  max-width: 720px;
+  margin-top: 6px;
+  font-size: 12.5px;
+}
+
+.cardBody {
+  margin-top: 6px;
+}
+
+.fieldRow {
+  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
+  gap: 24px;
+  margin: 0;
+  padding: 18px 8px;
+  border-radius: 12px;
+}
+
+.fieldRow:hover {
+  background: color-mix(in srgb, var(--primary) 2.5%, var(--surface));
+}
+
+.fieldLabelText {
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.fieldHint {
+  font-size: 11.5px;
+}
+
+.inputLabel {
+  color: var(--neutral-600);
+  font-size: 11px;
+  letter-spacing: 0.015em;
+}
+
+.nestedCard {
+  padding: 15px;
+  background: color-mix(in srgb, var(--bg) 72%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 7%, var(--border));
+  border-radius: 14px;
+}
+
+.chipsContainer {
+  background: color-mix(in srgb, var(--bg) 70%, var(--surface));
+}
+
+.chip {
+  color: var(--primary-hover);
+  background: var(--primary-light);
+  border-color: color-mix(in srgb, var(--primary) 16%, var(--border));
+}
+
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  min-height: 28px;
+}
+
+.toggleInput {
+  position: absolute;
+  width: 1px !important;
+  height: 1px !important;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.toggleTrack {
+  position: relative;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 24px;
+  background: #d8ced1;
+  border: 1px solid color-mix(in srgb, var(--neutral-400) 45%, var(--border));
+  border-radius: 999px;
+  box-shadow: inset 0 1px 2px rgba(42, 25, 33, 0.08);
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(42, 25, 33, 0.2);
+  transition: transform var(--transition-spring);
+}
+
+.toggleInput:checked + .toggleTrack {
+  background: var(--gradient-primary);
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(159, 40, 66, 0.18);
+}
+
+.toggleInput:checked + .toggleTrack .toggleThumb {
+  transform: translateX(18px);
+}
+
+.toggleInput:focus-visible + .toggleTrack {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.toggle:hover .toggleTrack {
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+}
+
+.toggleLabel {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.sectionAnchor:target {
+  outline-color: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.footerNote {
+  padding-inline: 6px;
+}
+
+@media (max-width: 1180px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    max-height: none;
+  }
+
+  .sidebarActions {
+    display: flex;
+  }
+
+  .sidebarActions :global(.btn-danger) {
+    grid-column: auto;
+  }
+
+  .navMenu {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .navLink {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .toastWrapper {
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0;
+    gap: 14px;
+  }
+
+  .sidebar {
+    padding: 17px 15px 14px;
+    border-radius: 17px;
+  }
+
+  .sidebarSubtitle {
+    max-width: 52ch;
+  }
+
+  .pageIntro {
+    align-items: flex-start;
+    flex-direction: column;
+    min-height: 0;
+    padding: 24px 20px;
+    border-radius: 20px;
+  }
+
+  .pageTitle {
+    font-size: 30px;
+  }
+
+  .localStatus {
+    align-self: flex-start;
+  }
+
+  .card {
+    padding: 18px 15px;
+    border-radius: 17px;
+  }
+
+  .fieldRow {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    padding: 16px 0;
+  }
+
+  .cardTitle {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebarActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sidebarActions :global(.btn-danger) {
+    grid-column: 1 / -1;
+  }
+
+  .navLink {
+    min-height: 40px;
+  }
+
+  .pageIntro {
+    padding: 22px 18px;
+  }
+
+  .pageDescription {
+    font-size: 12.5px;
   }
 }
