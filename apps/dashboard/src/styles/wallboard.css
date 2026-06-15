@@ -128,6 +128,7 @@
   font-size: 1rem;
   color: var(--text);
   opacity: 0.75;
+  text-transform: capitalize;
 }
 
 .wallboard-hero-time {
@@ -149,6 +150,15 @@
   letter-spacing: 0.04em;
 }
 
+.wallboard-hero-status--warning {
+  color: var(--warning-text);
+}
+
+.wallboard-hero-status--warning .wallboard-hero-status-dot {
+  background: var(--warning);
+  animation: none;
+}
+
 .wallboard-hero-status--danger {
   color: var(--danger-text);
 }
@@ -165,6 +175,12 @@
   border-radius: 50%;
   animation: statusPulse 2s ease-in-out infinite;
   flex-shrink: 0;
+}
+
+.wallboard-hero-updated {
+  color: var(--neutral-600);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes statusPulse {
@@ -217,8 +233,13 @@
   gap: var(--space-md);
 }
 
+.kpi-grid--orders {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
+}
+
 /* KPI Card */
 .kpi-card {
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -370,6 +391,7 @@
   line-height: 1.1;
   letter-spacing: -0.02em;
   margin-bottom: var(--space-xs);
+  overflow-wrap: anywhere;
 }
 
 .kpi-delta {
@@ -405,6 +427,7 @@
   font-size: 0.78rem;
   color: var(--neutral-600);
   margin-top: var(--space-xs);
+  overflow-wrap: anywhere;
 }
 
 /* ── Wallboard Sections Row ─────────────────────────────────── */
@@ -415,9 +438,17 @@
 
 .wallboard-row {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
   gap: var(--space-md);
   align-items: start;
+}
+
+.wallboard-row--full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.wallboard-row--full > * {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 1100px) {
@@ -428,11 +459,13 @@
 
 /* ── Section Panel ──────────────────────────────────────────── */
 .panel {
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
+  container-type: inline-size;
 }
 
 .panel-header {
@@ -606,6 +639,21 @@
   white-space: nowrap;
   flex-shrink: 0;
   margin-top: 1px;
+}
+
+@container (max-width: 430px) {
+  .activity-item {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: var(--space-md);
+    row-gap: var(--space-xs);
+  }
+
+  .activity-time {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 0;
+  }
 }
 
 /* ── Data Table ─────────────────────────────────────────────── */
@@ -1128,6 +1176,15 @@
 
   .wallboard-hero {
     padding: var(--space-lg) var(--space-md);
+  }
+
+  .kpi-card {
+    padding: var(--space-md);
+  }
+
+  .alert-strip {
+    align-items: flex-start;
+    padding-inline: var(--space-md);
   }
 }
 

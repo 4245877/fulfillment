@@ -36,15 +36,24 @@ const LAG_WARNING_MS = 5000;
 const LAG_DANGER_MS = 60000;
 
 const ORDER_STAGES = [
-  ["PrePrintCheck", "Переддрукарська перевірка"],
-  ["Queued", "У черзі"],
-  ["Printing", "Друк"],
-  ["PostProcess", "Післяобробка"],
-  ["Packaging", "Пакування"],
-  ["Shipment", "Відправлення"],
-  ["Pickup", "Самовивіз"],
-  ["Delivered", "Доставлено"],
-  ["Issued", "Видано"],
+  { key: "New", label: "Нові", icon: "+", variant: "info" },
+  { key: "Accepted", label: "Прийнято", icon: "✓", variant: "primary" },
+  {
+    key: "PrePrintCheck",
+    label: "Перевірка перед друком",
+    icon: "◌",
+    variant: "primary",
+  },
+  { key: "Queued", label: "У черзі", icon: "≡", variant: "warning" },
+  { key: "Printing", label: "Друкується", icon: "◔", variant: "success" },
+  { key: "PostProcess", label: "Постобробка", icon: "◌", variant: "primary" },
+  { key: "Packaging", label: "Пакування", icon: "□", variant: "primary" },
+  { key: "Shipment", label: "Відправлення", icon: "→", variant: "primary" },
+  { key: "Pickup", label: "Самовивіз", icon: "⌂", variant: "info" },
+  { key: "Delivered", label: "Доставлено", icon: "✓", variant: "success" },
+  { key: "Issued", label: "Видано", icon: "✓", variant: "success" },
+  { key: "Problem", label: "Проблема", icon: "!", variant: "danger" },
+  { key: "Cancelled", label: "Скасовано", icon: "×", variant: "info" },
 ];
 
 const LOGISTICS_STATUSES = [
@@ -124,6 +133,44 @@ function mergePrints(current, next) {
     stats: deepMerge(current.stats || {}, next.stats || {}),
     printers: Array.isArray(next.printers) ? next.printers : current.printers,
     jobs: Array.isArray(next.jobs) ? next.jobs : current.jobs,
+  };
+}
+
+function normalizeBackupStatus(value, fallback = DEFAULT_BACKUP_STATUS) {
+  const payload = isPlainObject(value) ? value : {};
+  const progress = isPlainObject(payload.progress) ? payload.progress : payload;
+  const raw = isPlainObject(payload.raw) ? payload.raw : {};
+
+  return {
+    ...DEFAULT_BACKUP_STATUS,
+    ...fallback,
+    status: raw.status ?? progress.status ?? fallback.status,
+    step: raw.step ?? progress.step ?? progress.stage ?? fallback.step,
+    message: raw.message ?? progress.message ?? fallback.message,
+    run_id:
+      raw.run_id ??
+      raw.runId ??
+      progress.run_id ??
+      progress.runId ??
+      fallback.run_id,
+    run_dir:
+      raw.run_dir ??
+      raw.runDir ??
+      progress.run_dir ??
+      progress.runDir ??
+      fallback.run_dir,
+    log_file:
+      raw.log_file ??
+      raw.logFile ??
+      progress.log_file ??
+      progress.logFile ??
+      fallback.log_file,
+    updated_at:
+      raw.updated_at ??
+      raw.updatedAt ??
+      progress.updated_at ??
+      progress.updatedAt ??
+      fallback.updated_at,
   };
 }
 
@@ -264,7 +311,7 @@ function getBackupTone(status) {
   const v = String(status || "").toLowerCase();
 
   if (v === "success") return "success";
-  if (v === "running") return "warning";
+  if (v === "running" || v === "queued") return "warning";
   if (v === "failed" || v === "error") return "danger";
   if (v === "skipped") return "warning";
 
@@ -276,6 +323,8 @@ function getBackupStatusLabel(status) {
 
   if (v === "success") return "Готово";
   if (v === "running") return "Виконується";
+  if (v === "queued") return "У черзі";
+  if (v === "idle") return "Очікування";
   if (v === "failed" || v === "error") return "Помилка";
   if (v === "skipped") return "Пропущено";
 
@@ -285,6 +334,12 @@ function getBackupStatusLabel(status) {
 function getBackupStepLabel(step) {
   const labels = {
     preflight: "Перевірка умов",
+    preparing: "Підготовка",
+    database: "База даних",
+    files: "Файли",
+    verifying: "Перевірка",
+    uploading: "Копіювання",
+    queued: "У черзі",
     postgres: "PostgreSQL",
     uploads: "Uploads",
     minio: "MinIO",
@@ -333,7 +388,10 @@ function toTagClass(tone = "primary") {
 
 function Panel({ title, subtitle, children, footer = null, loading = false, flush = false }) {
   return (
-    <section className={`panel${loading ? " panel-loading" : ""}`}>
+    <section
+      className={`panel${loading ? " panel-loading" : ""}`}
+      aria-busy={loading || undefined}
+    >
       <div className="panel-header">
         <div>
           <h2 className="panel-title">
@@ -386,7 +444,14 @@ function KpiCard({ label, value, context, icon = "•", variant = "primary" }) {
   );
 }
 
-function HeroHeader({ updatedAt, loading }) {
+function HeroHeader({ currentTime, updatedAt, loading, hasError }) {
+  const statusTone = hasError ? "danger" : loading ? "warning" : "success";
+  const statusText = hasError
+    ? "Є проблеми із синхронізацією"
+    : loading
+      ? "Оновлення даних"
+      : "Синхронізація активна";
+
   return (
     <header className="wallboard-hero">
       <div className="wallboard-hero-inner">
@@ -399,11 +464,16 @@ function HeroHeader({ updatedAt, loading }) {
         </div>
 
         <div className="wallboard-hero-meta">
-          <div className="wallboard-hero-date">{formatHeroDate(updatedAt)}</div>
-          <div className="wallboard-hero-time">{formatHeaderTime(updatedAt)}</div>
-          <div className="wallboard-hero-status">
-            <span className="wallboard-hero-status-dot" />
-            {loading ? "Оновлення даних" : "Синхронізація активна"}
+          <div className="wallboard-hero-date">{formatHeroDate(currentTime)}</div>
+          <div className="wallboard-hero-time">{formatHeaderTime(currentTime)}</div>
+          <div
+            className={`wallboard-hero-status wallboard-hero-status--${statusTone}`}
+          >
+            <span className="wallboard-hero-status-dot" aria-hidden="true" />
+            {statusText}
+          </div>
+          <div className="wallboard-hero-updated">
+            Дані оновлено о {formatHeaderTime(updatedAt)}
           </div>
         </div>
       </div>
@@ -413,23 +483,26 @@ function HeroHeader({ updatedAt, loading }) {
 
 function SectionOrders({ data = {}, loading = false }) {
   const orders = data.orders || {};
-  const total = ORDER_STAGES.reduce((sum, [key]) => sum + asNumber(orders[key], 0), 0);
+  const total = ORDER_STAGES.reduce(
+    (sum, { key }) => sum + asNumber(orders[key], 0),
+    0
+  );
 
   return (
     <Panel
       loading={loading}
       title="Замовлення — конвеєр"
-      subtitle="Кількість замовлень на кожному етапі"
-      footer={<span className="panel-footer-meta">Разом у конвеєрі: {formatInt(total)}</span>}
+      subtitle="Кількість замовлень у кожному поточному статусі"
+      footer={<span className="panel-footer-meta">Усього замовлень: {formatInt(total)}</span>}
     >
-      <div className="kpi-grid">
-        {ORDER_STAGES.map(([key, label]) => (
+      <div className="kpi-grid kpi-grid--orders">
+        {ORDER_STAGES.map(({ key, label, icon, variant }) => (
           <KpiCard
             key={key}
             label={label}
-            value={formatInt(orders[key] || 0)}
-            icon="◦"
-            variant={orders[key] ? "primary" : "info"}
+            value={formatInt(orders[key] ?? 0)}
+            icon={icon}
+            variant={orders[key] ? variant : "info"}
           />
         ))}
       </div>
@@ -484,7 +557,7 @@ function SectionMaterials({ materials = {}, loading = false }) {
   return (
     <Panel
       loading={loading}
-      title="Склад пластика"
+      title="Склад пластику"
       subtitle="Залишки філаменту за матеріалом і кольором"
     >
       <div className="wallboard-grid-2">
@@ -627,7 +700,7 @@ function SectionLogistics({ logistics = {}, loading = false }) {
           </div>
         ) : (
           <EmptyState
-            title="Немає даних по перевізниках"
+            title="Немає даних про перевізників"
             desc="Статистика за службами доставки зʼявиться після імпорту відправлень."
           />
         )}
@@ -685,8 +758,8 @@ function SectionServices({ services = {}, loading = false }) {
   return (
     <Panel
       loading={loading}
-      title="Сервіси та здоровʼя"
-      subtitle="Стан ключових систем"
+      title="Стан сервісів"
+      subtitle="Доступність ключових систем"
       footer={<span className="panel-footer-meta">Проблемних сервісів: {formatInt(downCount)}</span>}
     >
       <div className="wboard-table-wrap">
@@ -738,7 +811,7 @@ function SectionBackups({ backup = DEFAULT_BACKUP_STATUS, loading = false }) {
           value={getBackupStatusLabel(backup.status)}
           context={backup.message || "—"}
           icon="◷"
-          variant={statusTone === "danger" ? "danger" : statusTone === "warning" ? "warning" : "success"}
+          variant={statusTone}
         />
 
         <KpiCard
@@ -781,7 +854,7 @@ function SectionBackups({ backup = DEFAULT_BACKUP_STATUS, loading = false }) {
               </tr>
 
               <tr>
-                <td className="col-name">Склад</td>
+                <td className="col-name">Вміст</td>
                 <td className="col-sub">
                   PostgreSQL, uploads, MinIO, ingester data, STL/3MF, config
                 </td>
@@ -875,13 +948,13 @@ function SectionIngester({ ing = {}, loading = false }) {
           variant="warning"
         />
         <KpiCard
-          label="Трансформацій / хв"
+          label="Трансформацій за хвилину"
           value={formatInt(ing.mediaRatePerMin || 0)}
           icon="⇄"
           variant="success"
         />
         <KpiCard
-          label="Помилки за 1 год"
+          label="Помилки за годину"
           value={formatInt(ing.errors1h || 0)}
           icon="!"
           variant="danger"
@@ -985,6 +1058,9 @@ function SectionAlerts({ alerts = [], loading = false }) {
 
 function TopSummary({ prints, stats, alertsCount }) {
   const jobs = Array.isArray(prints.jobs) ? prints.jobs : [];
+  const orderProblems = asNumber(stats.orders?.Problem, 0);
+  const logisticsProblems = asNumber(stats.logistics?.problem, 0);
+  const problemsCount = alertsCount + orderProblems + logisticsProblems;
 
   const activeJobs = jobs.filter((job) => {
     const status = String(job.status || job.state || "").toLowerCase();
@@ -1016,11 +1092,11 @@ function TopSummary({ prints, stats, alertsCount }) {
         variant="primary"
       />
       <KpiCard
-        label="Проблеми / оповіщення"
-        value={formatInt(alertsCount + asNumber(stats.logistics?.problem, 0))}
-        context={`Оповіщень: ${formatInt(alertsCount)}`}
+        label="Проблеми й оповіщення"
+        value={formatInt(problemsCount)}
+        context={`Проблемних замовлень: ${formatInt(orderProblems)}`}
         icon="!"
-        variant={alertsCount > 0 || asNumber(stats.logistics?.problem, 0) > 0 ? "danger" : "info"}
+        variant={problemsCount > 0 ? "danger" : "info"}
       />
     </div>
   );
@@ -1031,9 +1107,17 @@ export default function Board() {
   const [prints, setPrints] = useState(DEFAULT_PRINTS);
   const [backupStatus, setBackupStatus] = useState(DEFAULT_BACKUP_STATUS);
   const [backupError, setBackupError] = useState("");
+  const [backupLoading, setBackupLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [updatedAt, setUpdatedAt] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -1084,10 +1168,7 @@ export default function Board() {
 
         if (cancelled) return;
 
-        setBackupStatus({
-          ...DEFAULT_BACKUP_STATUS,
-          ...data,
-        });
+        setBackupStatus(normalizeBackupStatus(data));
         setBackupError("");
         setUpdatedAt(new Date());
       } catch (error) {
@@ -1100,6 +1181,10 @@ export default function Board() {
         );
       } finally {
         inFlight = false;
+
+        if (!cancelled) {
+          setBackupLoading(false);
+        }
       }
     };
 
@@ -1166,16 +1251,13 @@ export default function Board() {
 
     if (event.domain === "backup" || event.type === "backup.status") {
       setBackupStatus((current) =>
-        event.type === "backup.status"
-          ? {
-              ...DEFAULT_BACKUP_STATUS,
-              ...data,
-            }
-          : {
-              ...current,
-              ...data,
-            }
+        normalizeBackupStatus(
+          data,
+          event.type === "backup.status" ? DEFAULT_BACKUP_STATUS : current
+        )
       );
+      setBackupError("");
+      setBackupLoading(false);
       return;
     }
 
@@ -1198,10 +1280,19 @@ export default function Board() {
 
   return (
     <div className="wallboard">
-      <HeroHeader updatedAt={updatedAt} loading={loading} />
+      <HeroHeader
+        currentTime={currentTime}
+        updatedAt={updatedAt}
+        loading={loading || backupLoading}
+        hasError={Boolean(loadError || backupError)}
+      />
 
       {loading ? (
-        <div className="alert-strip alert-strip--info">
+        <div
+          className="alert-strip alert-strip--info"
+          role="status"
+          aria-live="polite"
+        >
           <div className="alert-strip-icon" aria-hidden="true">
             ⟳
           </div>
@@ -1210,7 +1301,7 @@ export default function Board() {
       ) : null}
 
       {loadError ? (
-        <div className="alert-strip alert-strip--danger">
+        <div className="alert-strip alert-strip--danger" role="alert">
           <div className="alert-strip-icon" aria-hidden="true">
             !
           </div>
@@ -1219,7 +1310,7 @@ export default function Board() {
       ) : null}
 
       {backupError ? (
-        <div className="alert-strip alert-strip--warning">
+        <div className="alert-strip alert-strip--warning" role="alert">
           <div className="alert-strip-icon" aria-hidden="true">
             !
           </div>
@@ -1233,13 +1324,13 @@ export default function Board() {
 
       <div className="wallboard-sections">
         <div className="wallboard-row">
-          <SectionAlerts alerts={alerts} loading={loading} />
           <SectionOrders data={stats} loading={loading} />
+          <SectionAlerts alerts={alerts} loading={loading} />
         </div>
 
         <div className="wallboard-row">
           <SectionServices services={stats.services} loading={loading} />
-          <SectionBackups backup={backupStatus} loading={loading} />
+          <SectionBackups backup={backupStatus} loading={backupLoading} />
         </div>
 
         <div className="wallboard-row">
@@ -1257,7 +1348,7 @@ export default function Board() {
           <SectionIndexer idx={stats.indexer} loading={loading} />
         </div>
 
-        <div className="wallboard-row">
+        <div className="wallboard-row wallboard-row--full">
           <SectionIngester ing={stats.ingester} loading={loading} />
         </div>
       </div>
