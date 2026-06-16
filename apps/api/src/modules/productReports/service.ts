@@ -1,5 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 
+import { enqueueProductReportNotification } from "../notifications/dispatcher";
 import {
   readProductReportsStore,
   updateProductReportsStore,
@@ -266,8 +267,9 @@ export async function createProductReport(
   );
 
   const createdAt = nowIso();
+  let shouldEnsureNotification = false;
 
-  return updateProductReportsStore((store) => {
+  const report = await updateProductReportsStore((store) => {
     const duplicate = store.reports.find((report) => {
       ensureVisibilityFields(report);
 
@@ -284,6 +286,7 @@ export async function createProductReport(
     });
 
     if (duplicate) {
+      shouldEnsureNotification = true;
       return duplicate;
     }
 
@@ -311,6 +314,8 @@ export async function createProductReport(
         429,
       );
     }
+
+    shouldEnsureNotification = true;
 
     const report: ProductReport = {
       report_id: id("product_report"),
@@ -341,6 +346,12 @@ export async function createProductReport(
 
     return report;
   });
+
+  if (shouldEnsureNotification) {
+    await enqueueProductReportNotification(report);
+  }
+
+  return report;
 }
 
 export async function listProductReports(input: ListProductReportsInput = {}) {

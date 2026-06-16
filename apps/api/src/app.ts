@@ -6,11 +6,15 @@ import inventoryRoutes from "./modules/inventory/routes";
 import backupsRoutes from "./modules/backups/routes";
 import productReportsRoutes from "./modules/productReports/routes";
 import ordersRoutes from "./modules/orders/routes";
+import notificationsRoutes from "./modules/notifications/routes";
+import { registerNotificationOutboxWorker } from "./modules/notifications/dispatcher";
 import { getInventoryMaterialsSummary } from "./modules/inventory/service";
 import { getOrdersStatusSummary } from "./modules/orders/service";
 import { checkDbConnection } from "./infra/db/knex";
 
 const app = Fastify({ logger: true });
+
+registerNotificationOutboxWorker(app);
 
 // Важно: без await, чтобы не упираться в top-level await при CJS
 app.register(cors, {
@@ -135,5 +139,6 @@ app.register(inventoryRoutes, { prefix: "/api/inventory" });
 app.register(backupsRoutes, { prefix: "/api/ops/backup" });
 app.register(productReportsRoutes, { prefix: "/api" });
 app.register(ordersRoutes, { prefix: "/api/orders" });
+app.register(notificationsRoutes, { prefix: "/api/notifications" });
 
 export default app;

@@ -12,6 +12,11 @@ function optional(name: string, fallback: string): string {
   return process.env[name] || fallback;
 }
 
+function optionalString(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value || null;
+}
+
 function numberEnv(name: string, fallback: number): number {
   const value = Number(process.env[name] || fallback);
 
@@ -22,9 +27,62 @@ function numberEnv(name: string, fallback: number): number {
   return value;
 }
 
+function optionalNumberEnv(name: string): number | null {
+  const raw = process.env[name];
+
+  if (raw === undefined || raw === "") {
+    return null;
+  }
+
+  const value = Number(raw);
+
+  if (!Number.isFinite(value)) {
+    throw new Error(`Invalid numeric environment variable: ${name}`);
+  }
+
+  return value;
+}
+
+function booleanEnv(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+
+  if (raw === undefined || raw === "") {
+    return fallback;
+  }
+
+  const value = raw.trim().toLowerCase();
+
+  if (["1", "true", "yes", "on"].includes(value)) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off"].includes(value)) {
+    return false;
+  }
+
+  throw new Error(`Invalid boolean environment variable: ${name}`);
+}
+
 export const env = {
   NODE_ENV: optional("NODE_ENV", "development"),
   PORT: numberEnv("PORT", 8080),
   HOST: optional("HOST", "0.0.0.0"),
   DATABASE_URL: required("DATABASE_URL"),
+
+  TELEGRAM_ENABLED: booleanEnv("TELEGRAM_ENABLED", false),
+  TELEGRAM_BOT_TOKEN: optionalString("TELEGRAM_BOT_TOKEN"),
+  TELEGRAM_CHAT_ID: optionalString("TELEGRAM_CHAT_ID"),
+  TELEGRAM_TOPIC_ORDERS_ID: optionalNumberEnv("TELEGRAM_TOPIC_ORDERS_ID"),
+  TELEGRAM_TOPIC_PRODUCT_REPORTS_ID: optionalNumberEnv(
+    "TELEGRAM_TOPIC_PRODUCT_REPORTS_ID"
+  ),
+  TELEGRAM_TOPIC_CRITICAL_ERRORS_ID: optionalNumberEnv(
+    "TELEGRAM_TOPIC_CRITICAL_ERRORS_ID"
+  ),
+  TELEGRAM_REQUEST_TIMEOUT_MS: numberEnv("TELEGRAM_REQUEST_TIMEOUT_MS", 5000),
+  NOTIFICATIONS_POLL_INTERVAL_MS: numberEnv(
+    "NOTIFICATIONS_POLL_INTERVAL_MS",
+    5000
+  ),
+  NOTIFICATIONS_BATCH_SIZE: numberEnv("NOTIFICATIONS_BATCH_SIZE", 10),
 };

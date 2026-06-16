@@ -8,6 +8,7 @@ import {
   type OrderStatus,
   type ReceiveOrderInput,
 } from "./types";
+import { enqueueOrderNotification } from "../notifications/dispatcher";
 import {
   findOrderRepo,
   getOrderStatusCountsRepo,
@@ -244,7 +245,7 @@ export async function receiveOrder(payload: ReceiveOrderInput): Promise<OrderRec
         trx
       );
 
-      await insertOrderEventRepo(
+      const orderEvent = await insertOrderEventRepo(
         {
           id: makeId("oev"),
           order_id: updated.id,
@@ -254,6 +255,19 @@ export async function receiveOrder(payload: ReceiveOrderInput): Promise<OrderRec
           actor: "shop",
           note: "Order snapshot synced from shop",
           payload: JSON.stringify(payload),
+        },
+        trx
+      );
+
+      await enqueueOrderNotification(
+        "synced",
+        updated,
+        {
+          previousStatus: existing.status,
+          nextStatus: updated.status,
+          actor: "shop",
+          note: "Order snapshot synced from shop",
+          eventId: orderEvent.id,
         },
         trx
       );
@@ -276,7 +290,7 @@ export async function receiveOrder(payload: ReceiveOrderInput): Promise<OrderRec
       trx
     );
 
-    await insertOrderEventRepo(
+    const orderEvent = await insertOrderEventRepo(
       {
         id: makeId("oev"),
         order_id: created.id,
@@ -286,6 +300,19 @@ export async function receiveOrder(payload: ReceiveOrderInput): Promise<OrderRec
         actor: "shop",
         note: "Order received from shop",
         payload: JSON.stringify(payload),
+      },
+      trx
+    );
+
+    await enqueueOrderNotification(
+      "received",
+      created,
+      {
+        previousStatus: null,
+        nextStatus: created.status,
+        actor: "shop",
+        note: "Order received from shop",
+        eventId: orderEvent.id,
       },
       trx
     );
@@ -331,16 +358,32 @@ export async function changeOrderStatus(
       trx
     );
 
-    await insertOrderEventRepo(
+    const actor = asText(input.actor) ?? "dashboard";
+    const note = asText(input.note);
+
+    const orderEvent = await insertOrderEventRepo(
       {
         id: makeId("oev"),
         order_id: order.id,
         type: "status_changed",
         from_status: order.status,
         to_status: nextStatus,
-        actor: asText(input.actor) ?? "dashboard",
-        note: asText(input.note),
+        actor,
+        note,
         payload: JSON.stringify(input),
+      },
+      trx
+    );
+
+    await enqueueOrderNotification(
+      "status_changed",
+      updated,
+      {
+        previousStatus: order.status,
+        nextStatus,
+        actor,
+        note,
+        eventId: orderEvent.id,
       },
       trx
     );

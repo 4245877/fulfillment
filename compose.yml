@@ -24,6 +24,7 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+      - apps/api/.env
     environment:
       CI: "true"
       PORT: 8080
