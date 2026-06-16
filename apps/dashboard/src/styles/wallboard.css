@@ -1239,82 +1239,7 @@
 
 .printer-manager-layout {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-  gap: var(--space-md);
-}
-
-.printer-manager-list {
-  display: grid;
-  gap: var(--space-sm);
-  align-content: start;
-}
-
-.printer-manager-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: 74px minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  width: 100%;
-  padding: 10px;
-  text-align: left;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--surface) 96%, var(--border));
-  color: var(--text);
-  cursor: pointer;
-  transition:
-    border-color var(--transition-fast),
-    transform var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.printer-manager-card:hover,
-.printer-manager-card--active {
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
-  transform: translateY(-1px);
-}
-
-.printer-manager-card-image {
-  width: 74px;
-  height: 58px;
-  object-fit: contain;
-}
-
-.printer-manager-card-text {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.printer-manager-card-text strong {
-  overflow: hidden;
-  font-size: 0.875rem;
-  color: var(--text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.printer-manager-card-text span {
-  overflow: hidden;
-  font-size: 0.75rem;
-  color: var(--neutral-600);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.printer-manager-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--success);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--success) 70%, transparent);
-}
-
-.printer-manager-dot--off {
-  background: var(--neutral-600);
-  box-shadow: none;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .printer-manager-editor {
@@ -1421,13 +1346,7 @@
   font-size: 0.875rem;
 }
 
-@media (max-width: 900px) {
-  .printer-manager-layout {
-    grid-template-columns: 1fr;
-  }
-}
 
-.printer-manager-card:focus-visible,
 .printer-preset-card:focus-visible,
 .wallboard .btn:focus-visible,
 .wallboard .input:focus-visible {

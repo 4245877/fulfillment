@@ -64,9 +64,6 @@ function makeEmptyPrinter() {
   };
 }
 
-function getPrinterKey(printer, index) {
-  return printer.id || printer.name || `printer-${index}`;
-}
 
 export default function PrinterManagerPanel({ onChanged }) {
   const [printers, setPrinters] = useState([]);
@@ -122,15 +119,6 @@ export default function PrinterManagerPanel({ onChanged }) {
       cancelled = true;
     };
   }, []);
-
-  const selectPrinter = (printer) => {
-    setSelectedId(printer.id);
-    setForm({
-      ...DEFAULT_PRINTER,
-      ...printer,
-    });
-    setMessage("");
-  };
 
   const startCreate = () => {
     const next = makeEmptyPrinter();
@@ -337,60 +325,6 @@ export default function PrinterManagerPanel({ onChanged }) {
         ) : null}
 
         <div className="printer-manager-layout">
-          <div className="printer-manager-list">
-            {printers.length ? (
-              printers.map((printer, index) => {
-                const active = printer.id === selectedId;
-
-                return (
-                  <button
-                    key={getPrinterKey(printer, index)}
-                    type="button"
-                    className={
-                      active
-                        ? "printer-manager-card printer-manager-card--active"
-                        : "printer-manager-card"
-                    }
-                    onClick={() => selectPrinter(printer)}
-                  >
-                    <img
-                      className="printer-manager-card-image"
-                      src={printer.imageUrl || "/printer-images/default-printer.png"}
-                      alt={printer.name || "3D-принтер"}
-                      loading="lazy"
-                      onError={(event) => {
-                        event.currentTarget.onerror = null;
-                        event.currentTarget.src =
-                          "/printer-images/default-printer.png";
-                      }}
-                    />
-
-                    <div className="printer-manager-card-text">
-                      <strong>{printer.name || "Без назви"}</strong>
-                      <span>{printer.model || printer.protocol || "—"}</span>
-                    </div>
-
-                    <span
-                      className={
-                        printer.enabled === false
-                          ? "printer-manager-dot printer-manager-dot--off"
-                          : "printer-manager-dot"
-                      }
-                      title={printer.enabled === false ? "Вимкнено" : "Увімкнено"}
-                    />
-                  </button>
-                );
-              })
-            ) : (
-              <div className="wboard-empty">
-                <h3 className="wboard-empty-title">Принтери ще не додані</h3>
-                <p className="wboard-empty-desc">
-                  Натисни “Додати принтер”, щоб створити перший запис.
-                </p>
-              </div>
-            )}
-          </div>
-
           <div className="printer-manager-editor">
             <div className="printer-manager-preview">
               <img
