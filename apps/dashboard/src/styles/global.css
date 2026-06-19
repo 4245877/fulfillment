@@ -1,8 +1,8 @@
 /* ============================================================
    DRUKARNYA — Global Styles
-   Aesthetic direction: Yor Forger
-   Sharp, elegant, deadly-precise. Dark crimson meets ivory.
-   Graceful yet formidable. Every detail intentional.
+   Aesthetic direction: Yor Forger — at home.
+   Warm, gentle and devoted. Soft crimson, ivory and candle-gold.
+   Caring, sincere, quietly elegant — the calm of a loving home.
    ============================================================ */
 
 /* ── Fonts ─────────────────────────────────────────────────── */
@@ -39,7 +39,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-image:
     radial-gradient(ellipse 80% 60% at 50% -10%, rgba(142, 47, 58, 0.07) 0%, transparent 70%),
-    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239F2842' fill-opacity='0.025'%3E%3Cpath d='M30 0L60 30L30 60L0 30z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    radial-gradient(circle at 88% 8%, rgba(197, 161, 92, 0.05) 0%, transparent 38%);
 }
 
 /* ── Typography ─────────────────────────────────────────────── */
@@ -201,7 +201,7 @@ a:hover {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: var(--gradient-leather);
+  background: var(--gradient-plum);
   border: 2px solid color-mix(in srgb, var(--primary) 30%, var(--border));
   cursor: pointer;
   display: grid;
@@ -1589,7 +1589,7 @@ a:hover {
 
 .ornament::before,
 .ornament::after {
-  content: '◆';
+  content: '❀';
 }
 
 /* ── Legacy bridge for old dashboard markup ───────────────── */

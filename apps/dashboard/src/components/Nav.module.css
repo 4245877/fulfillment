@@ -70,11 +70,11 @@
   color: #fffaf7;
   font-weight: 620;
   background:
-    linear-gradient(90deg, rgba(159, 40, 66, 0.27), rgba(255, 255, 255, 0.055));
-  border-color: rgba(226, 199, 131, 0.14);
+    linear-gradient(90deg, rgba(247, 224, 180, 0.22), rgba(255, 255, 255, 0.06));
+  border-color: rgba(226, 199, 131, 0.2);
   box-shadow:
-    inset 3px 0 0 #c8a45e,
-    0 10px 22px rgba(0, 0, 0, 0.09);
+    inset 3px 0 0 #e2c783,
+    0 10px 22px rgba(74, 24, 42, 0.12);
 }
 
 .link.active .icon {

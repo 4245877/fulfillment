@@ -1,4 +1,5 @@
-/* Core design tokens: ivory, deep crimson, ink and restrained gold. */
+/* Core design tokens — warm ivory, rose-crimson and soft candle-gold.
+   The palette of Yor Forger at home: gentle, devoted, quietly elegant. */
 
 :root {
   /* Signature palette */
@@ -64,8 +65,8 @@
   --on-info: #f7fbff;
 
   /* Decorative gradients */
-  --gradient-hair: linear-gradient(145deg, #2b1d24 0%, #5e2638 52%, #9f2842 100%);
-  --gradient-leather: linear-gradient(145deg, #21171c 0%, #4a2433 100%);
+  --gradient-hair: linear-gradient(145deg, #3a2530 0%, #6e2c41 52%, #a83452 100%);
+  --gradient-plum: linear-gradient(145deg, #5e2638 0%, #7e2540 100%);
   --gradient-surface: linear-gradient(180deg, #fffdfb 0%, #f8f3f1 100%);
   --gradient-primary: linear-gradient(135deg, #aa304b 0%, #8e2139 100%);
   --gradient-gold: linear-gradient(135deg, #e2c783 0%, #b88d43 100%);

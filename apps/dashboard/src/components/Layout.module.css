@@ -21,10 +21,10 @@
   overflow-y: auto;
   color: #fff8f5;
   background:
-    radial-gradient(circle at 18% 0%, rgba(159, 40, 66, 0.34), transparent 19rem),
-    linear-gradient(175deg, #2b1d24 0%, #21171c 55%, #171014 100%);
-  border-right: 1px solid rgba(197, 161, 92, 0.22);
-  box-shadow: 12px 0 36px rgba(35, 20, 28, 0.1);
+    radial-gradient(circle at 20% -2%, rgba(214, 92, 116, 0.45), transparent 22rem),
+    linear-gradient(172deg, #8f2c46 0%, #7a2740 52%, #672037 100%);
+  border-right: 1px solid rgba(197, 161, 92, 0.28);
+  box-shadow: 12px 0 36px rgba(103, 32, 55, 0.18);
   transition:
     transform var(--transition-spring),
     box-shadow var(--transition-base);
@@ -82,41 +82,50 @@
   overflow: hidden;
   border: 1px solid rgba(226, 199, 131, 0.58);
   border-radius: 15px 15px 15px 5px;
-  background: linear-gradient(145deg, #b43550 0%, #781c31 68%, #451d2a 100%);
+  background: linear-gradient(145deg, #b43550 0%, #832034 68%, #5e2236 100%);
   box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    0 8px 18px rgba(122, 39, 64, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transform: rotate(3deg);
 }
 
+/* A warm heart — the mark of love, family and home. */
 .brandMark::before,
-.brandMark::after,
-.brandMark span {
+.brandMark::after {
   content: "";
   position: absolute;
-  width: 22px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #f1d99c, transparent);
+  top: 12px;
+  width: 10px;
+  height: 16px;
+  background: linear-gradient(180deg, #fbe7c6 0%, #efce93 100%);
+  border-radius: 10px 10px 0 0;
 }
 
 .brandMark::before {
-  transform: rotate(45deg);
+  left: 21px;
+  transform: rotate(-45deg);
+  transform-origin: 0 100%;
 }
 
 .brandMark::after {
-  transform: rotate(-45deg);
+  left: 11px;
+  transform: rotate(45deg);
+  transform-origin: 100% 100%;
 }
 
 .brandMark span:first-child {
-  transform: rotate(90deg);
+  display: none;
 }
 
 .brandMark span:last-child {
-  width: 5px;
-  height: 5px;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
-  background: #f5dfaa;
-  box-shadow: 0 0 10px rgba(245, 223, 170, 0.65);
+  background: #f7e4b4;
+  box-shadow: 0 0 8px rgba(247, 228, 180, 0.8);
 }
 
 .brandCopy {
@@ -256,10 +265,10 @@
     height: 46px;
     padding: 0;
     cursor: pointer;
-    background: linear-gradient(145deg, #33222b 0%, #21171c 100%);
-    border: 1px solid rgba(197, 161, 92, 0.35);
+    background: linear-gradient(145deg, #97304a 0%, #762540 100%);
+    border: 1px solid rgba(226, 199, 131, 0.4);
     border-radius: 15px;
-    box-shadow: 0 10px 28px rgba(35, 20, 28, 0.2);
+    box-shadow: 0 10px 28px rgba(103, 32, 55, 0.28);
     transition:
       transform var(--transition-fast),
       box-shadow var(--transition-fast);
@@ -283,7 +292,7 @@
     display: block;
     padding: 0;
     cursor: pointer;
-    background: rgba(30, 19, 25, 0.48);
+    background: rgba(58, 22, 35, 0.5);
     border: 0;
     backdrop-filter: blur(5px);
   }
@@ -299,7 +308,7 @@
   }
 
   .sidebarOpen {
-    box-shadow: 12px 0 48px rgba(20, 12, 16, 0.34);
+    box-shadow: 12px 0 48px rgba(74, 24, 42, 0.4);
     transform: translateX(0);
   }
 

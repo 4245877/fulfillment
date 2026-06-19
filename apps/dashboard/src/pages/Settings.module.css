@@ -17,7 +17,7 @@
   --settings-accent-surface: color-mix(in srgb, var(--primary) 6%, var(--surface));
   --settings-accent-border: color-mix(in srgb, var(--accent) 22%, var(--border));
   --settings-accent-glow: color-mix(in srgb, var(--accent) 18%, transparent);
-  --settings-thorn-w: 3px;
+  --settings-ribbon-w: 3px;
 
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
@@ -165,7 +165,7 @@
   color: var(--accent);
   background: var(--settings-accent-soft);
   border-color: var(--settings-accent-border);
-  box-shadow: inset var(--settings-thorn-w) 0 0 var(--settings-accent);
+  box-shadow: inset var(--settings-ribbon-w) 0 0 var(--settings-accent);
   font-weight: 600;
 }
 
@@ -866,10 +866,10 @@
     color-mix(in srgb, var(--border) 80%, var(--surface)) 100%
   );
   background-size: 200% 100%;
-  animation: thornsweep 1.8s ease-in-out infinite;
+  animation: ribbonsweep 1.8s ease-in-out infinite;
 }
 
-@keyframes thornsweep {
+@keyframes ribbonsweep {
   from {
     background-position: 200% 0;
   }
