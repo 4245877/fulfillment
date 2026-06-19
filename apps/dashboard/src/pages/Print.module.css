@@ -398,6 +398,8 @@
 @media (max-width: 768px) {
   .container {
     grid-template-columns: 1fr;
+    /* Horizontal gutter comes from Layout's .main; avoid double padding. */
+    padding-inline: 0;
   }
 
   .printerHeader,

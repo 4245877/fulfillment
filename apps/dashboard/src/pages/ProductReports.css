@@ -686,7 +686,8 @@
 /* ── Responsive ──────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .product-reports-page {
-    padding: var(--space-md);
+    /* Horizontal gutter comes from Layout's .main; avoid double padding. */
+    padding: var(--space-md) 0;
     gap: var(--space-lg);
   }
 

@@ -1623,6 +1623,10 @@
     overflow-x: auto;
     padding-bottom: 4px;
     scrollbar-width: thin;
+    /* Fade the right edge to signal the nav scrolls horizontally
+       (touch devices hide the scrollbar). */
+    -webkit-mask-image: linear-gradient(90deg, #000 87%, transparent);
+    mask-image: linear-gradient(90deg, #000 87%, transparent);
   }
 
   .navLink {

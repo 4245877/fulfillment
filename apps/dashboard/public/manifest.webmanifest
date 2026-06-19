@@ -4,7 +4,20 @@
   "lang": "uk",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F6EFE7",
-  "theme_color": "#B25634",
-  "icons": []
+  "background_color": "#f5f1ee",
+  "theme_color": "#9f2842",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }

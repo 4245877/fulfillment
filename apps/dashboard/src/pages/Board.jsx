@@ -444,7 +444,17 @@ function KpiCard({ label, value, context, icon = "•", variant = "primary" }) {
   );
 }
 
-function HeroHeader({ currentTime, updatedAt, loading, hasError }) {
+function HeroHeader({ updatedAt, loading, hasError }) {
+  // Tick locally so the per-second clock only re-renders this header,
+  // not the entire Board tree.
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
   const statusTone = hasError ? "danger" : loading ? "warning" : "success";
   const statusText = hasError
     ? "Є проблеми із синхронізацією"
@@ -1111,13 +1121,6 @@ export default function Board() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [updatedAt, setUpdatedAt] = useState(new Date());
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setCurrentTime(new Date()), 1000);
-
-    return () => window.clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -1281,7 +1284,6 @@ export default function Board() {
   return (
     <div className="wallboard">
       <HeroHeader
-        currentTime={currentTime}
         updatedAt={updatedAt}
         loading={loading || backupLoading}
         hasError={Boolean(loadError || backupError)}
