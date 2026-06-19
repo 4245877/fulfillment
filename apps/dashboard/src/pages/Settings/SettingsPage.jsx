@@ -6,13 +6,6 @@ import { useSettingsConfig } from "./useSettingsConfig";
 import UiSection from "./sections/UiSection";
 import BackupsSection from "./sections/BackupsSection";
 import InfraSection from "./sections/InfraSection";
-import OpsSection from "./sections/OpsSection";
-import QueuesSection from "./sections/QueuesSection";
-import CatalogSection from "./sections/CatalogSection";
-import PrintFarmSection from "./sections/PrintFarmSection";
-import LogisticsPaymentsSection from "./sections/LogisticsPaymentsSection";
-import WebhooksSection from "./sections/WebhooksSection";
-import AlertsSection from "./sections/AlertsSection";
 import SecuritySection from "./sections/SecuritySection";
 
 const SECTION_OFFSET_PX = 80;
@@ -35,47 +28,6 @@ const SECTIONS = [
     id: "infra",
     navTitle: "Інфраструктура",
     render: ({ cfg, patch }) => <InfraSection cfg={cfg} patch={patch} />,
-  },
-  {
-    id: "ops",
-    navTitle: "Операції",
-    render: ({ cfg, patch, doAction }) => (
-      <OpsSection cfg={cfg} patch={patch} doAction={doAction} />
-    ),
-  },
-  {
-    id: "queues",
-    navTitle: "Черги",
-    render: ({ cfg, patch }) => <QueuesSection cfg={cfg} patch={patch} />,
-  },
-  {
-    id: "catalog",
-    navTitle: "Каталог",
-    render: ({ cfg, patch }) => <CatalogSection cfg={cfg} patch={patch} />,
-  },
-  {
-    id: "printFarm",
-    navTitle: "Print Farm",
-    render: ({ cfg, patch }) => <PrintFarmSection cfg={cfg} patch={patch} />,
-  },
-  {
-    id: "logisticsPayments",
-    navTitle: "Логістика й оплати",
-    render: ({ cfg, patch, showToast }) => (
-      <LogisticsPaymentsSection cfg={cfg} patch={patch} showToast={showToast} />
-    ),
-  },
-  {
-    id: "webhooks",
-    navTitle: "Вебхуки",
-    render: ({ cfg, patch, doAction }) => (
-      <WebhooksSection cfg={cfg} patch={patch} doAction={doAction} />
-    ),
-  },
-  {
-    id: "alerts",
-    navTitle: "Алерти",
-    render: ({ cfg, patch }) => <AlertsSection cfg={cfg} patch={patch} />,
   },
   {
     id: "security",
