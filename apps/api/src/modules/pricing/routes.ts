@@ -6,14 +6,40 @@ type PutBody = {
   baseHash?: string;
 };
 
+// Map a thrown error onto an HTTP status + a safe, user-facing message.
+//  - errors tagged with a 4xx `statusCode` are the operator's to fix (empty
+//    config, anchors, bad payload, version conflict) → surface the message;
+//  - a 500 tag is an internal invariant failure → generic message, detail logged;
+//  - anything untagged is an SSH/transport failure → 502, never echo the raw
+//    error (it may contain remote stderr / command fragments) — issue #2.
+export function classifyError(
+  error: unknown,
+  fallbackText: string
+): { status: number; text: string } {
+  const statusCode = (error as { statusCode?: number })?.statusCode;
+  const message = String((error as Error)?.message || error);
+
+  if (statusCode && statusCode >= 400 && statusCode < 500) {
+    return { status: statusCode, text: message };
+  }
+  if (statusCode === 500) {
+    return { status: 500, text: "Внутрішня помилка під час підготовки pricing.yml." };
+  }
+  return { status: 502, text: fallbackText };
+}
+
 const pricingRoutes: FastifyPluginAsync = async (app) => {
   app.get("/api/ops/pricing", async (_req, reply) => {
     try {
       return await readPricing();
     } catch (error) {
       app.log.error({ err: error }, "failed to read pricing.yml");
-      reply.code(502);
-      return { ok: false, error: String((error as Error)?.message || error) };
+      const { status, text } = classifyError(
+        error,
+        "Не вдалося прочитати pricing.yml із сервера."
+      );
+      reply.code(status);
+      return { ok: false, error: text };
     }
   });
 
@@ -28,10 +54,13 @@ const pricingRoutes: FastifyPluginAsync = async (app) => {
     try {
       return await writePricing(body.tree, body.baseHash);
     } catch (error) {
-      const statusCode = (error as { statusCode?: number })?.statusCode;
       app.log.error({ err: error }, "failed to write pricing.yml");
-      reply.code(statusCode === 409 ? 409 : 502);
-      return { ok: false, error: String((error as Error)?.message || error) };
+      const { status, text } = classifyError(
+        error,
+        "Не вдалося зберегти pricing.yml на сервері (помилка віддаленого збереження)."
+      );
+      reply.code(status);
+      return { ok: false, error: text };
     }
   });
 };

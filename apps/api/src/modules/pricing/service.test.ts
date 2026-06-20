@@ -1,14 +1,40 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { parse, parseDocument } from "yaml";
 
 import {
   applyPricingChanges,
+  buildWriteScript,
   collectNumberFormats,
+  detectAnchors,
   isPlainObject,
   sha256,
   type NumberFormats,
 } from "./service";
+
+// Status code carried by a thrown CodedError, or undefined if the call did not
+// throw. Lets us assert the precise 4xx the route layer will surface (issue #2).
+function statusOf(fn: () => void): number | undefined {
+  try {
+    fn();
+    return undefined;
+  } catch (error) {
+    return (error as { statusCode?: number }).statusCode;
+  }
+}
 
 // A trimmed-down stand-in for the real pricing.yml, carrying the kind of inline
 // comments that must survive an edit.
@@ -283,4 +309,268 @@ test("isPlainObject and sha256 behave as expected", () => {
   assert.equal(isPlainObject(null), false);
   assert.equal(sha256("a"), sha256("a"));
   assert.notEqual(sha256("a"), sha256("b"));
+});
+
+// ---------------------------------------------------------------------------
+// HTTP status mapping (issue #2): validation errors must be 4xx, not 502.
+// ---------------------------------------------------------------------------
+test("validation errors carry the right HTTP status code (issue #2)", () => {
+  // Empty config → 422 (semantically invalid entity).
+  assert.equal(statusOf(() => applyPricingChanges(SAMPLE, {})), 422);
+  // Non-object root → 400 (bad request shape).
+  assert.equal(statusOf(() => applyPricingChanges(SAMPLE, "nope" as unknown)), 400);
+  // Anchors/aliases → 422 (valid request, file can't be written safely).
+  const withAnchor = `defaults: &b\n  y: 1\nprocess:\n  FDM: *b\n`;
+  const anchorTree = parse(withAnchor) as Record<string, any>;
+  anchorTree.process.FDM.y = 2;
+  assert.equal(statusOf(() => applyPricingChanges(withAnchor, anchorTree)), 422);
+});
+
+// ---------------------------------------------------------------------------
+// Prototype pollution on write (issue #10): unsafe keys rejected at any depth.
+// JSON.parse is used so the "__proto__" / "constructor" keys are real own
+// enumerable properties, exactly as they would arrive in a request body.
+// ---------------------------------------------------------------------------
+test("refuses to write unsafe keys at any depth (issue #10)", () => {
+  for (const payload of [
+    '{"__proto__":{"x":1}}',
+    '{"materials":{"__proto__":{"x":1}}}',
+    '{"a":{"b":{"constructor":1}}}',
+    '{"prototype":1}',
+  ]) {
+    const tree = JSON.parse(payload);
+    assert.equal(
+      statusOf(() => applyPricingChanges(SAMPLE, tree)),
+      400,
+      `expected 400 for ${payload}`
+    );
+  }
+
+  // The global prototype must stay clean after all of that.
+  assert.equal(({} as Record<string, unknown>).x, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// Anchor detection runs on the AST, so strings/comments never false-positive
+// and a read-only file is flagged up front (issues #6 / #9).
+// ---------------------------------------------------------------------------
+test("detectAnchors ignores `<<` in strings and `&anchor` in comments (issue #6)", () => {
+  const benign = `# приклад з &anchor усередині коментаря
+note: "значення з << усередині рядка"
+math: "a << b"
+price: 10
+`;
+  assert.equal(detectAnchors(parseDocument(benign)), null);
+
+  assert.match(detectAnchors(parseDocument("a: &x 1\nb: *x\n")) || "", /якор|псевдонім/);
+  assert.match(
+    detectAnchors(parseDocument("base: &b\n  x: 1\nm:\n  <<: *b\n")) || "",
+    /якор|псевдонім|злит/
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Format map keys are JSON-encoded segment arrays, so paths cannot collide and
+// odd key characters round-trip (issue #3).
+// ---------------------------------------------------------------------------
+test("number-format keys never collide between nested and dotted keys (issue #3)", () => {
+  const nested: NumberFormats = {};
+  collectNumberFormats(parseDocument(`a:\n  b:\n    c: 1.0\n`).contents, [], nested);
+
+  const dotted: NumberFormats = {};
+  collectNumberFormats(parseDocument(`"a.b":\n  c: 1.0\n`).contents, [], dotted);
+
+  const nestedKey = Object.keys(nested)[0];
+  const dottedKey = Object.keys(dotted)[0];
+
+  assert.equal(nestedKey, JSON.stringify(["a", "b", "c"]));
+  assert.equal(dottedKey, JSON.stringify(["a.b", "c"]));
+  assert.notEqual(nestedKey, dottedKey);
+});
+
+test("number-format keys survive slashes, tildes, brackets and quotes (issue #3)", () => {
+  const src = `"a/b":\n  "c~d": 1.0\n"x[0]":\n  "q\\"t": 2.0\n`;
+  const formats: NumberFormats = {};
+  collectNumberFormats(parseDocument(src).contents, [], formats);
+
+  assert.equal(formats[JSON.stringify(["a/b", "c~d"])], "1.0");
+  assert.equal(formats[JSON.stringify(["x[0]", 'q"t'])], "2.0");
+});
+
+// ---------------------------------------------------------------------------
+// Atomic write script (issues #1 / #7 / #8). We execute the *real* script the
+// server ships to the remote host, but against a local temp dir and with PATH
+// shims to force cp/chmod/mv failures — no SSH, no production host touched.
+// (Requires GNU coreutils: chmod --reference, ls -t, xargs -r.)
+// ---------------------------------------------------------------------------
+type RunResult = {
+  exitCode: number | null;
+  stderr: string;
+  fileContent: string | null;
+  bakContent: string | null;
+  historical: string[];
+  tempLeft: string[];
+  mode: number | null;
+};
+
+function runWriteScript(opts: {
+  original: string;
+  input: string;
+  bytes?: number;
+  fileMode?: number;
+  fileName?: string;
+  preexisting?: Array<{ name: string; mtimeMs: number }>;
+  shim?: { cmd: string; body: string };
+}): RunResult {
+  const dir = mkdtempSync(path.join(tmpdir(), "pricing-write-"));
+  const fileName = opts.fileName ?? "pricing.yml";
+  const file = path.join(dir, fileName);
+
+  writeFileSync(file, opts.original);
+  if (opts.fileMode != null) chmodSync(file, opts.fileMode);
+
+  for (const pre of opts.preexisting ?? []) {
+    const p = path.join(dir, pre.name);
+    writeFileSync(p, "old-backup");
+    utimesSync(p, new Date(pre.mtimeMs), new Date(pre.mtimeMs));
+  }
+
+  const env = { ...process.env };
+  if (opts.shim) {
+    const binDir = mkdtempSync(path.join(tmpdir(), "pricing-bin-"));
+    const shimPath = path.join(binDir, opts.shim.cmd);
+    writeFileSync(shimPath, `#!/bin/sh\n${opts.shim.body}\n`);
+    chmodSync(shimPath, 0o755);
+    env.PATH = `${binDir}:${env.PATH}`;
+  }
+
+  const bytes = opts.bytes ?? Buffer.byteLength(opts.input, "utf8");
+  const script = buildWriteScript({ file, bytes });
+  const res = spawnSync("sh", ["-c", script], {
+    input: opts.input,
+    env,
+    encoding: "utf8",
+  });
+
+  const list = readdirSync(dir);
+  return {
+    exitCode: res.status,
+    stderr: res.stderr || "",
+    fileContent: existsSync(file) ? readFileSync(file, "utf8") : null,
+    bakContent: existsSync(`${file}.bak`) ? readFileSync(`${file}.bak`, "utf8") : null,
+    historical: list.filter((n) => n.startsWith(`${fileName}.bak.`)),
+    tempLeft: list.filter((n) => n.startsWith(`${fileName}.tmp.`)),
+    mode: existsSync(file) ? statSync(file).mode & 0o777 : null,
+  };
+}
+
+test("write script: success replaces the file, keeps .bak + history, preserves mode", () => {
+  const r = runWriteScript({ original: "old: 1\n", input: "new: 2\n", fileMode: 0o640 });
+
+  assert.equal(r.exitCode, 0, r.stderr);
+  assert.equal(r.fileContent, "new: 2\n");
+  assert.equal(r.bakContent, "old: 1\n");
+  assert.equal(r.historical.length, 1);
+  assert.equal(r.tempLeft.length, 0);
+  assert.equal(r.mode, 0o640);
+});
+
+test("write script: a truncated stream (byte mismatch) aborts without touching the file", () => {
+  const r = runWriteScript({ original: "old: 1\n", input: "new: 2\n", bytes: 999 });
+
+  assert.notEqual(r.exitCode, 0);
+  assert.equal(r.fileContent, "old: 1\n"); // unchanged
+  assert.equal(r.bakContent, null); // never reached the backup step
+  assert.equal(r.tempLeft.length, 0); // temp cleaned by the EXIT trap
+});
+
+test("write script: a failing mandatory cp (.bak) aborts the write (issue #8)", () => {
+  const r = runWriteScript({
+    original: "old: 1\n",
+    input: "new: 2\n",
+    shim: { cmd: "cp", body: "exit 1" },
+  });
+
+  assert.notEqual(r.exitCode, 0);
+  assert.equal(r.fileContent, "old: 1\n"); // original intact, no false success
+  assert.equal(r.tempLeft.length, 0);
+});
+
+test("write script: a failing chmod aborts the write (issue #1 — no `|| true`)", () => {
+  const r = runWriteScript({
+    original: "old: 1\n",
+    input: "new: 2\n",
+    shim: { cmd: "chmod", body: "exit 1" },
+  });
+
+  assert.notEqual(r.exitCode, 0);
+  assert.equal(r.fileContent, "old: 1\n");
+  assert.equal(r.bakContent, null); // chmod runs before the backup
+  assert.equal(r.tempLeft.length, 0);
+});
+
+test("write script: a failing mv aborts and never reports success", () => {
+  const r = runWriteScript({
+    original: "old: 1\n",
+    input: "new: 2\n",
+    shim: { cmd: "mv", body: "exit 1" },
+  });
+
+  assert.notEqual(r.exitCode, 0);
+  assert.equal(r.fileContent, "old: 1\n"); // mv failed → original kept
+  assert.equal(r.tempLeft.length, 0); // trap removed the temp
+});
+
+test("write script: prunes timestamped history to the 10 newest (issue #7)", () => {
+  const now = Date.now();
+  const preexisting = Array.from({ length: 12 }, (_, i) => ({
+    name: `pricing.yml.bak.h${String(i).padStart(2, "0")}`,
+    mtimeMs: now - (12 - i) * 60_000, // h00 oldest … h11 newest
+  }));
+
+  const r = runWriteScript({ original: "old: 1\n", input: "new: 2\n", preexisting });
+
+  assert.equal(r.exitCode, 0, r.stderr);
+  // 12 existing + 1 new = 13, pruned down to the 10 newest.
+  assert.equal(r.historical.length, 10);
+  assert.ok(!r.historical.includes("pricing.yml.bak.h00"));
+  assert.ok(!r.historical.includes("pricing.yml.bak.h01"));
+  assert.ok(!r.historical.includes("pricing.yml.bak.h02"));
+  assert.ok(r.historical.includes("pricing.yml.bak.h11"));
+});
+
+test("write script: two saves in the same second get unique history names (issue #8)", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "pricing-write-"));
+  const file = path.join(dir, "pricing.yml");
+  writeFileSync(file, "v: 0\n");
+
+  // Freeze `date` so both runs share the same second — uniqueness must come
+  // from the `$$` suffix, not the timestamp.
+  const binDir = mkdtempSync(path.join(tmpdir(), "pricing-bin-"));
+  writeFileSync(path.join(binDir, "date"), "#!/bin/sh\necho 20260101-000000\n");
+  chmodSync(path.join(binDir, "date"), 0o755);
+  const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+
+  for (const input of ["v: 1\n", "v: 2\n"]) {
+    const script = buildWriteScript({ file, bytes: Buffer.byteLength(input, "utf8") });
+    const res = spawnSync("sh", ["-c", script], { input, env, encoding: "utf8" });
+    assert.equal(res.status, 0, res.stderr);
+  }
+
+  const historical = readdirSync(dir).filter((n) =>
+    n.startsWith("pricing.yml.bak.20260101-000000-")
+  );
+  assert.equal(new Set(historical).size, 2);
+});
+
+test("write script: handles a path with spaces and special characters", () => {
+  const r = runWriteScript({
+    original: "old: 1\n",
+    input: "new: 2\n",
+    fileName: "weird name (v2) #1.yml",
+  });
+
+  assert.equal(r.exitCode, 0, r.stderr);
+  assert.equal(r.fileContent, "new: 2\n");
+  assert.equal(r.bakContent, "old: 1\n");
 });

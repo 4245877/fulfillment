@@ -177,11 +177,45 @@ export function collectNumberFormats(
   }
 }
 
+// Validation errors carry an HTTP status so the route layer can answer with a
+// precise 4xx instead of a blanket 502 (which should mean "the SSH upstream
+// itself failed", not "the operator sent something we won't write") — issue #2.
+export type CodedError = Error & { statusCode?: number };
+export function codedError(message: string, statusCode: number): CodedError {
+  const err = new Error(message) as CodedError;
+  err.statusCode = statusCode;
+  return err;
+}
+
+// Keys that pollute Object.prototype or confuse downstream YAML consumers.
+// Rejected on write at any depth — defence in depth, the client blocks them too
+// (issue #10).
+const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+
+function assertNoUnsafeKeys(node: unknown, path: string[] = []): void {
+  if (Array.isArray(node)) {
+    node.forEach((item, index) =>
+      assertNoUnsafeKeys(item, [...path, String(index)])
+    );
+    return;
+  }
+  if (isPlainObject(node)) {
+    for (const key of Object.keys(node)) {
+      if (UNSAFE_KEYS.has(key)) {
+        const where = [...path, key].join(".");
+        throw codedError(`Refusing to write: unsafe key "${key}" at ${where}`, 400);
+      }
+      assertNoUnsafeKeys((node as Record<string, unknown>)[key], [...path, key]);
+    }
+  }
+}
+
 // YAML anchors/aliases and `<<` merge keys are flattened by `toJS()` and would be
 // expanded (and duplicated) on save, silently rewriting the file. We can't yet
-// preserve them surgically, so refuse to write such a file rather than corrupt
-// it (issue #9). Reading stays allowed so the operator can still inspect it.
-function assertNoAnchors(doc: Document): void {
+// preserve them surgically. Detection walks the parsed AST (never the raw text),
+// so `"<<"` inside a string value or `&anchor` inside a comment never trips a
+// false positive (issue #9). Returns a human-readable reason, or null.
+export function detectAnchors(doc: Document): string | null {
   let problem: string | null = null;
 
   visit(doc, {
@@ -206,9 +240,17 @@ function assertNoAnchors(doc: Document): void {
     },
   });
 
+  return problem;
+}
+
+// Refuse to write a file we cannot round-trip safely. Reading stays allowed so
+// the operator can still inspect it (the read path surfaces a read-only banner).
+function assertNoAnchors(doc: Document): void {
+  const problem = detectAnchors(doc);
   if (problem) {
-    throw new Error(
-      `Refusing to write: pricing.yml uses YAML ${problem}, which the editor cannot preserve yet. Edit this file by hand.`
+    throw codedError(
+      `Refusing to write: pricing.yml uses YAML ${problem}, which the editor cannot preserve yet. Edit this file by hand.`,
+      422
     );
   }
 }
@@ -424,13 +466,14 @@ export function applyPricingChanges(currentText: string, newTree: unknown): stri
   }
 
   if (!isPlainObject(newTree)) {
-    throw new Error("Invalid pricing payload: root must be an object");
+    throw codedError("Invalid pricing payload: root must be an object", 400);
   }
 
   if (Object.keys(newTree).length === 0) {
-    throw new Error("Refusing to write an empty pricing config");
+    throw codedError("Refusing to write an empty pricing config", 422);
   }
 
+  assertNoUnsafeKeys(newTree);
   assertNoAnchors(doc);
 
   const currentObj = (doc.toJS() ?? {}) as Record<string, unknown>;
@@ -468,10 +511,10 @@ export function applyPricingChanges(currentText: string, newTree: unknown): stri
   // the requested tree exactly, whichever path produced it.
   const verify = parseDocument(out);
   if (verify.errors.length > 0) {
-    throw new Error("Refusing to write: serialized pricing.yml is invalid");
+    throw codedError("Internal error: serialized pricing.yml is invalid", 500);
   }
   if (!deepEqual(verify.toJS() ?? {}, newTree)) {
-    throw new Error("Refusing to write: serialized pricing.yml lost data");
+    throw codedError("Internal error: serialized pricing.yml lost data", 500);
   }
 
   return out;
@@ -483,6 +526,9 @@ export type PricingFile = {
   tree: unknown;
   hash: string;
   formats: NumberFormats;
+  // A file we can read but not safely write back (anchors/aliases/merge keys).
+  readOnly: boolean;
+  readOnlyReason: string | null;
 };
 
 export async function readPricing(): Promise<PricingFile> {
@@ -490,17 +536,24 @@ export async function readPricing(): Promise<PricingFile> {
   const raw = stdout;
 
   if (!raw.trim()) {
-    throw new Error("pricing.yml is empty or could not be read");
+    throw codedError("pricing.yml is empty or could not be read", 422);
   }
 
   const doc = parseDocument(raw);
 
   if (doc.errors.length > 0) {
-    throw new Error(`pricing.yml is not valid YAML: ${doc.errors[0].message}`);
+    throw codedError(
+      `pricing.yml is not valid YAML: ${doc.errors[0].message}`,
+      422
+    );
   }
 
   const formats: NumberFormats = {};
   collectNumberFormats(doc.contents, [], formats);
+
+  // Flag anchors/aliases/merge keys up front so the UI can show a read-only
+  // banner immediately on load, not only after a failed save (issue #6).
+  const anchorProblem = detectAnchors(doc);
 
   return {
     path: cfg.file,
@@ -508,20 +561,52 @@ export async function readPricing(): Promise<PricingFile> {
     tree: doc.toJS() ?? {},
     hash: sha256(raw),
     formats,
+    readOnly: anchorProblem != null,
+    readOnlyReason: anchorProblem
+      ? `Файл використовує YAML ${anchorProblem}; редактор не може зберегти його без втрат. Редагуйте файл вручну.`
+      : null,
   };
+}
+
+// Build the remote shell script that atomically replaces the pricing file.
+// Exported so tests can run it against a local temp dir (no SSH) and assert the
+// real cp/chmod/mv/backup/prune behaviour, including failure modes (issues #7,#8).
+//
+// Order is chosen so no step can leave a half-written file in place:
+//   1. stream the new content into a sibling temp file;
+//   2. verify its byte length matches what we sent (catch a truncated stream);
+//   3. copy the original's permissions onto the temp file (mandatory);
+//   4. take the mandatory rolling `.bak` (abort if it fails — issue #8);
+//   5. take a best-effort timestamped backup, pruned to the 10 newest (issue #7);
+//   6. atomically rename the temp file over the original.
+// `set -e` aborts the whole script if any mandatory step fails; an EXIT trap
+// removes the temp file so a failure leaves no debris and never reports success
+// after a partial write. The timestamp carries `$$` so two saves in the same
+// second still get distinct history names.
+export function buildWriteScript(opts: { file: string; bytes: number }): string {
+  const f = opts.file.replace(/'/g, `'\\''`);
+  const bytes = String(opts.bytes);
+  return [
+    "set -e",
+    `f='${f}'`,
+    'tmp="$f.tmp.$$"',
+    `trap 'rm -f "$tmp"' EXIT`,
+    'cat > "$tmp"',
+    `actual=$(wc -c < "$tmp" | tr -d '[:space:]')`,
+    `if [ "$actual" != '${bytes}' ]; then echo "pricing.yml stream incomplete ($actual/${bytes} bytes)" >&2; exit 3; fi`,
+    'chmod --reference="$f" "$tmp"',
+    'cp -p "$f" "$f.bak"',
+    'ts=$(date +%Y%m%d-%H%M%S)-$$',
+    'cp -p "$f" "$f.bak.$ts" 2>/dev/null || true',
+    `ls -1t "$f".bak.* 2>/dev/null | tail -n +11 | xargs -r rm -f -- 2>/dev/null || true`,
+    'mv -f "$tmp" "$f"',
+  ].join("\n");
 }
 
 export async function writePricing(
   newTree: unknown,
   baseHash?: string
-): Promise<{
-  ok: true;
-  path: string;
-  raw: string;
-  tree: unknown;
-  hash: string;
-  formats: NumberFormats;
-}> {
+): Promise<PricingFile & { ok: true }> {
   const current = await readPricing();
 
   // Optimistic concurrency: refuse to clobber edits made on the server since the
@@ -538,27 +623,12 @@ export async function writePricing(
 
   // No-op write guard: nothing to do if the result is byte-identical.
   if (newText !== current.raw) {
-    // Write atomically:
-    //  - a mandatory rolling `.bak` (no `|| true`: if the backup can't be made
-    //    we abort rather than write without one — issue #8);
-    //  - a best-effort timestamped backup, pruned to the 10 newest, giving a
-    //    short edit history (issue #7);
-    //  - stream the new content into a temp file, copy permissions, then move
-    //    it into place.
-    const remoteCommand = [
-      "set -e",
-      `f='${cfg.file}'`,
-      'tmp="$f.tmp.$$"',
-      'cp -p "$f" "$f.bak"',
-      'ts=$(date +%Y%m%d-%H%M%S)',
-      'cp -p "$f" "$f.bak.$ts" 2>/dev/null || true',
-      'ls -1t "$f".bak.* 2>/dev/null | tail -n +11 | xargs -r rm -f -- 2>/dev/null || true',
-      'cat > "$tmp"',
-      'chmod --reference="$f" "$tmp" 2>/dev/null || true',
-      'mv -f "$tmp" "$f"',
-    ].join("; ");
+    const script = buildWriteScript({
+      file: cfg.file,
+      bytes: Buffer.byteLength(newText, "utf8"),
+    });
 
-    await runSshWithInput(remoteCommand, newText, 20000);
+    await runSshWithInput(script, newText, 20000);
   }
 
   const verify = parseDocument(newText);
@@ -572,5 +642,7 @@ export async function writePricing(
     tree: verify.toJS() ?? {},
     hash: sha256(newText),
     formats,
+    readOnly: false,
+    readOnlyReason: null,
   };
 }

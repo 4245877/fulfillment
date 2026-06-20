@@ -3,165 +3,20 @@ import React from "react";
 import { api } from "../../../api/client.js";
 import { Card, FieldRow } from "../ui.jsx";
 import styles from "../../Settings.module.css";
-
-// ---------------------------------------------------------------------------
-// Immutable tree helpers (array paths — safe for keys that contain dots, e.g.
-// options.nozzle_mm."0.2").
-// ---------------------------------------------------------------------------
-function cloneContainer(value) {
-  return Array.isArray(value) ? value.slice() : { ...value };
-}
-
-// Keys that would pollute Object.prototype if assigned directly (issue #20).
-const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
-
-function isUnsafeKey(key) {
-  return UNSAFE_KEYS.has(key);
-}
-
-// Assign without writing through the prototype chain (so a key literally named
-// "__proto__" becomes an own property instead of mutating the prototype).
-function assignKey(target, key, value) {
-  Object.defineProperty(target, key, {
-    value,
-    enumerable: true,
-    writable: true,
-    configurable: true,
-  });
-  return target;
-}
-
-function setAt(obj, path, value) {
-  if (path.length === 0) return value;
-
-  const [head, ...rest] = path;
-  const copy = cloneContainer(obj);
-
-  return assignKey(
-    copy,
-    head,
-    rest.length === 0 ? value : setAt(obj[head], rest, value)
-  );
-}
-
-function deleteAt(obj, path) {
-  const [head, ...rest] = path;
-  const copy = cloneContainer(obj);
-
-  if (rest.length === 0) {
-    delete copy[head];
-  } else {
-    copy[head] = deleteAt(obj[head], rest);
-  }
-
-  return copy;
-}
-
-function getAt(obj, path) {
-  let current = obj;
-  for (const key of path) {
-    if (current == null) return undefined;
-    current = current[key];
-  }
-  return current;
-}
-
-// Rename a key while keeping its position in the parent object (so the YAML
-// backend can recognise it as an in-place rename and preserve comments).
-function renameKeyAt(obj, path, newKey) {
-  const parentPath = path.slice(0, -1);
-  const oldKey = path[path.length - 1];
-  const parent = getAt(obj, parentPath);
-
-  if (!isPlainObject(parent)) return obj;
-
-  const rebuilt = {};
-  for (const key of Object.keys(parent)) {
-    rebuilt[key === oldKey ? newKey : key] = parent[key];
-  }
-
-  return setAt(obj, parentPath, rebuilt);
-}
-
-function isPlainObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function numToStr(value) {
-  return Number.isFinite(value) ? String(value) : "";
-}
-
-// Accept both "6.5" and the UA/RU decimal comma "6,5".
-function parseNumberInput(text) {
-  const normalized = String(text).trim().replace(",", ".");
-  if (normalized === "") return { ok: false };
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? { ok: true, value: parsed } : { ok: false };
-}
-
-// Show numbers exactly as they appear in the file (e.g. "6.00", "40.0") instead
-// of the lossy JS form ("6", "40"). `format` is the original source text from the
-// backend; we only trust it while it still represents the current value, so an
-// edited field falls back to the plain numeric string (issue #1).
-function resolveNumberDisplay(value, format) {
-  if (typeof format === "string") {
-    const parsed = parseNumberInput(format);
-    if (parsed.ok && parsed.value === value) return format;
-  }
-  return numToStr(value);
-}
-
-// ---------------------------------------------------------------------------
-// Validation: known enums + value ranges. Enum dropdowns prevent typos; range
-// checks block saving obviously broken values (negative prices, shares > 1).
-// ---------------------------------------------------------------------------
-const ENUM_OPTIONS = {
-  mode: ["markup", "margin"],
-  missing_material_price: ["error", "zero", "fallback"],
-  strategy: ["nearest_9", "nearest", "none"],
-};
-
-// Returns the option list for a known enum key, always including the current
-// value so a valid value the schema didn't anticipate is never dropped.
-function enumOptionsFor(key, value) {
-  const known = ENUM_OPTIONS[key];
-  if (!known) return null;
-  if (typeof value !== "string") return null;
-  return known.includes(value) ? known : [value, ...known];
-}
-
-function isFractionKey(key) {
-  return key === "yield" || /_pct$/.test(key);
-}
-
-function isNonNegativeKey(key) {
-  return /(price|rate|cost|fee)/i.test(key);
-}
-
-function validateScalar(key, value) {
-  if (typeof value !== "number") return null;
-  if (!Number.isFinite(value)) return "Очікується число";
-  if (isFractionKey(key) && (value < 0 || value > 1)) {
-    return "Має бути частка від 0 до 1";
-  }
-  if (isNonNegativeKey(key) && value < 0) {
-    return "Не може бути від’ємним";
-  }
-  return null;
-}
-
-function collectErrors(node, path, out) {
-  if (Array.isArray(node)) return;
-  if (isPlainObject(node)) {
-    for (const key of Object.keys(node)) {
-      collectErrors(node[key], [...path, key], out);
-    }
-    return;
-  }
-  const key = path[path.length - 1];
-  const message = validateScalar(key, node);
-  if (message) out[JSON.stringify(path)] = message;
-}
+import {
+  collectErrors,
+  deleteAt,
+  enumOptionsFor,
+  initialValueForType,
+  isPlainObject,
+  isUnsafeKey,
+  parseNumberInput,
+  remapFormatsForRename,
+  renameKeyAt,
+  resolveNumberDisplay,
+  setAt,
+  TYPE_OPTIONS,
+} from "./pricingModel.js";
 
 // ---------------------------------------------------------------------------
 // Field editors
@@ -419,27 +274,6 @@ function KeyLabel({ value, className, siblingKeys, onRename, disabled }) {
 // ---------------------------------------------------------------------------
 // "Add new value" control
 // ---------------------------------------------------------------------------
-const TYPE_OPTIONS = [
-  { value: "string", label: "Текст" },
-  { value: "number", label: "Число" },
-  { value: "boolean", label: "Так / Ні" },
-  { value: "group", label: "Група" },
-  { value: "array", label: "Масив" },
-];
-
-function initialValueForType(type, rawValue) {
-  if (type === "number") {
-    const parsed = parseNumberInput(rawValue);
-    return parsed.ok ? parsed.value : 0;
-  }
-
-  if (type === "boolean") return rawValue === "true" || rawValue === true;
-  if (type === "group") return {};
-  if (type === "array") return [];
-
-  return rawValue ?? "";
-}
-
 function AddFieldRow({ existingKeys, onAdd, disabled }) {
   const [open, setOpen] = React.useState(false);
   const [key, setKey] = React.useState("");
@@ -697,6 +531,9 @@ export default function PricingSection({ showToast }) {
   const [loadedJson, setLoadedJson] = React.useState("");
   const [showRaw, setShowRaw] = React.useState(false);
   const [conflict, setConflict] = React.useState(null);
+  // Non-null when the server file can be read but not safely written back
+  // (YAML anchors/aliases/merge keys) — editing is disabled (issue #6).
+  const [readOnlyReason, setReadOnlyReason] = React.useState(null);
 
   // Undo history (refs avoid re-render churn; the length state drives the button).
   const treeRef = React.useRef(tree);
@@ -733,6 +570,7 @@ export default function PricingSection({ showToast }) {
       setFormats(result.formats || {});
       setLoadedJson(JSON.stringify(result.tree));
       setConflict(null);
+      setReadOnlyReason(result.readOnly ? result.readOnlyReason : null);
       resetHistory();
     } catch (caught) {
       setTree(null);
@@ -769,6 +607,10 @@ export default function PricingSection({ showToast }) {
   // the client with a clear message instead of a raw 502 toast (issue #3).
   const isEmpty = tree != null && Object.keys(tree).length === 0;
 
+  // A file using anchors/aliases can be inspected but not edited (issue #6).
+  const readOnly = readOnlyReason != null;
+  const editingDisabled = saving || readOnly;
+
   // Warn before leaving the tab/page with unsaved edits (issue #10).
   React.useEffect(() => {
     if (!dirty) return undefined;
@@ -803,6 +645,9 @@ export default function PricingSection({ showToast }) {
     (path, newKey) => {
       pushHistory();
       setTree((current) => renameKeyAt(current, path, newKey));
+      // Move the trailing-zero formatting hints to the new path so "6.00" keeps
+      // displaying as "6.00" immediately, not only after the next save (issue #3).
+      setFormats((current) => remapFormatsForRename(current, path, newKey));
     },
     [pushHistory]
   );
@@ -826,7 +671,7 @@ export default function PricingSection({ showToast }) {
   };
 
   const save = async (overrideHash) => {
-    if (!dirty || saving) return;
+    if (!dirty || saving || readOnly) return;
 
     if (isEmpty) {
       showToast?.(
@@ -875,6 +720,7 @@ export default function PricingSection({ showToast }) {
       setFormats(result.formats || {});
       setLoadedJson(JSON.stringify(result.tree));
       setConflict(null);
+      setReadOnlyReason(result.readOnly ? result.readOnlyReason : null);
       resetHistory();
       showToast?.({ kind: "success", text: "Збережено у pricing.yml ✅" }, 2500);
     } catch (caught) {
@@ -941,7 +787,9 @@ export default function PricingSection({ showToast }) {
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              disabled={!dirty || saving || loading || hasErrors || isEmpty}
+              disabled={
+                !dirty || saving || loading || hasErrors || isEmpty || readOnly
+              }
               onClick={() => save()}
             >
               {saving ? "Збереження…" : "Зберегти у pricing.yml"}
@@ -951,6 +799,12 @@ export default function PricingSection({ showToast }) {
               <span className={styles.pricingDirty}>Є незбережені зміни</span>
             ) : null}
           </div>
+
+          {readOnly ? (
+            <div className={styles.pricingConflict}>
+              <strong>Лише для читання.</strong> {readOnlyReason}
+            </div>
+          ) : null}
 
           {conflict ? (
             <div className={styles.pricingConflict}>
@@ -1021,13 +875,13 @@ export default function PricingSection({ showToast }) {
                 onRename={onRename}
                 getError={getError}
                 getFormat={getFormat}
-                disabled={saving}
+                disabled={editingDisabled}
               />
             ))}
 
             <AddFieldRow
               existingKeys={Object.keys(tree)}
-              disabled={saving}
+              disabled={editingDisabled}
               onAdd={(key, value) => onSet([key], value)}
             />
           </div>
