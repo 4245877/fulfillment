@@ -72,7 +72,9 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: color var(--transition-base), background-color var(--transition-base),
+    border-color var(--transition-base), box-shadow var(--transition-base),
+    transform var(--transition-base);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -105,7 +107,9 @@
   border-radius: var(--radius);
   padding: 16px;
   background: var(--surface);
-  transition: all var(--transition-base);
+  transition: color var(--transition-base), background-color var(--transition-base),
+    border-color var(--transition-base), box-shadow var(--transition-base),
+    transform var(--transition-base);
   overflow: hidden;
   animation: slideInUp 0.3s ease-out backwards;
 }
@@ -164,7 +168,9 @@
   color: var(--muted);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   white-space: nowrap;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background-color var(--transition-fast),
+    border-color var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .eventCard:hover .eventTime {
@@ -194,7 +200,9 @@
   color: var(--primary);
   font-size: 12px;
   font-weight: 600;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background-color var(--transition-fast),
+    border-color var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .eventCard:hover .entityBadge {
@@ -209,7 +217,9 @@
   border-radius: 8px;
   padding: 12px;
   overflow-x: auto;
-  transition: all var(--transition-base);
+  transition: color var(--transition-base), background-color var(--transition-base),
+    border-color var(--transition-base), box-shadow var(--transition-base),
+    transform var(--transition-base);
 }
 
 .eventCard:hover .eventData {

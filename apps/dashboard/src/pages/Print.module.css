@@ -69,7 +69,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
-  transition: all var(--transition-base);
+  transition: color var(--transition-base), background-color var(--transition-base),
+    border-color var(--transition-base), box-shadow var(--transition-base),
+    transform var(--transition-base);
   overflow: hidden;
 }
 
@@ -124,7 +126,9 @@
   color: var(--muted);
   font-weight: 600;
   white-space: nowrap;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background-color var(--transition-fast),
+    border-color var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .printerMeta:hover {
@@ -163,7 +167,9 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background-color var(--transition-fast),
+    border-color var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .status::before {
@@ -209,7 +215,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
-  transition: all var(--transition-base);
+  transition: color var(--transition-base), background-color var(--transition-base),
+    border-color var(--transition-base), box-shadow var(--transition-base),
+    transform var(--transition-base);
   overflow: hidden;
 }
 
@@ -272,7 +280,9 @@
   color: var(--muted);
   font-weight: 600;
   white-space: nowrap;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background-color var(--transition-fast),
+    border-color var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .jobPrinter:hover {

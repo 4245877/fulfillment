@@ -1,31 +1,36 @@
-import React, { Suspense } from "react";
+import React, { Suspense, lazy } from "react";
 import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
-
-import Board from "./pages/Board.jsx";
-import Orders from "./pages/Orders.jsx";
-import Print from "./pages/Print.jsx";
-import Printers from "./pages/Printers.jsx";
-import Inventory from "./pages/Inventory.jsx";
-import Shipments from "./pages/Shipments.jsx";
-import Audit from "./pages/Audit.jsx";
-import ProductReports from "./pages/ProductReports.jsx";
-import SettingsPage from "./pages/Settings/SettingsPage.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import stateStyles from "./components/SystemState.module.css";
 
+// Code-split every page into its own chunk so a low-power device only
+// downloads, parses and executes the page it actually opens — instead of the
+// whole app (including the heavy Settings/InfraSection) on first load.
+const Board = lazy(() => import("./pages/Board.jsx"));
+const Orders = lazy(() => import("./pages/Orders.jsx"));
+const Print = lazy(() => import("./pages/Print.jsx"));
+const Printers = lazy(() => import("./pages/Printers.jsx"));
+const Inventory = lazy(() => import("./pages/Inventory.jsx"));
+const Shipments = lazy(() => import("./pages/Shipments.jsx"));
+const ProductReports = lazy(() => import("./pages/ProductReports.jsx"));
+const Audit = lazy(() => import("./pages/Audit.jsx"));
+const SettingsPage = lazy(() => import("./pages/Settings/SettingsPage.jsx"));
+
+function PageFallback() {
+  return (
+    <main className={stateStyles.page} aria-live="polite" aria-busy="true">
+      <section className={`${stateStyles.card} ${stateStyles.compactCard}`}>
+        <span className={stateStyles.spinner} aria-hidden="true" />
+        <p className={stateStyles.statusText}>Завантаження...</p>
+      </section>
+    </main>
+  );
+}
+
 export default function App() {
   return (
-    <Suspense
-      fallback={
-        <main className={stateStyles.page} aria-live="polite" aria-busy="true">
-          <section className={`${stateStyles.card} ${stateStyles.compactCard}`}>
-            <span className={stateStyles.spinner} aria-hidden="true" />
-            <p className={stateStyles.statusText}>Завантаження...</p>
-          </section>
-        </main>
-      }
-    >
+    <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Board />} />

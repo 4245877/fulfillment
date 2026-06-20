@@ -1,4 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  memo,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { api } from "../api/client.js";
 import s from "./Orders.module.css";
 
@@ -559,6 +566,313 @@ function fileTitle(file, index) {
   return `Файл ${index + 1}`;
 }
 
+// Memoized per-order card. With up to 200 orders rendered, keeping each card
+// pure means a search keystroke or a single status change only re-renders the
+// cards that actually changed, instead of re-parsing every order every time.
+const OrderCard = memo(function OrderCard({
+  order,
+  apiStatuses,
+  saving,
+  onUpdateStatus,
+}) {
+  // The raw JSON dump is expensive to serialize and bloats the DOM, so only
+  // build it while the <details> block is actually open.
+  const [showRaw, setShowRaw] = useState(false);
+
+  const id = pickId(order);
+  const shopId = pickShopId(order);
+  const currentStatus = pickStatus(order) || "New";
+
+  // Parse the order shape once per order, not on every parent re-render.
+  const derived = useMemo(() => {
+    const customer = pickCustomer(order);
+
+    return {
+      items: asArray(order?.items),
+      customer,
+      customerSummary: [customer.name, customer.email, customer.phone]
+        .filter(Boolean)
+        .join(" · "),
+      delivery: pickDelivery(order),
+      payment: pickPayment(order),
+      orderFiles: pickModelFiles(order),
+      orderSource: pickModelSource(order),
+    };
+  }, [order]);
+
+  const { items, customer, customerSummary, delivery, payment, orderFiles, orderSource } =
+    derived;
+
+  return (
+    <div className={`card ${s.orderCard}`}>
+      <div className={s.cardHeader}>
+        <div>
+          <div className={s.primaryLine}>
+            #{id || "без ID"}{" "}
+            <span className="text-muted">
+              {order?.created_at ? `• ${formatDate(order.created_at)}` : ""}
+            </span>
+          </div>
+
+          {shopId && shopId !== id ? (
+            <div className={s.subLine}>ID магазину: {shopId}</div>
+          ) : null}
+
+          <div className={s.subLine}>
+            Сума:{" "}
+            <strong>
+              {formatMoney(order?.total_uah ?? order?.total, order?.currency)}
+            </strong>
+          </div>
+        </div>
+
+        <div className={s.sideBlock}>
+          <div className={`text-muted ${s.customerInfo}`}>
+            {customerSummary || "Клієнт не вказаний"}
+          </div>
+
+          <label className={s.statusEditor}>
+            <span>Статус</span>
+            <select
+              className={`select ${s.statusSelectSmall}`}
+              value={currentStatus}
+              onChange={(e) => onUpdateStatus(order, e.target.value)}
+              disabled={saving}
+            >
+              {apiStatuses.map((x) => (
+                <option key={x} value={x}>
+                  {orderStatusLabel(x)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {saving ? <div className={s.savingText}>Збереження…</div> : null}
+        </div>
+      </div>
+
+      <div className={s.orderInfoGrid}>
+        <div className={s.infoCard}>
+          <div className={s.infoTitle}>Клієнт</div>
+
+          <PersonNameRows value={customer.name} />
+          <InfoRow
+            label="Телефон"
+            value={customer.phone}
+            href={telHref(customer.phone)}
+          />
+          <InfoRow
+            label="Email"
+            value={customer.email}
+            href={mailHref(customer.email)}
+          />
+
+          {!customer.name && !customer.phone && !customer.email ? (
+            <div className={s.emptyInfo}>Дані клієнта не вказані</div>
+          ) : null}
+        </div>
+
+        <div className={s.infoCard}>
+          <div className={s.infoTitle}>Доставка</div>
+
+          {hasDeliveryData(delivery) ? (
+            <>
+              {delivery.recipient ? (
+                <div className={s.infoSubTitle}>Отримувач</div>
+              ) : null}
+
+              <PersonNameRows
+                value={delivery.recipient}
+                fallbackLabel="Отримувач"
+              />
+
+              <InfoRow
+                label="Телефон"
+                value={delivery.phone}
+                href={telHref(delivery.phone)}
+              />
+
+              <div className={s.infoSubTitle}>Доставка</div>
+
+              <InfoRow label="Служба" value={delivery.carrier} />
+              <InfoRow label="Спосіб" value={delivery.method} />
+              <InfoRow label="Місто" value={delivery.city} />
+              <InfoRow label="Область" value={delivery.region} />
+
+              <InfoRow label="Відділення" value={delivery.warehouse} />
+              <InfoRow label="Адреса" value={delivery.address} />
+
+              <InfoRow label="Індекс" value={delivery.postalCode} />
+              <InfoRow label="ТТН" value={delivery.tracking} />
+              <InfoRow label="Коментар" value={delivery.comment} />
+            </>
+          ) : (
+            <div className={s.emptyInfo}>Дані доставки не вказані</div>
+          )}
+        </div>
+
+        <div className={s.infoCard}>
+          <div className={s.infoTitle}>Оплата</div>
+
+          <div
+            className={`${s.paymentBadge} ${
+              payment.kind === "partial"
+                ? s.paymentPartial
+                : payment.kind === "full"
+                  ? s.paymentFull
+                  : s.paymentUnknown
+            }`}
+          >
+            {payment.label}
+          </div>
+
+          {payment.kind === "partial" ? (
+            <div className={s.paidAmount}>
+              Оплачено:{" "}
+              <strong>{formatMoney(payment.paidAmount, order?.currency)}</strong>
+            </div>
+          ) : null}
+        </div>
+
+        <div className={s.infoCard}>
+          <div className={s.infoTitle}>Файли замовлення</div>
+
+          {orderSource ? (
+            <a
+              className={s.sourceLink}
+              href={orderSource}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Джерело моделі: {sourceLabel(orderSource)}
+            </a>
+          ) : (
+            <div className={s.emptyInfo}>Джерело моделі не вказано</div>
+          )}
+
+          {orderFiles.length > 0 ? (
+            <div className={s.filesList}>
+              {orderFiles.map((file, fileIdx) => (
+                <a
+                  key={`${id}-order-file-${fileIdx}`}
+                  className={s.fileLink}
+                  href={file.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  download={file.filename || undefined}
+                >
+                  Завантажити {fileTitle(file, fileIdx)}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className={s.noFiles}>
+              STL/3MF файли замовлення не прикріплені
+            </div>
+          )}
+        </div>
+      </div>
+
+      {items.length > 0 ? (
+        <div className={s.itemsList}>
+          {items.map((item, itemIdx) => {
+            const imageUrl = pickItemImage(item);
+            const files = pickItemFiles(item);
+            const sourceUrl = pickModelSource(item) || orderSource;
+
+            return (
+              <div key={`${id}-item-${itemIdx}`} className={s.itemCard}>
+                <div className={s.itemImageBox}>
+                  {imageUrl ? (
+                    <img
+                      className={s.itemImage}
+                      src={imageUrl}
+                      alt={item.name || item.title || item.sku || "Товар"}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className={s.itemImagePlaceholder}>Без фото</div>
+                  )}
+                </div>
+
+                <div className={s.itemBody}>
+                  <div className={s.itemTitle}>
+                    {item.name || item.title || item.sku || "Товар"}
+                  </div>
+
+                  <div className={s.itemMeta}>
+                    <span>Кількість: {item.qty ?? item.quantity ?? 1}</span>
+
+                    {item.sku ? <span>SKU: {item.sku}</span> : null}
+
+                    {item.price != null ? (
+                      <span>Ціна: {formatMoney(item.price, order?.currency)}</span>
+                    ) : null}
+
+                    {item.total != null ? (
+                      <span>Разом: {formatMoney(item.total, order?.currency)}</span>
+                    ) : null}
+                  </div>
+
+                  {sourceUrl ? (
+                    <div className={s.sourceBlock}>
+                      <a
+                        className={s.sourceLink}
+                        href={sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Джерело моделі: {sourceLabel(sourceUrl)}
+                      </a>
+                    </div>
+                  ) : null}
+
+                  <div className={s.filesBlock}>
+                    <div className={s.filesTitle}>Файли моделі</div>
+
+                    {files.length > 0 ? (
+                      <div className={s.filesList}>
+                        {files.map((file, fileIdx) => (
+                          <a
+                            key={`${id}-item-${itemIdx}-file-${fileIdx}`}
+                            className={s.fileLink}
+                            href={file.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            download={file.filename || undefined}
+                          >
+                            Завантажити {fileTitle(file, fileIdx)}
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={s.noFiles}>
+                        STL/3MF файли не прикріплені
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <details
+        className={s.details}
+        onToggle={(e) => setShowRaw(e.currentTarget.open)}
+      >
+        <summary className={`text-muted ${s.detailsSummary}`}>
+          Службові дані
+        </summary>
+        {showRaw ? (
+          <pre className={s.pre}>{JSON.stringify(order, null, 2)}</pre>
+        ) : null}
+      </details>
+    </div>
+  );
+});
+
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [apiStatuses, setApiStatuses] = useState(ORDER_STATUSES);
@@ -569,7 +883,12 @@ export default function Orders() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
 
-  async function load() {
+  // Keep the search box responsive: typing updates `q` instantly, but the
+  // expensive filter + re-render of the order list runs against the deferred
+  // value so keystrokes don't block on low-power devices.
+  const deferredQ = useDeferredValue(q);
+
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -594,7 +913,7 @@ export default function Orders() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [status, q]);
 
   useEffect(() => {
     load();
@@ -604,7 +923,7 @@ export default function Orders() {
 
   const filtered = useMemo(() => {
     const list = asArray(orders);
-    const qq = norm(q);
+    const qq = norm(deferredQ);
 
     return list.filter((o) => {
       if (status !== "all") {
@@ -634,7 +953,7 @@ export default function Orders() {
 
       return hay.includes(qq);
     });
-  }, [orders, q, status]);
+  }, [orders, deferredQ, status]);
 
   const statuses = useMemo(() => {
     const set = new Set(["all", ...apiStatuses]);
@@ -650,7 +969,10 @@ export default function Orders() {
     return Array.from(set);
   }, [orders, apiStatuses]);
 
-  async function updateStatus(order, nextStatus) {
+  // Stable identity so the memoized OrderCard isn't invalidated on every
+  // render. Rollback targets only the affected order rather than snapshotting
+  // and restoring the whole list (which would clobber concurrent updates).
+  const updateStatus = useCallback(async (order, nextStatus) => {
     const id = pickId(order);
     const prevStatus = pickStatus(order);
 
@@ -658,8 +980,6 @@ export default function Orders() {
 
     setSavingId(id);
     setError(null);
-
-    const prevOrders = orders;
 
     setOrders((current) =>
       current.map((item) =>
@@ -681,12 +1001,16 @@ export default function Orders() {
         );
       }
     } catch (e) {
-      setOrders(prevOrders);
+      setOrders((current) =>
+        current.map((item) =>
+          pickId(item) === id ? { ...item, status: prevStatus } : item
+        )
+      );
       setError(e);
     } finally {
       setSavingId("");
     }
-  }
+  }, []);
 
   return (
     <div>
@@ -742,297 +1066,15 @@ export default function Orders() {
       <div className={s.list}>
         {filtered.map((o, idx) => {
           const id = pickId(o);
-          const shopId = pickShopId(o);
-          const currentStatus = pickStatus(o) || "New";
-          const items = asArray(o?.items);
-
-          const customer = pickCustomer(o);
-          const customerSummary = [customer.name, customer.email, customer.phone]
-            .filter(Boolean)
-            .join(" · ");
-          const delivery = pickDelivery(o);
-          const payment = pickPayment(o);
-          const orderFiles = pickModelFiles(o);
-          const orderSource = pickModelSource(o);
 
           return (
-            <div key={id || idx} className={`card ${s.orderCard}`}>
-              <div className={s.cardHeader}>
-                <div>
-                  <div className={s.primaryLine}>
-                    #{id || "без ID"}{" "}
-                    <span className="text-muted">
-                      {o?.created_at ? `• ${formatDate(o.created_at)}` : ""}
-                    </span>
-                  </div>
-
-                  {shopId && shopId !== id ? (
-                    <div className={s.subLine}>ID магазину: {shopId}</div>
-                  ) : null}
-
-                  <div className={s.subLine}>
-                    Сума:{" "}
-                    <strong>
-                      {formatMoney(o?.total_uah ?? o?.total, o?.currency)}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className={s.sideBlock}>
-                  <div className={`text-muted ${s.customerInfo}`}>
-                    {customerSummary || "Клієнт не вказаний"}
-                  </div>
-
-                  <label className={s.statusEditor}>
-                    <span>Статус</span>
-                    <select
-                      className={`select ${s.statusSelectSmall}`}
-                      value={currentStatus}
-                      onChange={(e) => updateStatus(o, e.target.value)}
-                      disabled={savingId === id}
-                    >
-                      {apiStatuses.map((x) => (
-                        <option key={x} value={x}>
-                          {orderStatusLabel(x)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {savingId === id ? (
-                    <div className={s.savingText}>Збереження…</div>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className={s.orderInfoGrid}>
-                <div className={s.infoCard}>
-                  <div className={s.infoTitle}>Клієнт</div>
-
-                  <PersonNameRows value={customer.name} />
-                  <InfoRow
-                    label="Телефон"
-                    value={customer.phone}
-                    href={telHref(customer.phone)}
-                  />
-                  <InfoRow
-                    label="Email"
-                    value={customer.email}
-                    href={mailHref(customer.email)}
-                  />
-
-                  {!customer.name && !customer.phone && !customer.email ? (
-                    <div className={s.emptyInfo}>Дані клієнта не вказані</div>
-                  ) : null}
-                </div>
-
-                <div className={s.infoCard}>
-                  <div className={s.infoTitle}>Доставка</div>
-
-                  {hasDeliveryData(delivery) ? (
-                    <>
-                      {delivery.recipient ? (
-                        <div className={s.infoSubTitle}>Отримувач</div>
-                      ) : null}
-
-                      <PersonNameRows
-                        value={delivery.recipient}
-                        fallbackLabel="Отримувач"
-                      />
-
-                      <InfoRow
-                        label="Телефон"
-                        value={delivery.phone}
-                        href={telHref(delivery.phone)}
-                      />
-
-                      <div className={s.infoSubTitle}>Доставка</div>
-
-                      <InfoRow label="Служба" value={delivery.carrier} />
-                      <InfoRow label="Спосіб" value={delivery.method} />
-                      <InfoRow label="Місто" value={delivery.city} />
-                      <InfoRow label="Область" value={delivery.region} />
-
-                      <InfoRow label="Відділення" value={delivery.warehouse} />
-                      <InfoRow label="Адреса" value={delivery.address} />
-
-                      <InfoRow label="Індекс" value={delivery.postalCode} />
-                      <InfoRow label="ТТН" value={delivery.tracking} />
-                      <InfoRow label="Коментар" value={delivery.comment} />
-                    </>
-                  ) : (
-                    <div className={s.emptyInfo}>Дані доставки не вказані</div>
-                  )}
-                </div>
-
-                <div className={s.infoCard}>
-                  <div className={s.infoTitle}>Оплата</div>
-
-                  <div
-                    className={`${s.paymentBadge} ${
-                      payment.kind === "partial"
-                        ? s.paymentPartial
-                        : payment.kind === "full"
-                          ? s.paymentFull
-                          : s.paymentUnknown
-                    }`}
-                  >
-                    {payment.label}
-                  </div>
-
-                  {payment.kind === "partial" ? (
-                    <div className={s.paidAmount}>
-                      Оплачено:{" "}
-                      <strong>
-                        {formatMoney(payment.paidAmount, o?.currency)}
-                      </strong>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className={s.infoCard}>
-                  <div className={s.infoTitle}>Файли замовлення</div>
-
-                  {orderSource ? (
-                    <a
-                      className={s.sourceLink}
-                      href={orderSource}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Джерело моделі: {sourceLabel(orderSource)}
-                    </a>
-                  ) : (
-                    <div className={s.emptyInfo}>
-                      Джерело моделі не вказано
-                    </div>
-                  )}
-
-                  {orderFiles.length > 0 ? (
-                    <div className={s.filesList}>
-                      {orderFiles.map((file, fileIdx) => (
-                        <a
-                          key={`${id}-order-file-${fileIdx}`}
-                          className={s.fileLink}
-                          href={file.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          download={file.filename || undefined}
-                        >
-                          Завантажити {fileTitle(file, fileIdx)}
-                        </a>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className={s.noFiles}>
-                      STL/3MF файли замовлення не прикріплені
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {items.length > 0 ? (
-                <div className={s.itemsList}>
-                  {items.map((item, itemIdx) => {
-                    const imageUrl = pickItemImage(item);
-                    const files = pickItemFiles(item);
-                    const sourceUrl = pickModelSource(item) || orderSource;
-
-                    return (
-                      <div key={`${id}-item-${itemIdx}`} className={s.itemCard}>
-                        <div className={s.itemImageBox}>
-                          {imageUrl ? (
-                            <img
-                              className={s.itemImage}
-                              src={imageUrl}
-                              alt={
-                                item.name || item.title || item.sku || "Товар"
-                              }
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className={s.itemImagePlaceholder}>
-                              Без фото
-                            </div>
-                          )}
-                        </div>
-
-                        <div className={s.itemBody}>
-                          <div className={s.itemTitle}>
-                            {item.name || item.title || item.sku || "Товар"}
-                          </div>
-
-                          <div className={s.itemMeta}>
-                            <span>
-                              Кількість: {item.qty ?? item.quantity ?? 1}
-                            </span>
-
-                            {item.sku ? <span>SKU: {item.sku}</span> : null}
-
-                            {item.price != null ? (
-                              <span>
-                                Ціна: {formatMoney(item.price, o?.currency)}
-                              </span>
-                            ) : null}
-
-                            {item.total != null ? (
-                              <span>
-                                Разом: {formatMoney(item.total, o?.currency)}
-                              </span>
-                            ) : null}
-                          </div>
-
-                          {sourceUrl ? (
-                            <div className={s.sourceBlock}>
-                              <a
-                                className={s.sourceLink}
-                                href={sourceUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                Джерело моделі: {sourceLabel(sourceUrl)}
-                              </a>
-                            </div>
-                          ) : null}
-
-                          <div className={s.filesBlock}>
-                            <div className={s.filesTitle}>Файли моделі</div>
-
-                            {files.length > 0 ? (
-                              <div className={s.filesList}>
-                                {files.map((file, fileIdx) => (
-                                  <a
-                                    key={`${id}-item-${itemIdx}-file-${fileIdx}`}
-                                    className={s.fileLink}
-                                    href={file.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    download={file.filename || undefined}
-                                  >
-                                    Завантажити {fileTitle(file, fileIdx)}
-                                  </a>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className={s.noFiles}>
-                                STL/3MF файли не прикріплені
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              <details className={s.details}>
-                <summary className={`text-muted ${s.detailsSummary}`}>
-                  Службові дані
-                </summary>
-                <pre className={s.pre}>{JSON.stringify(o, null, 2)}</pre>
-              </details>
-            </div>
+            <OrderCard
+              key={id || idx}
+              order={o}
+              apiStatuses={apiStatuses}
+              saving={savingId === id}
+              onUpdateStatus={updateStatus}
+            />
           );
         })}
 

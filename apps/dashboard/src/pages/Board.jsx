@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiWB as api } from "../api/wallboardApi.js";
 import { useSSE } from "../hooks/useSSE.js";
@@ -491,7 +491,7 @@ function HeroHeader({ updatedAt, loading, hasError }) {
   );
 }
 
-function SectionOrders({ data = {}, loading = false }) {
+const SectionOrders = memo(function SectionOrders({ data = {}, loading = false }) {
   const orders = data.orders || {};
   const total = ORDER_STAGES.reduce(
     (sum, { key }) => sum + asNumber(orders[key], 0),
@@ -518,9 +518,9 @@ function SectionOrders({ data = {}, loading = false }) {
       </div>
     </Panel>
   );
-}
+});
 
-function SectionQueues({ queues = {}, loading = false }) {
+const SectionQueues = memo(function SectionQueues({ queues = {}, loading = false }) {
   const rows = QUEUE_ROWS.map(({ key, label, readyKey, runningKey }) => ({
     key,
     label,
@@ -558,9 +558,9 @@ function SectionQueues({ queues = {}, loading = false }) {
       </div>
     </Panel>
   );
-}
+});
 
-function SectionMaterials({ materials = {}, loading = false }) {
+const SectionMaterials = memo(function SectionMaterials({ materials = {}, loading = false }) {
   const stock = Array.isArray(materials.stock) ? materials.stock : [];
   const low = Array.isArray(materials.low) ? materials.low : [];
 
@@ -653,9 +653,9 @@ function SectionMaterials({ materials = {}, loading = false }) {
       </div>
     </Panel>
   );
-}
+});
 
-function SectionLogistics({ logistics = {}, loading = false }) {
+const SectionLogistics = memo(function SectionLogistics({ logistics = {}, loading = false }) {
   const byCarrier =
     logistics.byCarrier && typeof logistics.byCarrier === "object" ? logistics.byCarrier : null;
 
@@ -717,9 +717,9 @@ function SectionLogistics({ logistics = {}, loading = false }) {
       </div>
     </Panel>
   );
-}
+});
 
-function SectionPayments({ payments = {}, loading = false }) {
+const SectionPayments = memo(function SectionPayments({ payments = {}, loading = false }) {
   return (
     <Panel
       loading={loading}
@@ -754,9 +754,9 @@ function SectionPayments({ payments = {}, loading = false }) {
       </div>
     </Panel>
   );
-}
+});
 
-function SectionServices({ services = {}, loading = false }) {
+const SectionServices = memo(function SectionServices({ services = {}, loading = false }) {
   const downCount = SERVICE_ROWS.reduce((count, [, key]) => {
     const status = String(services[key] || "unknown").toLowerCase();
 
@@ -797,9 +797,9 @@ function SectionServices({ services = {}, loading = false }) {
       </div>
     </Panel>
   );
-}
+});
 
-function SectionBackups({ backup = DEFAULT_BACKUP_STATUS, loading = false }) {
+const SectionBackups = memo(function SectionBackups({ backup = DEFAULT_BACKUP_STATUS, loading = false }) {
   const ageHours = getBackupAgeHours(backup.updated_at);
   const isOld = ageHours != null && ageHours > 30;
   const statusTone = isOld && backup.status === "success" ? "warning" : getBackupTone(backup.status);
@@ -879,9 +879,9 @@ function SectionBackups({ backup = DEFAULT_BACKUP_STATUS, loading = false }) {
       </div>
     </Panel>
   );
-}
+});
 
-function SectionIndexer({ idx = {}, loading = false }) {
+const SectionIndexer = memo(function SectionIndexer({ idx = {}, loading = false }) {
   return (
     <Panel
       loading={loading}
@@ -906,9 +906,9 @@ function SectionIndexer({ idx = {}, loading = false }) {
       </div>
     </Panel>
   );
-}
+});
 
-function SectionIngester({ ing = {}, loading = false }) {
+const SectionIngester = memo(function SectionIngester({ ing = {}, loading = false }) {
   const batches = Array.isArray(ing.batches) ? ing.batches : [];
 
   return (
@@ -978,9 +978,9 @@ function SectionIngester({ ing = {}, loading = false }) {
       </div>
     </Panel>
   );
-}
+});
 
-function SectionWebhooks({ wh = {}, loading = false }) {
+const SectionWebhooks = memo(function SectionWebhooks({ wh = {}, loading = false }) {
   const providers = wh.providers && typeof wh.providers === "object" ? wh.providers : {};
   const items = Object.entries(providers);
 
@@ -1026,9 +1026,9 @@ function SectionWebhooks({ wh = {}, loading = false }) {
       )}
     </Panel>
   );
-}
+});
 
-function SectionAlerts({ alerts = [], loading = false }) {
+const SectionAlerts = memo(function SectionAlerts({ alerts = [], loading = false }) {
   return (
     <Panel loading={loading} title="Оповіщення" subtitle="Останні 10 подій" flush>
       {alerts.length ? (
@@ -1064,9 +1064,9 @@ function SectionAlerts({ alerts = [], loading = false }) {
       )}
     </Panel>
   );
-}
+});
 
-function TopSummary({ prints, stats, alertsCount }) {
+const TopSummary = memo(function TopSummary({ prints, stats, alertsCount }) {
   const jobs = Array.isArray(prints.jobs) ? prints.jobs : [];
   const orderProblems = asNumber(stats.orders?.Problem, 0);
   const logisticsProblems = asNumber(stats.logistics?.problem, 0);
@@ -1110,7 +1110,7 @@ function TopSummary({ prints, stats, alertsCount }) {
       />
     </div>
   );
-}
+});
 
 export default function Board() {
   const [ops, setOps] = useState(DEFAULT_OPS);
