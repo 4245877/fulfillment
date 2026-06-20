@@ -71,6 +71,7 @@ const bambuCache = new Map<string, PrinterStatus>();
 // Last known *raw* Bambu print payload, merged across partial MQTT reports.
 const bambuRawPrint = new Map<string, Record<string, unknown>>();
 const bambuClients = new Map<string, mqtt.MqttClient>();
+const bambuPushTimers = new Map<string, ReturnType<typeof setInterval>>();
 const bambuStatusWaiters = new Map<
   string,
   Set<(status: PrinterStatus | null) => void>
@@ -78,6 +79,12 @@ const bambuStatusWaiters = new Map<
 
 const SECRET_MASK = "********";
 const BAMBU_FIRST_STATUS_WAIT_MS = 4500;
+// Bambu MQTT pushes a full report once (after a `pushall`), then only deltas.
+// The A1/P1 series are unreliable at pushing the `gcode_state` change to FINISH,
+// so a missed delta would leave the cache stuck on "printing" and the monitor
+// would never see completion. Re-request a full report periodically so the
+// current state is always resurfaced within this interval.
+const BAMBU_PUSHALL_INTERVAL_MS = 30000;
 
 const PRINTERS_CONFIG_PATH =
   process.env.PRINTERS_CONFIG_PATH ||
@@ -142,7 +149,13 @@ function resetBambuClient(printerId: string) {
     client.end(true);
   }
 
+  const pushTimer = bambuPushTimers.get(printerId);
+  if (pushTimer) {
+    clearInterval(pushTimer);
+  }
+
   bambuClients.delete(printerId);
+  bambuPushTimers.delete(printerId);
   bambuCache.delete(printerId);
   bambuRawPrint.delete(printerId);
   bambuStatusWaiters.delete(printerId);
@@ -731,9 +744,7 @@ function ensureBambuClient(printer: PrinterConfig) {
   const reportTopic = `device/${printer.serial}/report`;
   const requestTopic = `device/${printer.serial}/request`;
 
-  client.on("connect", () => {
-    client.subscribe(reportTopic);
-
+  const requestFullReport = () => {
     client.publish(
       requestTopic,
       JSON.stringify({
@@ -743,7 +754,23 @@ function ensureBambuClient(printer: PrinterConfig) {
         },
       })
     );
+  };
+
+  client.on("connect", () => {
+    client.subscribe(reportTopic);
+    requestFullReport();
   });
+
+  // Periodically resurface the full state so a missed FINISH delta can't leave
+  // the cache stuck on "printing" (see BAMBU_PUSHALL_INTERVAL_MS). `unref` so the
+  // timer never keeps the process alive on shutdown.
+  const pushTimer = setInterval(() => {
+    if (client.connected) {
+      requestFullReport();
+    }
+  }, BAMBU_PUSHALL_INTERVAL_MS);
+  pushTimer.unref?.();
+  bambuPushTimers.set(printer.id, pushTimer);
 
   client.on("message", (_topic, payload) => {
     try {

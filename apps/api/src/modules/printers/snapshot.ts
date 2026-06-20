@@ -1,4 +1,5 @@
 import type { PrinterConfig } from "./routes";
+import { captureBambuCameraSnapshot } from "./bambuCamera";
 
 export type PrinterSnapshot = {
   base64: string;
@@ -22,8 +23,9 @@ function hostWithoutPort(host: string): string {
  *
  * Honours an explicit `snapshotUrl` from the printer config (absolute URL or a
  * path relative to the host). Otherwise falls back to the conventional snapshot
- * endpoint per protocol. Bambu chamber cameras use an encrypted stream that has
- * no plain snapshot endpoint, so they return `null` (photo is skipped).
+ * endpoint per protocol. Bambu cameras have no plain HTTP snapshot endpoint, so
+ * they return `null` here and are captured over their local TLS stream instead
+ * (see `captureBambuCameraSnapshot`).
  */
 export function resolveSnapshotUrl(printer: PrinterConfig): string | null {
   const explicit = (printer.snapshotUrl || "").trim();
@@ -54,13 +56,23 @@ export function resolveSnapshotUrl(printer: PrinterConfig): string | null {
  * Fetches a single camera frame for the printer. Returns `null` (never throws)
  * when no camera is configured/available, the request fails or times out, or
  * the response is not a reasonably sized image — callers degrade to text-only.
+ *
+ * Bambu printers have no HTTP snapshot endpoint, so without an explicit
+ * `snapshotUrl` they are captured over their local TLS camera stream.
  */
 export async function captureSnapshot(
   printer: PrinterConfig,
   options: CaptureSnapshotOptions = {}
 ): Promise<PrinterSnapshot | null> {
   const url = resolveSnapshotUrl(printer);
-  if (!url) return null;
+
+  if (!url) {
+    if (printer.protocol === "bambu") {
+      return captureBambuCameraSnapshot(printer, options);
+    }
+
+    return null;
+  }
 
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
