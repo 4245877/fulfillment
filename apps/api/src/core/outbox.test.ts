@@ -18,3 +18,24 @@ test("outbox backoff grows exponentially and caps at ten minutes", async () => {
   assert.equal(calculateOutboxBackoffMs(10), 600000);
   assert.equal(calculateOutboxBackoffMs(99), 600000);
 });
+
+test("outbox dead-letters retryable events once attempts hit the cap", async () => {
+  process.env.DATABASE_URL ??= "postgres://user:pass@localhost:5432/test";
+  const { shouldRetryOutboxEvent, DEFAULT_MAX_OUTBOX_ATTEMPTS } = await import(
+    "./outbox"
+  );
+
+  // Non-retryable errors are never re-queued.
+  assert.equal(shouldRetryOutboxEvent(1, false), false);
+
+  // Retryable errors retry until (but not at/after) the cap.
+  assert.equal(shouldRetryOutboxEvent(1, true), true);
+  assert.equal(
+    shouldRetryOutboxEvent(DEFAULT_MAX_OUTBOX_ATTEMPTS - 1, true),
+    true
+  );
+  assert.equal(shouldRetryOutboxEvent(DEFAULT_MAX_OUTBOX_ATTEMPTS, true), false);
+
+  // The cap is configurable.
+  assert.equal(shouldRetryOutboxEvent(3, true, 3), false);
+});

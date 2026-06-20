@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderNotificationMessage } from "./templates";
+import {
+  renderNotificationMessage,
+  TELEGRAM_MESSAGE_LIMIT,
+} from "./templates";
 import { NOTIFICATION_EVENT_TYPES } from "./types";
 
 test("renders Telegram HTML with escaped user-controlled values", () => {
@@ -92,6 +95,25 @@ test("renders a cancelled print without an error line", () => {
   assert.equal(html.includes("🚫 Друк скасовано"), true);
   assert.equal(html.includes("99%"), true);
   assert.equal(html.includes("Опис"), false);
+});
+
+test("clamps an oversized critical error within the Telegram message limit", () => {
+  const html = renderNotificationMessage(
+    NOTIFICATION_EVENT_TYPES.SYSTEM_CRITICAL_ERROR,
+    {
+      message: "x".repeat(50_000),
+      name: "Error",
+      stack: "y".repeat(50_000),
+      statusCode: 500,
+      method: "POST",
+      url: `/api/${"z".repeat(50_000)}`,
+      requestId: "req_1",
+      occurredAt: "2026-06-20T10:00:00.000Z",
+    } as any
+  );
+
+  assert.equal(html.length <= TELEGRAM_MESSAGE_LIMIT, true);
+  assert.equal(html.includes("Критична помилка API"), true);
 });
 
 test("renders print completion without an error line", () => {

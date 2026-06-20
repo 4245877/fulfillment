@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { PrinterStatus } from "./routes";
+import { toStatusState, type PrinterStatus } from "./routes";
 
 // Loaded lazily so DATABASE_URL (required transitively via the dispatcher) is
 // set before the module graph is evaluated.
@@ -105,16 +105,59 @@ test("classifyTransition distinguishes a filament runout pause", async () => {
     ),
     "filament_runout"
   );
+
+  // A routine M600 colour change must NOT be misread as a runout.
+  assert.equal(
+    classifyTransition(
+      status({ status: "printing" }),
+      status({ status: "paused", stateMessage: "Filament change" })
+    ),
+    "paused"
+  );
+});
+
+test("classifyTransition treats a runout reported as error as a runout", async () => {
+  const { classifyTransition } = await loadMonitor();
+
+  assert.equal(
+    classifyTransition(
+      status({ status: "printing" }),
+      status({ status: "error", error: "Filament runout detected" })
+    ),
+    "filament_runout"
+  );
+
+  // A genuine fault still reports as a generic error.
+  assert.equal(
+    classifyTransition(
+      status({ status: "printing" }),
+      status({ status: "error", error: "MCU shutdown" })
+    ),
+    "error"
+  );
+});
+
+test("toStatusState maps a Moonraker cancel to idle", () => {
+  // Regression: Moonraker's print_stats.state is the raw "cancelled" on a user
+  // abort. It must map to "idle" (not "unknown") so the idle transition that
+  // drives cancel detection actually fires in production.
+  assert.equal(toStatusState("cancelled"), "idle");
+  assert.equal(toStatusState("cancel"), "idle");
 });
 
 test("classifyTransition reports a cancelled print", async () => {
   const { classifyTransition } = await loadMonitor();
 
-  // Moonraker reports the raw "cancelled" state on the idle transition.
+  // Moonraker reports the raw "cancelled" state, which toStatusState maps to
+  // "idle" while stateText keeps the raw marker for CANCEL_RE.
   assert.equal(
     classifyTransition(
       status({ status: "printing", progressPct: 40 }),
-      status({ status: "idle", stateText: "cancelled", progressPct: 40 })
+      status({
+        status: toStatusState("cancelled"),
+        stateText: "cancelled",
+        progressPct: 40,
+      })
     ),
     "cancelled"
   );

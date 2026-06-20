@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Knex } from "knex";
 
@@ -21,7 +23,12 @@ import {
   getNotificationRetryAfterMs,
   isRetryableNotificationError,
 } from "./retry";
-import { renderNotificationMessage } from "./templates";
+import {
+  clampTelegramText,
+  renderNotificationMessage,
+  TELEGRAM_CAPTION_LIMIT,
+  TELEGRAM_MESSAGE_LIMIT,
+} from "./templates";
 import {
   NOTIFICATION_EVENT_TYPES,
   NOTIFICATION_EVENT_TYPE_VALUES,
@@ -198,12 +205,34 @@ export async function enqueuePrinterNotification(
   );
 }
 
+/**
+ * Collapses repeated critical errors with the same signature (message + URL +
+ * status code) into a single notification per time window. Without this a hard
+ * failure that makes every request return 500 (e.g. the DB is down) would post
+ * hundreds of messages, hit Telegram's 429 limit and amplify the load.
+ */
+function criticalErrorDedupeKey(
+  payload: CriticalErrorNotificationPayload
+): string {
+  const windowMs = Math.max(1, env.NOTIFICATIONS_CRITICAL_DEDUPE_WINDOW_MS);
+  const bucket = Math.floor(Date.now() / windowMs);
+  const signature = createHash("sha1")
+    .update(
+      [payload.statusCode ?? 500, payload.method ?? "", payload.url ?? "", payload.message]
+        .join("\n")
+    )
+    .digest("hex");
+
+  return `notification:critical-error:${signature}:${bucket}`;
+}
+
 export async function enqueueCriticalErrorNotification(
   payload: CriticalErrorNotificationPayload
 ): Promise<OutboxEvent> {
   return enqueueOutboxEvent({
     eventType: NOTIFICATION_EVENT_TYPES.SYSTEM_CRITICAL_ERROR,
     payload,
+    dedupeKey: criticalErrorDedupeKey(payload),
   });
 }
 
@@ -264,7 +293,10 @@ async function sendNotificationEvent(
     await client.sendPhoto({
       chatId: config.chatId,
       messageThreadId,
-      caption: text,
+      // Defensive net on top of the per-field clamps in the templates: a media
+      // caption tops out at 1024 chars, beyond which Telegram returns a
+      // non-retryable 400.
+      caption: clampTelegramText(text, TELEGRAM_CAPTION_LIMIT),
       parseMode: "HTML",
       photo: Buffer.from(photo.base64, "base64"),
       mimeType: photo.mime,
@@ -276,7 +308,7 @@ async function sendNotificationEvent(
   await client.sendMessage({
     chatId: config.chatId,
     messageThreadId,
-    text,
+    text: clampTelegramText(text, TELEGRAM_MESSAGE_LIMIT),
     parseMode: "HTML",
     disableWebPagePreview: true,
   });
@@ -319,6 +351,7 @@ export async function dispatchPendingNotifications(
       await markOutboxEventFailed(event, error, {
         retryAfterMs: getNotificationRetryAfterMs(error),
         retryable: isRetryableNotificationError(error),
+        maxAttempts: env.NOTIFICATIONS_MAX_ATTEMPTS,
       });
       result.failed += 1;
 
@@ -377,21 +410,36 @@ export function registerNotificationOutboxWorker(app: FastifyInstance) {
     const statusCode = Number((error as any)?.statusCode || 500);
 
     if (statusCode >= 500) {
-      try {
-        await enqueueCriticalErrorNotification(
-          criticalPayloadFromError(error, req, statusCode)
-        );
-      } catch (enqueueError) {
-        app.log.error(
-          { error: getErrorMessage(enqueueError) },
-          "Failed to enqueue critical error notification"
-        );
+      // Always log: a custom handler replaces Fastify's default, so without
+      // this the 5xx stack would silently vanish from the logs.
+      app.log.error(
+        { err: error, reqId: req.id, method: req.method, url: req.url, statusCode },
+        "Unhandled request error"
+      );
+
+      // Only enqueue when the worker can actually drain the outbox. With
+      // Telegram disabled the dispatch worker never starts, so enqueuing here
+      // would pile up critical-error rows that are never sent nor surfaced.
+      if (getTelegramConfig().enabled) {
+        try {
+          await enqueueCriticalErrorNotification(
+            criticalPayloadFromError(error, req, statusCode)
+          );
+        } catch (enqueueError) {
+          app.log.error(
+            { error: getErrorMessage(enqueueError) },
+            "Failed to enqueue critical error notification"
+          );
+        }
       }
     }
 
     reply.code(statusCode);
     return {
-      error: getErrorMessage(error),
+      // Never leak internal 5xx details to the client; client errors keep their
+      // descriptive message.
+      error:
+        statusCode >= 500 ? "Internal Server Error" : getErrorMessage(error),
     };
   });
 

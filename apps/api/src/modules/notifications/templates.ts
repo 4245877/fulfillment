@@ -9,6 +9,24 @@ import type {
   TestNotificationPayload,
 } from "./types";
 
+// Telegram hard limits: 4096 chars for a text message, 1024 for a media
+// caption. We clamp the free-text fields that can blow up (error messages,
+// stack traces, file names) so the rendered total stays safely under the
+// caption limit even on the photo path — otherwise the API returns a
+// non-retryable 400 and the (often most important) notification is lost.
+export const TELEGRAM_MESSAGE_LIMIT = 4096;
+export const TELEGRAM_CAPTION_LIMIT = 1024;
+
+export function clampTelegramText(value: string, max: number): string {
+  if (value.length <= max) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, max - 1))}…`;
+}
+
+const clamp = clampTelegramText;
+
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -123,7 +141,7 @@ function renderPrinter(payload: PrinterNotificationPayload): string {
   }
 
   if (payload.currentFile) {
-    lines.push(line("Файл", payload.currentFile));
+    lines.push(line("Файл", clamp(payload.currentFile, 200)));
   }
 
   if (
@@ -135,8 +153,9 @@ function renderPrinter(payload: PrinterNotificationPayload): string {
 
   // Description carries the human-readable reason for errors, pauses and
   // filament runouts. Completion/cancellation drop it via a null errorMessage.
+  // Kept short so the rendered total stays under the 1024-char photo caption.
   if (payload.errorMessage) {
-    lines.push(line("Опис", payload.errorMessage.slice(0, 600)));
+    lines.push(line("Опис", clamp(payload.errorMessage, 400)));
   }
 
   lines.push(line("Час", payload.occurredAt));
@@ -147,16 +166,16 @@ function renderPrinter(payload: PrinterNotificationPayload): string {
 function renderCriticalError(payload: CriticalErrorNotificationPayload): string {
   const lines = [
     "<b>Критична помилка API</b>",
-    line("Повідомлення", payload.message),
+    line("Повідомлення", clamp(payload.message, 1500)),
     line("Статус", payload.statusCode ?? 500),
     line("Метод", payload.method),
-    line("URL", payload.url),
+    line("URL", clamp(String(payload.url ?? ""), 500)),
     line("Request ID", payload.requestId),
     line("Час", payload.occurredAt),
   ];
 
   if (payload.stack) {
-    lines.push(line("Stack", payload.stack.slice(0, 1200)));
+    lines.push(line("Stack", clamp(payload.stack, 1200)));
   }
 
   return lines.join("\n");
@@ -196,5 +215,15 @@ export function renderNotificationMessage(
 
     case NOTIFICATION_EVENT_TYPES.TEST:
       return renderTest(payload as TestNotificationPayload);
+
+    default: {
+      // Exhaustiveness guard: a new event type without a case would otherwise
+      // return undefined and be sent as an empty Telegram message (400, lost).
+      // Throwing routes it through the dispatcher's retry/dead-letter path.
+      const _exhaustive: never = eventType;
+      throw new Error(
+        `Unhandled notification event type: ${String(_exhaustive)}`
+      );
+    }
   }
 }

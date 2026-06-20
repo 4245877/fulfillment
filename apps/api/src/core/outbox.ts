@@ -8,6 +8,11 @@ const OUTBOX_TABLE = "outbox_events";
 const DEFAULT_LOCK_TIMEOUT_MS = 2 * 60 * 1000;
 const MAX_BACKOFF_MS = 10 * 60 * 1000;
 const MAX_ERROR_LENGTH = 5000;
+// Hard cap on delivery attempts. Without it a permanently-failing retryable
+// error (Telegram 5xx, or a non-Telegram error treated as retryable) would be
+// re-queued and re-claimed every cycle forever; past the cap the event is
+// parked in "failed" as a dead letter instead.
+export const DEFAULT_MAX_OUTBOX_ATTEMPTS = 10;
 
 type DbLike = Knex | Knex.Transaction;
 
@@ -43,7 +48,21 @@ export type ClaimOutboxEventsInput = {
 export type MarkOutboxEventFailedOptions = {
   retryAfterMs?: number;
   retryable?: boolean;
+  maxAttempts?: number;
 };
+
+/**
+ * Decides whether a just-failed event should be re-queued. Retryable errors are
+ * retried only while attempts (including this failure) stay under the cap;
+ * non-retryable errors and exhausted attempts are dead-lettered.
+ */
+export function shouldRetryOutboxEvent(
+  attemptsAfterFailure: number,
+  retryable: boolean,
+  maxAttempts: number = DEFAULT_MAX_OUTBOX_ATTEMPTS
+): boolean {
+  return retryable && attemptsAfterFailure < maxAttempts;
+}
 
 function id() {
   return `outbox_${randomUUID()}`;
@@ -203,7 +222,11 @@ export async function markOutboxEventFailed(
   options: MarkOutboxEventFailedOptions = {}
 ): Promise<void> {
   const attempts = event.attempts + 1;
-  const retryable = options.retryable ?? true;
+  const retryable = shouldRetryOutboxEvent(
+    attempts,
+    options.retryable ?? true,
+    options.maxAttempts
+  );
   const backoffMs = calculateOutboxBackoffMs(attempts, options.retryAfterMs);
 
   await db(OUTBOX_TABLE)

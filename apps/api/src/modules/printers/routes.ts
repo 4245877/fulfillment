@@ -354,7 +354,7 @@ function waitForBambuStatus(printerId: string, timeoutMs: number) {
   });
 }
 
-function toStatusState(value: unknown): PrinterStatus["status"] {
+export function toStatusState(value: unknown): PrinterStatus["status"] {
   const state = String(value || "").toLowerCase();
 
   if (
@@ -363,7 +363,21 @@ function toStatusState(value: unknown): PrinterStatus["status"] {
     return "printing";
   }
   if (["paused", "pause", "pausing"].includes(state)) return "paused";
-  if (["complete", "standby", "idle", "finished", "finish"].includes(state)) {
+  // `cancel`/`cancelled` are reported by Moonraker (print_stats.state) on a
+  // user abort and must land in "idle" so the monitor's cancel detection (which
+  // keys off an idle transition plus CANCEL_RE on stateText) can fire.
+  if (
+    [
+      "complete",
+      "standby",
+      "idle",
+      "finished",
+      "finish",
+      "cancel",
+      "cancelled",
+      "canceled",
+    ].includes(state)
+  ) {
     return "idle";
   }
   if (["error", "failed", "failure"].includes(state)) return "error";

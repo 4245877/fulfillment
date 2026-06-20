@@ -346,7 +346,18 @@ function toStatusState(value: unknown): PrinterStatus["status"] {
     return "printing";
   }
   if (["paused", "pause", "pausing"].includes(state)) return "paused";
-  if (["complete", "standby", "idle", "finished", "finish"].includes(state)) {
+  if (
+    [
+      "complete",
+      "standby",
+      "idle",
+      "finished",
+      "finish",
+      "cancel",
+      "cancelled",
+      "canceled",
+    ].includes(state)
+  ) {
     return "idle";
   }
   if (["error", "failed", "failure"].includes(state)) return "error";

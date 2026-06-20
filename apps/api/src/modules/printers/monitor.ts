@@ -33,7 +33,11 @@ const CANCEL_RE = /cancel|abort|stop/i;
 // Firmware-reported pause/error reasons that mean the spool ran out. Covers
 // Moonraker (`print_stats.message`), Klipper macros, Creality and common
 // localisations so a runout is surfaced distinctly from a manual pause.
-const FILAMENT_RUNOUT_RE = /filament|runout|run out|філамент|закінч.*філ|нема.*філ/i;
+// Deliberately requires a runout-specific token: a bare "filament" must NOT
+// match, otherwise a routine M600 colour change ("Filament change") would be
+// mislabelled as a runout.
+const FILAMENT_RUNOUT_RE =
+  /runout|run\s*out|out of filament|закінч.*філ|нема.*філ/i;
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -92,7 +96,10 @@ export function classifyTransition(
   }
 
   if (next.status === "error" && prev.status !== "error") {
-    return "error";
+    // Some firmwares surface a filament runout as an "error" rather than a
+    // pause; classify it as a runout so the operator gets the actionable
+    // message instead of a generic printer error.
+    return looksFilamentRunout(next) ? "filament_runout" : "error";
   }
 
   if (next.status === "paused" && prev.status === "printing") {
