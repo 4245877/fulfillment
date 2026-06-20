@@ -473,9 +473,23 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
+  row-gap: var(--space-sm);
+  flex-wrap: wrap;
   padding: var(--space-md) var(--space-lg);
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--neutral-50) 70%, var(--surface));
+}
+
+/* Let the title/subtitle block shrink so long subtitles wrap instead of
+   squeezing an adjacent action button below its own width. */
+.panel-header > :first-child {
+  min-width: 0;
+}
+
+/* Action buttons keep their intrinsic width and wrap to a new line on
+   narrow panels rather than being clipped by .panel / .btn overflow:hidden. */
+.panel-header > .btn {
+  flex-shrink: 0;
 }
 
 .panel-title {

@@ -370,6 +370,25 @@
   min-width: 920px;
 }
 
+@media (max-width: 768px) {
+  /* The stock table has only four short columns (material, colour, remaining,
+     status). Let it fit the viewport instead of forcing a horizontal scroll
+     that hides the remaining stock and status off-screen. The wide movements
+     table (seven columns) still scrolls. */
+  .table {
+    min-width: 0;
+  }
+
+  .movementsTable {
+    min-width: 720px;
+  }
+
+  .table th,
+  .table td {
+    padding: 0.55rem 0.6rem;
+  }
+}
+
 .table thead {
   background: color-mix(in srgb, var(--neutral-50) 80%, var(--surface));
 }
