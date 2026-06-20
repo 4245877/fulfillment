@@ -25,6 +25,24 @@ test("routes notification event types to Telegram topics", () => {
   );
 });
 
+test("routes printer events to the prints topic", () => {
+  assert.equal(
+    routeNotificationToTopic(NOTIFICATION_EVENT_TYPES.PRINTER_ERROR, {} as any),
+    "prints"
+  );
+  assert.equal(
+    routeNotificationToTopic(NOTIFICATION_EVENT_TYPES.PRINTER_PAUSED, {} as any),
+    "prints"
+  );
+  assert.equal(
+    routeNotificationToTopic(
+      NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_COMPLETED,
+      {} as any
+    ),
+    "prints"
+  );
+});
+
 test("routes Telegram topic tests only to known topics", () => {
   assert.equal(
     routeNotificationToTopic(NOTIFICATION_EVENT_TYPES.TEST, {

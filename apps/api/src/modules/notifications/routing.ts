@@ -47,6 +47,14 @@ export function routeNotificationToTopic(
     return "productReports";
   }
 
+  if (
+    eventType === NOTIFICATION_EVENT_TYPES.PRINTER_ERROR ||
+    eventType === NOTIFICATION_EVENT_TYPES.PRINTER_PAUSED ||
+    eventType === NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_COMPLETED
+  ) {
+    return "prints";
+  }
+
   return "criticalErrors";
 }
 

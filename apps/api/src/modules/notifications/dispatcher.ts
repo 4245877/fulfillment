@@ -29,9 +29,12 @@ import {
   type CriticalErrorNotificationPayload,
   type NotificationEventType,
   type NotificationPayload,
+  type NotificationPhoto,
   type NotificationTopicKey,
   type OrderNotificationKind,
   type OrderNotificationPayload,
+  type PrinterNotificationKind,
+  type PrinterNotificationPayload,
   type ProductReportNotificationPayload,
   type TestNotificationPayload,
 } from "./types";
@@ -162,6 +165,31 @@ export async function enqueueProductReportNotification(
   );
 }
 
+function printerEventType(kind: PrinterNotificationKind): NotificationEventType {
+  if (kind === "error") {
+    return NOTIFICATION_EVENT_TYPES.PRINTER_ERROR;
+  }
+
+  if (kind === "paused") {
+    return NOTIFICATION_EVENT_TYPES.PRINTER_PAUSED;
+  }
+
+  return NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_COMPLETED;
+}
+
+export async function enqueuePrinterNotification(
+  payload: PrinterNotificationPayload,
+  trx?: DbLike
+): Promise<OutboxEvent> {
+  return enqueueOutboxEvent(
+    {
+      eventType: printerEventType(payload.kind),
+      payload,
+    },
+    trx
+  );
+}
+
 export async function enqueueCriticalErrorNotification(
   payload: CriticalErrorNotificationPayload
 ): Promise<OutboxEvent> {
@@ -196,6 +224,18 @@ export async function enqueueTelegramTopicTestNotifications() {
   );
 }
 
+function getNotificationPhoto(
+  payload: NotificationPayload
+): NotificationPhoto | null {
+  const photo = (payload as PrinterNotificationPayload).photo;
+
+  if (!photo || typeof photo.base64 !== "string" || !photo.base64) {
+    return null;
+  }
+
+  return photo;
+}
+
 async function sendNotificationEvent(
   event: OutboxEvent,
   client: TelegramClient,
@@ -208,11 +248,27 @@ async function sendNotificationEvent(
   const eventType = event.event_type;
   const payload = event.payload as NotificationPayload;
   const topic = routeNotificationToTopic(eventType, payload);
+  const messageThreadId = getTelegramMessageThreadId(config, topic);
+  const text = renderNotificationMessage(eventType, payload);
+  const photo = getNotificationPhoto(payload);
+
+  if (photo) {
+    await client.sendPhoto({
+      chatId: config.chatId,
+      messageThreadId,
+      caption: text,
+      parseMode: "HTML",
+      photo: Buffer.from(photo.base64, "base64"),
+      mimeType: photo.mime,
+      filename: photo.filename || undefined,
+    });
+    return;
+  }
 
   await client.sendMessage({
     chatId: config.chatId,
-    messageThreadId: getTelegramMessageThreadId(config, topic),
-    text: renderNotificationMessage(eventType, payload),
+    messageThreadId,
+    text,
     parseMode: "HTML",
     disableWebPagePreview: true,
   });

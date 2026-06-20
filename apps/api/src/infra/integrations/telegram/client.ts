@@ -6,6 +6,16 @@ export type TelegramSendMessageInput = {
   disableWebPagePreview?: boolean;
 };
 
+export type TelegramSendPhotoInput = {
+  chatId: string;
+  photo: Uint8Array;
+  caption?: string;
+  filename?: string;
+  mimeType?: string;
+  messageThreadId?: number | null;
+  parseMode?: "HTML" | "MarkdownV2";
+};
+
 export type TelegramClientOptions = {
   botToken: string;
   timeoutMs?: number;
@@ -97,9 +107,6 @@ export class TelegramClient {
   async sendMessage(
     input: TelegramSendMessageInput
   ): Promise<TelegramSendMessageResult> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-
     const payload: Record<string, unknown> = {
       chat_id: input.chatId,
       text: input.text,
@@ -114,13 +121,54 @@ export class TelegramClient {
       payload.parse_mode = input.parseMode;
     }
 
+    return this.request("sendMessage", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async sendPhoto(
+    input: TelegramSendPhotoInput
+  ): Promise<TelegramSendMessageResult> {
+    const form = new FormData();
+    form.append("chat_id", input.chatId);
+
+    if (input.messageThreadId != null) {
+      form.append("message_thread_id", String(input.messageThreadId));
+    }
+
+    if (input.caption) {
+      form.append("caption", input.caption);
+    }
+
+    if (input.parseMode) {
+      form.append("parse_mode", input.parseMode);
+    }
+
+    const blob = new Blob([input.photo as BlobPart], {
+      type: input.mimeType || "image/jpeg",
+    });
+    form.append("photo", blob, input.filename || "snapshot.jpg");
+
+    return this.request("sendPhoto", {
+      method: "POST",
+      body: form,
+    });
+  }
+
+  private async request(
+    method: string,
+    init: RequestInit
+  ): Promise<TelegramSendMessageResult> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+
     try {
-      const response = await fetch(this.url("sendMessage"), {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(payload),
+      const response = await fetch(this.url(method), {
+        ...init,
         signal: controller.signal,
       });
 

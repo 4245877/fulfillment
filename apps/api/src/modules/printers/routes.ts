@@ -4,9 +4,9 @@ import path from "node:path";
 import mqtt from "mqtt";
 import WebSocket from "ws";
 
-type PrinterProtocol = "moonraker" | "bambu" | "creality";
+export type PrinterProtocol = "moonraker" | "bambu" | "creality";
 
-type PrinterConfig = {
+export type PrinterConfig = {
   id: string;
   name: string;
   model?: string;
@@ -20,6 +20,7 @@ type PrinterConfig = {
   profile?: string;
   material?: string;
   nozzle?: string;
+  snapshotUrl?: string;
 
   enabled?: boolean;
   apiKey?: string;
@@ -27,7 +28,15 @@ type PrinterConfig = {
   accessCode?: string;
 };
 
-type PrinterStatus = {
+export type PrinterState =
+  | "idle"
+  | "printing"
+  | "paused"
+  | "error"
+  | "offline"
+  | "unknown";
+
+export type PrinterStatus = {
   id: string;
   name: string;
   model?: string;
@@ -40,9 +49,10 @@ type PrinterStatus = {
   profile?: string;
   material?: string;
   nozzle?: string;
+  snapshotUrl?: string;
 
   online: boolean;
-  status: "idle" | "printing" | "paused" | "error" | "offline" | "unknown";
+  status: PrinterState;
   currentFile: string | null;
   progressPct: number | null;
   printed: string | null;
@@ -51,6 +61,10 @@ type PrinterStatus = {
   bedTemp: number | null;
   updatedAt: string;
   error?: string;
+  // Raw device state string (e.g. moonraker "complete"/"cancelled") and any
+  // human-readable status message (filament runout, pause reason, error text).
+  stateText?: string | null;
+  stateMessage?: string | null;
 };
 
 const bambuCache = new Map<string, PrinterStatus>();
@@ -173,6 +187,7 @@ function normalizePrinterConfig(value: unknown): PrinterConfig | null {
     profile: String(value.profile || "").trim(),
     material: String(value.material || "").trim(),
     nozzle: String(value.nozzle || "").trim(),
+    snapshotUrl: String(value.snapshotUrl || "").trim(),
 
     enabled: value.enabled !== false,
 
@@ -197,7 +212,7 @@ function readPrintersConfigFromEnv(): PrinterConfig[] {
   }
 }
 
-async function readPrintersConfig(): Promise<PrinterConfig[]> {
+export async function readPrintersConfig(): Promise<PrinterConfig[]> {
   try {
     const raw = await fs.readFile(PRINTERS_CONFIG_PATH, "utf8");
     const parsed = JSON.parse(raw);
@@ -236,6 +251,7 @@ function addPrinterMeta(
     | "profile"
     | "material"
     | "nozzle"
+    | "snapshotUrl"
   >
 ): PrinterStatus {
   return {
@@ -250,6 +266,7 @@ function addPrinterMeta(
     profile: printer.profile,
     material: printer.material,
     nozzle: printer.nozzle,
+    snapshotUrl: printer.snapshotUrl,
     ...status,
   };
 }
@@ -479,6 +496,10 @@ export function buildBambuStatusFromPayload(
     print.status,
     print.state
   );
+  const printErrorCode = firstFiniteNumber(
+    print.print_error,
+    print.mc_print_error_code
+  );
   const currentFile = firstText(
     print.subtask_name,
     print.gcode_file,
@@ -499,9 +520,12 @@ export function buildBambuStatusFromPayload(
     return null;
   }
 
+  const hasError = printErrorCode !== null && printErrorCode > 0;
+  const mappedStatus = hasError ? "error" : toStatusState(rawState);
+
   return addPrinterMeta(printer, {
     online: true,
-    status: toStatusState(rawState),
+    status: mappedStatus,
     currentFile: currentFile || null,
     progressPct: progressPct !== null ? Math.round(progressPct) : null,
     printed: layer,
@@ -510,6 +534,10 @@ export function buildBambuStatusFromPayload(
     nozzleTemp: nozzleTemp !== null ? Math.round(nozzleTemp) : null,
     bedTemp: bedTemp !== null ? Math.round(bedTemp) : null,
     updatedAt: new Date().toISOString(),
+    stateText: rawState || null,
+    error: hasError
+      ? `Bambu повідомив про помилку (код ${printErrorCode})`
+      : undefined,
   });
 }
 
@@ -543,6 +571,7 @@ async function getMoonrakerStatus(
     `?print_stats` +
     `&virtual_sdcard` +
     `&display_status` +
+    `&webhooks` +
     `&extruder` +
     `&heater_bed`;
 
@@ -580,9 +609,15 @@ async function getMoonrakerStatus(
         ? printStats.print_duration
         : null;
 
+    const stateText = firstText(printStats.state) || null;
+    // print_stats.message carries pause reasons (e.g. filament runout); the
+    // webhooks state message is only meaningful as an error description.
+    const stateMessage = firstText(printStats.message) || null;
+    const mappedStatus = toStatusState(printStats.state);
+
     return addPrinterMeta(printer, {
       online: true,
-      status: toStatusState(printStats.state),
+      status: mappedStatus,
       currentFile: printStats.filename || null,
       progressPct,
       printed: null,
@@ -594,6 +629,14 @@ async function getMoonrakerStatus(
       bedTemp:
         typeof bed.temperature === "number" ? Math.round(bed.temperature) : null,
       updatedAt: new Date().toISOString(),
+      stateText,
+      stateMessage,
+      error:
+        mappedStatus === "error"
+          ? stateMessage ||
+            firstText(status.webhooks?.state_message) ||
+            "Принтер повідомив про помилку"
+          : undefined,
     });
   } catch (error) {
     return makeOfflineStatus(
@@ -776,10 +819,13 @@ function getCrealityStatus(printer: PrinterConfig): Promise<PrinterStatus> {
             ? Number(parsed.printProgress)
             : null;
 
+        const mappedStatus = normalizeCrealityState(parsed.state);
+        const stateMessage = firstText(parsed.err, parsed.errorMsg) || null;
+
         finish(
           addPrinterMeta(printer, {
             online: true,
-            status: normalizeCrealityState(parsed.state),
+            status: mappedStatus,
             currentFile: parsed.printFileName || null,
             progressPct: Number.isFinite(progress) ? progress : null,
             printed: parsed.printJobTime ? String(parsed.printJobTime) : null,
@@ -792,6 +838,12 @@ function getCrealityStatus(printer: PrinterConfig): Promise<PrinterStatus> {
             bedTemp:
               parsed.bedTemp0 !== undefined ? Number(parsed.bedTemp0) : null,
             updatedAt: new Date().toISOString(),
+            stateText: firstText(parsed.state) || null,
+            stateMessage,
+            error:
+              mappedStatus === "error"
+                ? stateMessage || "Принтер повідомив про помилку"
+                : undefined,
           })
         );
       } catch (err) {
@@ -816,7 +868,7 @@ function getCrealityStatus(printer: PrinterConfig): Promise<PrinterStatus> {
   });
 }
 
-async function getPrinterStatus(
+export async function getPrinterStatus(
   printer: PrinterConfig,
   options: { waitForBambuStatusMs?: number } = {}
 ): Promise<PrinterStatus> {

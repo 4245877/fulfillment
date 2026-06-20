@@ -32,3 +32,44 @@ test("renders Telegram HTML with escaped user-controlled values", () => {
   assert.equal(html.includes("shop&amp;1"), true);
   assert.equal(html.includes("5 &gt; 3 &amp; 2 &lt; 4"), true);
 });
+
+test("renders printer error with name and escaped description", () => {
+  const html = renderNotificationMessage(NOTIFICATION_EVENT_TYPES.PRINTER_ERROR, {
+    kind: "error",
+    printer: { id: "k2", name: "Creality K2", model: "K2" },
+    status: "error",
+    stateText: "error",
+    currentFile: "vase.gcode",
+    progressPct: 42,
+    errorMessage: "Servo <fault> & stall",
+    occurredAt: "2026-06-20T10:00:00.000Z",
+    photo: null,
+  } as any);
+
+  assert.equal(html.includes("❌ Помилка принтера"), true);
+  assert.equal(html.includes("Creality K2"), true);
+  assert.equal(html.includes("vase.gcode"), true);
+  assert.equal(html.includes("Servo &lt;fault&gt; &amp; stall"), true);
+  assert.equal(html.includes("<fault>"), false);
+});
+
+test("renders print completion without an error line", () => {
+  const html = renderNotificationMessage(
+    NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_COMPLETED,
+    {
+      kind: "completed",
+      printer: { id: "k2", name: "Creality K2", model: null },
+      status: "idle",
+      stateText: "complete",
+      currentFile: "vase.gcode",
+      progressPct: 100,
+      errorMessage: null,
+      occurredAt: "2026-06-20T10:00:00.000Z",
+      photo: null,
+    } as any
+  );
+
+  assert.equal(html.includes("✅ Друк завершено"), true);
+  assert.equal(html.includes("100%"), true);
+  assert.equal(html.includes("Опис"), false);
+});

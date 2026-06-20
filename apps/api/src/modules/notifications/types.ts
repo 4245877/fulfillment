@@ -3,6 +3,9 @@ export const NOTIFICATION_EVENT_TYPES = {
   ORDER_SYNCED: "notification.order.synced",
   ORDER_STATUS_CHANGED: "notification.order.status_changed",
   PRODUCT_REPORT_CREATED: "notification.product_report.created",
+  PRINTER_ERROR: "notification.printer.error",
+  PRINTER_PAUSED: "notification.printer.paused",
+  PRINTER_PRINT_COMPLETED: "notification.printer.print_completed",
   SYSTEM_CRITICAL_ERROR: "notification.system.critical_error",
   TEST: "notification.test",
 } as const;
@@ -60,6 +63,30 @@ export type ProductReportNotificationPayload = {
   };
 };
 
+export type NotificationPhoto = {
+  base64: string;
+  mime: string;
+  filename?: string | null;
+};
+
+export type PrinterNotificationKind = "error" | "paused" | "completed";
+
+export type PrinterNotificationPayload = {
+  kind: PrinterNotificationKind;
+  printer: {
+    id: string;
+    name: string;
+    model?: string | null;
+  };
+  status: string;
+  stateText?: string | null;
+  currentFile?: string | null;
+  progressPct?: number | null;
+  errorMessage?: string | null;
+  occurredAt: string;
+  photo?: NotificationPhoto | null;
+};
+
 export type CriticalErrorNotificationPayload = {
   message: string;
   name?: string | null;
@@ -80,6 +107,7 @@ export type TestNotificationPayload = {
 export type NotificationPayload =
   | OrderNotificationPayload
   | ProductReportNotificationPayload
+  | PrinterNotificationPayload
   | CriticalErrorNotificationPayload
   | TestNotificationPayload;
 

@@ -4,6 +4,7 @@ import type {
   CriticalErrorNotificationPayload,
   NotificationPayload,
   OrderNotificationPayload,
+  PrinterNotificationPayload,
   ProductReportNotificationPayload,
   TestNotificationPayload,
 } from "./types";
@@ -91,6 +92,45 @@ function renderProductReport(payload: ProductReportNotificationPayload): string 
   ].join("\n");
 }
 
+function printerTitle(payload: PrinterNotificationPayload): string {
+  if (payload.kind === "error") {
+    return "❌ Помилка принтера";
+  }
+
+  if (payload.kind === "paused") {
+    return "⏸ Друк призупинено";
+  }
+
+  return "✅ Друк завершено";
+}
+
+function renderPrinter(payload: PrinterNotificationPayload): string {
+  const lines = [
+    `<b>${printerTitle(payload)}</b>`,
+    line("Принтер", payload.printer.name),
+  ];
+
+  if (payload.printer.model) {
+    lines.push(line("Модель", payload.printer.model));
+  }
+
+  if (payload.currentFile) {
+    lines.push(line("Файл", payload.currentFile));
+  }
+
+  if (payload.kind === "completed" && payload.progressPct != null) {
+    lines.push(line("Прогрес", `${payload.progressPct}%`));
+  }
+
+  if (payload.kind !== "completed" && payload.errorMessage) {
+    lines.push(line("Опис", payload.errorMessage.slice(0, 600)));
+  }
+
+  lines.push(line("Час", payload.occurredAt));
+
+  return lines.join("\n");
+}
+
 function renderCriticalError(payload: CriticalErrorNotificationPayload): string {
   const lines = [
     "<b>Критична помилка API</b>",
@@ -130,6 +170,11 @@ export function renderNotificationMessage(
 
     case NOTIFICATION_EVENT_TYPES.PRODUCT_REPORT_CREATED:
       return renderProductReport(payload as ProductReportNotificationPayload);
+
+    case NOTIFICATION_EVENT_TYPES.PRINTER_ERROR:
+    case NOTIFICATION_EVENT_TYPES.PRINTER_PAUSED:
+    case NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_COMPLETED:
+      return renderPrinter(payload as PrinterNotificationPayload);
 
     case NOTIFICATION_EVENT_TYPES.SYSTEM_CRITICAL_ERROR:
       return renderCriticalError(payload as CriticalErrorNotificationPayload);

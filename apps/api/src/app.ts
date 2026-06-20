@@ -8,6 +8,7 @@ import productReportsRoutes from "./modules/productReports/routes";
 import ordersRoutes from "./modules/orders/routes";
 import notificationsRoutes from "./modules/notifications/routes";
 import { registerNotificationOutboxWorker } from "./modules/notifications/dispatcher";
+import { registerPrinterMonitorWorker } from "./modules/printers/monitor";
 import { getInventoryMaterialsSummary } from "./modules/inventory/service";
 import { getOrdersStatusSummary } from "./modules/orders/service";
 import { checkDbConnection } from "./infra/db/knex";
@@ -15,6 +16,7 @@ import { checkDbConnection } from "./infra/db/knex";
 const app = Fastify({ logger: true });
 
 registerNotificationOutboxWorker(app);
+registerPrinterMonitorWorker(app);
 
 // Важно: без await, чтобы не упираться в top-level await при CJS
 app.register(cors, {
