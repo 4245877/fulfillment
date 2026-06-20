@@ -5,7 +5,9 @@ export const NOTIFICATION_EVENT_TYPES = {
   PRODUCT_REPORT_CREATED: "notification.product_report.created",
   PRINTER_ERROR: "notification.printer.error",
   PRINTER_PAUSED: "notification.printer.paused",
+  PRINTER_FILAMENT_RUNOUT: "notification.printer.filament_runout",
   PRINTER_PRINT_COMPLETED: "notification.printer.print_completed",
+  PRINTER_PRINT_CANCELLED: "notification.printer.print_cancelled",
   SYSTEM_CRITICAL_ERROR: "notification.system.critical_error",
   TEST: "notification.test",
 } as const;
@@ -69,7 +71,12 @@ export type NotificationPhoto = {
   filename?: string | null;
 };
 
-export type PrinterNotificationKind = "error" | "paused" | "completed";
+export type PrinterNotificationKind =
+  | "error"
+  | "paused"
+  | "filament_runout"
+  | "completed"
+  | "cancelled";
 
 export type PrinterNotificationPayload = {
   kind: PrinterNotificationKind;

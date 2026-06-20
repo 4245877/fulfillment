@@ -53,6 +53,47 @@ test("renders printer error with name and escaped description", () => {
   assert.equal(html.includes("<fault>"), false);
 });
 
+test("renders filament runout with the reason description", () => {
+  const html = renderNotificationMessage(
+    NOTIFICATION_EVENT_TYPES.PRINTER_FILAMENT_RUNOUT,
+    {
+      kind: "filament_runout",
+      printer: { id: "k2", name: "Creality K2", model: "K2" },
+      status: "paused",
+      stateText: "pause",
+      currentFile: "vase.gcode",
+      progressPct: 42,
+      errorMessage: "Filament runout",
+      occurredAt: "2026-06-20T10:00:00.000Z",
+      photo: null,
+    } as any
+  );
+
+  assert.equal(html.includes("🧵 Закінчився філамент"), true);
+  assert.equal(html.includes("Filament runout"), true);
+});
+
+test("renders a cancelled print without an error line", () => {
+  const html = renderNotificationMessage(
+    NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_CANCELLED,
+    {
+      kind: "cancelled",
+      printer: { id: "k2", name: "Creality K2", model: null },
+      status: "idle",
+      stateText: "cancelled",
+      currentFile: "vase.gcode",
+      progressPct: 99,
+      errorMessage: null,
+      occurredAt: "2026-06-20T10:00:00.000Z",
+      photo: null,
+    } as any
+  );
+
+  assert.equal(html.includes("🚫 Друк скасовано"), true);
+  assert.equal(html.includes("99%"), true);
+  assert.equal(html.includes("Опис"), false);
+});
+
 test("renders print completion without an error line", () => {
   const html = renderNotificationMessage(
     NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_COMPLETED,

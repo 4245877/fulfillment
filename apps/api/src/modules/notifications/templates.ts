@@ -97,8 +97,16 @@ function printerTitle(payload: PrinterNotificationPayload): string {
     return "❌ Помилка принтера";
   }
 
+  if (payload.kind === "filament_runout") {
+    return "🧵 Закінчився філамент";
+  }
+
   if (payload.kind === "paused") {
     return "⏸ Друк призупинено";
+  }
+
+  if (payload.kind === "cancelled") {
+    return "🚫 Друк скасовано";
   }
 
   return "✅ Друк завершено";
@@ -118,11 +126,16 @@ function renderPrinter(payload: PrinterNotificationPayload): string {
     lines.push(line("Файл", payload.currentFile));
   }
 
-  if (payload.kind === "completed" && payload.progressPct != null) {
+  if (
+    (payload.kind === "completed" || payload.kind === "cancelled") &&
+    payload.progressPct != null
+  ) {
     lines.push(line("Прогрес", `${payload.progressPct}%`));
   }
 
-  if (payload.kind !== "completed" && payload.errorMessage) {
+  // Description carries the human-readable reason for errors, pauses and
+  // filament runouts. Completion/cancellation drop it via a null errorMessage.
+  if (payload.errorMessage) {
     lines.push(line("Опис", payload.errorMessage.slice(0, 600)));
   }
 
@@ -173,7 +186,9 @@ export function renderNotificationMessage(
 
     case NOTIFICATION_EVENT_TYPES.PRINTER_ERROR:
     case NOTIFICATION_EVENT_TYPES.PRINTER_PAUSED:
+    case NOTIFICATION_EVENT_TYPES.PRINTER_FILAMENT_RUNOUT:
     case NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_COMPLETED:
+    case NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_CANCELLED:
       return renderPrinter(payload as PrinterNotificationPayload);
 
     case NOTIFICATION_EVENT_TYPES.SYSTEM_CRITICAL_ERROR:

@@ -65,13 +65,13 @@ test("classifyTransition reports a new error once", async () => {
   );
 });
 
-test("classifyTransition reports a pause from printing (filament runout)", async () => {
+test("classifyTransition reports a generic pause from printing", async () => {
   const { classifyTransition } = await loadMonitor();
 
   assert.equal(
     classifyTransition(
       status({ status: "printing" }),
-      status({ status: "paused", stateMessage: "Filament runout" })
+      status({ status: "paused", stateMessage: "User paused" })
     ),
     "paused"
   );
@@ -83,6 +83,49 @@ test("classifyTransition reports a pause from printing (filament runout)", async
       status({ status: "paused" })
     ),
     null
+  );
+});
+
+test("classifyTransition distinguishes a filament runout pause", async () => {
+  const { classifyTransition } = await loadMonitor();
+
+  assert.equal(
+    classifyTransition(
+      status({ status: "printing" }),
+      status({ status: "paused", stateMessage: "Filament runout" })
+    ),
+    "filament_runout"
+  );
+
+  // Reason carried on stateText (e.g. Creality) is recognised too.
+  assert.equal(
+    classifyTransition(
+      status({ status: "printing" }),
+      status({ status: "paused", stateText: "Закінчився філамент" })
+    ),
+    "filament_runout"
+  );
+});
+
+test("classifyTransition reports a cancelled print", async () => {
+  const { classifyTransition } = await loadMonitor();
+
+  // Moonraker reports the raw "cancelled" state on the idle transition.
+  assert.equal(
+    classifyTransition(
+      status({ status: "printing", progressPct: 40 }),
+      status({ status: "idle", stateText: "cancelled", progressPct: 40 })
+    ),
+    "cancelled"
+  );
+
+  // A cancel near the end must not be misreported as completion (Creality).
+  assert.equal(
+    classifyTransition(
+      status({ status: "printing", progressPct: 99 }),
+      status({ status: "idle", stateText: "stop", progressPct: 99 })
+    ),
+    "cancelled"
   );
 });
 
@@ -103,18 +146,6 @@ test("classifyTransition reports completion by raw state or progress", async () 
       status({ status: "idle", progressPct: 100 })
     ),
     "completed"
-  );
-});
-
-test("classifyTransition does not treat a cancelled print as completion", async () => {
-  const { classifyTransition } = await loadMonitor();
-
-  assert.equal(
-    classifyTransition(
-      status({ status: "printing", progressPct: 40 }),
-      status({ status: "idle", stateText: "cancelled", progressPct: 40 })
-    ),
-    null
   );
 });
 

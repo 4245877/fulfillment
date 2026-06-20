@@ -15,7 +15,12 @@ import {
 } from "./routes";
 import { captureSnapshot } from "./snapshot";
 
-export type PrinterTransitionKind = "error" | "paused" | "completed";
+export type PrinterTransitionKind =
+  | "error"
+  | "paused"
+  | "filament_runout"
+  | "completed"
+  | "cancelled";
 
 type LoggerLike = {
   info?: (obj: unknown, message?: string) => void;
@@ -25,13 +30,38 @@ type LoggerLike = {
 
 const COMPLETE_RE = /complete|finish|done/i;
 const CANCEL_RE = /cancel|abort|stop/i;
+// Firmware-reported pause/error reasons that mean the spool ran out. Covers
+// Moonraker (`print_stats.message`), Klipper macros, Creality and common
+// localisations so a runout is surfaced distinctly from a manual pause.
+const FILAMENT_RUNOUT_RE = /filament|runout|run out|філамент|закінч.*філ|нема.*філ/i;
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Free-text the device offers as a reason for a pause/stop/error. */
+function reasonText(status: PrinterStatus): string {
+  return [status.stateText, status.stateMessage, status.error]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function looksFilamentRunout(status: PrinterStatus): boolean {
+  return FILAMENT_RUNOUT_RE.test(reasonText(status));
+}
+
+/**
+ * True when an idle/stopped print was aborted rather than finished. Relies on
+ * the device reporting a cancel/abort/stop state (Moonraker "cancelled",
+ * Creality "stop"); a purely numeric idle state with no marker is
+ * indistinguishable from completion and is left to `looksComplete`.
+ */
+function looksCancelled(status: PrinterStatus): boolean {
+  return Boolean(status.stateText && CANCEL_RE.test(status.stateText));
+}
+
 function looksComplete(status: PrinterStatus): boolean {
-  if (status.stateText && CANCEL_RE.test(status.stateText)) {
+  if (looksCancelled(status)) {
     return false;
   }
 
@@ -66,15 +96,20 @@ export function classifyTransition(
   }
 
   if (next.status === "paused" && prev.status === "printing") {
-    return "paused";
+    return looksFilamentRunout(next) ? "filament_runout" : "paused";
   }
 
   if (
     next.status === "idle" &&
-    (prev.status === "printing" || prev.status === "paused") &&
-    looksComplete(next)
+    (prev.status === "printing" || prev.status === "paused")
   ) {
-    return "completed";
+    if (looksCancelled(next)) {
+      return "cancelled";
+    }
+
+    if (looksComplete(next)) {
+      return "completed";
+    }
   }
 
   return null;
@@ -97,7 +132,7 @@ export function buildPrinterNotificationPayload(
     currentFile: status.currentFile ?? null,
     progressPct: status.progressPct ?? null,
     errorMessage:
-      kind === "completed"
+      kind === "completed" || kind === "cancelled"
         ? null
         : status.error || status.stateMessage || null,
     occurredAt,

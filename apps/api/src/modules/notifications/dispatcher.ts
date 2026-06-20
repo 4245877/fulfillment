@@ -174,6 +174,14 @@ function printerEventType(kind: PrinterNotificationKind): NotificationEventType 
     return NOTIFICATION_EVENT_TYPES.PRINTER_PAUSED;
   }
 
+  if (kind === "filament_runout") {
+    return NOTIFICATION_EVENT_TYPES.PRINTER_FILAMENT_RUNOUT;
+  }
+
+  if (kind === "cancelled") {
+    return NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_CANCELLED;
+  }
+
   return NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_COMPLETED;
 }
 
