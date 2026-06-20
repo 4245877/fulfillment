@@ -1,6 +1,10 @@
 import { env } from "../../../shared/env";
 
-export type TelegramTopicKey = "orders" | "productReports" | "criticalErrors";
+export type TelegramTopicKey =
+  | "orders"
+  | "productReports"
+  | "prints"
+  | "criticalErrors";
 
 export type TelegramConfig = {
   enabled: boolean;
@@ -56,6 +60,7 @@ export function getTelegramConfig(): TelegramConfig {
       topics: {
         orders: 0,
         productReports: 0,
+        prints: 0,
         criticalErrors: 0,
       },
     };
@@ -77,6 +82,10 @@ export function getTelegramConfig(): TelegramConfig {
       productReports: requirePositiveInteger(
         env.TELEGRAM_TOPIC_PRODUCT_REPORTS_ID,
         "TELEGRAM_TOPIC_PRODUCT_REPORTS_ID"
+      ),
+      prints: requirePositiveInteger(
+        env.TELEGRAM_TOPIC_PRINTS_ID,
+        "TELEGRAM_TOPIC_PRINTS_ID"
       ),
       criticalErrors: requirePositiveInteger(
         env.TELEGRAM_TOPIC_CRITICAL_ERRORS_ID,

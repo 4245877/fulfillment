@@ -17,6 +17,7 @@ export type NotificationEventType =
 export type NotificationTopicKey =
   | "orders"
   | "productReports"
+  | "prints"
   | "criticalErrors";
 
 export type OrderNotificationKind = "received" | "synced" | "status_changed";

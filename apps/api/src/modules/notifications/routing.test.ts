@@ -28,6 +28,12 @@ test("routes notification event types to Telegram topics", () => {
 test("routes Telegram topic tests only to known topics", () => {
   assert.equal(
     routeNotificationToTopic(NOTIFICATION_EVENT_TYPES.TEST, {
+      topic: "prints",
+    } as any),
+    "prints"
+  );
+  assert.equal(
+    routeNotificationToTopic(NOTIFICATION_EVENT_TYPES.TEST, {
       topic: "criticalErrors",
     } as any),
     "criticalErrors"

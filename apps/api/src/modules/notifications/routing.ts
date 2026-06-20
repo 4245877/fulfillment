@@ -10,6 +10,7 @@ import {
 export const TELEGRAM_TOPIC_LABELS: Record<NotificationTopicKey, string> = {
   orders: "Замовлення",
   productReports: "Скарги на товари",
+  prints: "Повідомлення друку",
   criticalErrors: "Критичні помилки",
 };
 

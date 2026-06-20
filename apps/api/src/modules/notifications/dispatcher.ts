@@ -176,6 +176,7 @@ export async function enqueueTelegramTopicTestNotifications() {
   const topics: NotificationTopicKey[] = [
     "orders",
     "productReports",
+    "prints",
     "criticalErrors",
   ];
 
