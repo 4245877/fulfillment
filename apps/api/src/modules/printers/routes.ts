@@ -68,6 +68,8 @@ export type PrinterStatus = {
 };
 
 const bambuCache = new Map<string, PrinterStatus>();
+// Last known *raw* Bambu print payload, merged across partial MQTT reports.
+const bambuRawPrint = new Map<string, Record<string, unknown>>();
 const bambuClients = new Map<string, mqtt.MqttClient>();
 const bambuStatusWaiters = new Map<
   string,
@@ -142,6 +144,7 @@ function resetBambuClient(printerId: string) {
 
   bambuClients.delete(printerId);
   bambuCache.delete(printerId);
+  bambuRawPrint.delete(printerId);
   bambuStatusWaiters.delete(printerId);
 }
 
@@ -455,6 +458,48 @@ function getBambuPrintPayload(payload: unknown): Record<string, unknown> | null 
   return null;
 }
 
+function bambuPrintIdentity(print: Record<string, unknown>): string | null {
+  return (
+    firstText(
+      print.subtask_id,
+      print.subtask_name,
+      print.gcode_file,
+      print.filename,
+      print.task_name
+    ) || null
+  );
+}
+
+// Bambu MQTT pushes *partial* incremental reports: `mc_percent` is present in
+// almost every message, while `layer_num`/`total_layer_num` only appear in full
+// reports. Merge each report into the last known raw print state so the status
+// is always built from a complete snapshot (otherwise progress keeps updating
+// while the layer counter stays stale — e.g. "14/910 шар" at 42%).
+//
+// Reset the accumulated state when a *different* print starts so a previous
+// job's layer total can't leak into the next one.
+export function mergeBambuRawPrint(
+  printerId: string,
+  print: Record<string, unknown>
+): Record<string, unknown> {
+  const previous = bambuRawPrint.get(printerId);
+  const nextId = bambuPrintIdentity(print);
+  const prevId = previous ? bambuPrintIdentity(previous) : null;
+  const startedNewPrint =
+    nextId !== null && prevId !== null && nextId !== prevId;
+
+  if (startedNewPrint) {
+    // Drop the stale derived status too, otherwise mergeBambuStatus would carry
+    // the previous job's pre-formatted layer string forward.
+    bambuCache.delete(printerId);
+  }
+
+  const merged = { ...(startedNewPrint ? {} : previous ?? {}), ...print };
+  bambuRawPrint.set(printerId, merged);
+
+  return merged;
+}
+
 export function buildBambuStatusFromPayload(
   printer: PrinterConfig,
   payload: unknown
@@ -703,7 +748,11 @@ function ensureBambuClient(printer: PrinterConfig) {
   client.on("message", (_topic, payload) => {
     try {
       const json = JSON.parse(payload.toString());
-      const status = buildBambuStatusFromPayload(printer, json);
+      const print = getBambuPrintPayload(json);
+      if (!print) return;
+
+      const merged = mergeBambuRawPrint(printer.id, print);
+      const status = buildBambuStatusFromPayload(printer, { print: merged });
       if (!status) return;
 
       setBambuCache(printer.id, status);
