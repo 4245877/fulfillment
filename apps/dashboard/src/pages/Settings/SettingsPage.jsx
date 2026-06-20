@@ -266,7 +266,9 @@ export default function SettingsPage() {
 
           <div className={styles.localStatus}>
             <span aria-hidden="true" />
-            Локальні зміни
+            {activeSection === "pricing"
+              ? "Зберігається на сервері"
+              : "Локальні зміни"}
           </div>
         </header>
 
@@ -281,9 +283,10 @@ export default function SettingsPage() {
         ))}
 
         <p className={styles.footerNote}>
-          Примітка: налаштування зберігаються локально в браузері.
-          Синхронізація з сервером і застосування до Board/Ops буде додана
-          пізніше.
+          Примітка: більшість налаштувань зберігаються локально в браузері —
+          синхронізація з сервером і застосування до Board/Ops буде додана
+          пізніше. Виняток — розділ «Ціноутворення», який зберігається
+          безпосередньо у файл pricing.yml на сервері.
         </p>
       </main>
     </div>

@@ -12,15 +12,36 @@ function cloneContainer(value) {
   return Array.isArray(value) ? value.slice() : { ...value };
 }
 
+// Keys that would pollute Object.prototype if assigned directly (issue #20).
+const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+
+function isUnsafeKey(key) {
+  return UNSAFE_KEYS.has(key);
+}
+
+// Assign without writing through the prototype chain (so a key literally named
+// "__proto__" becomes an own property instead of mutating the prototype).
+function assignKey(target, key, value) {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
+  return target;
+}
+
 function setAt(obj, path, value) {
   if (path.length === 0) return value;
 
   const [head, ...rest] = path;
   const copy = cloneContainer(obj);
 
-  copy[head] = rest.length === 0 ? value : setAt(obj[head], rest, value);
-
-  return copy;
+  return assignKey(
+    copy,
+    head,
+    rest.length === 0 ? value : setAt(obj[head], rest, value)
+  );
 }
 
 function deleteAt(obj, path) {
@@ -78,6 +99,18 @@ function parseNumberInput(text) {
   return Number.isFinite(parsed) ? { ok: true, value: parsed } : { ok: false };
 }
 
+// Show numbers exactly as they appear in the file (e.g. "6.00", "40.0") instead
+// of the lossy JS form ("6", "40"). `format` is the original source text from the
+// backend; we only trust it while it still represents the current value, so an
+// edited field falls back to the plain numeric string (issue #1).
+function resolveNumberDisplay(value, format) {
+  if (typeof format === "string") {
+    const parsed = parseNumberInput(format);
+    if (parsed.ok && parsed.value === value) return format;
+  }
+  return numToStr(value);
+}
+
 // ---------------------------------------------------------------------------
 // Validation: known enums + value ranges. Enum dropdowns prevent typos; range
 // checks block saving obviously broken values (negative prices, shares > 1).
@@ -133,16 +166,18 @@ function collectErrors(node, path, out) {
 // ---------------------------------------------------------------------------
 // Field editors
 // ---------------------------------------------------------------------------
-function NumberField({ value, onChange, disabled }) {
-  const [draft, setDraft] = React.useState(() => numToStr(value));
+function NumberField({ value, format, onChange, disabled }) {
+  const [draft, setDraft] = React.useState(() =>
+    resolveNumberDisplay(value, format)
+  );
   const [focused, setFocused] = React.useState(false);
   const [invalid, setInvalid] = React.useState(false);
 
   // Keep the input in sync with external changes, but never fight the user while
   // they are typing (e.g. mid-way through "0.").
   React.useEffect(() => {
-    if (!focused) setDraft(numToStr(value));
-  }, [value, focused]);
+    if (!focused) setDraft(resolveNumberDisplay(value, format));
+  }, [value, format, focused]);
 
   return (
     <>
@@ -155,7 +190,7 @@ function NumberField({ value, onChange, disabled }) {
         onFocus={() => setFocused(true)}
         onBlur={() => {
           setFocused(false);
-          setDraft(numToStr(value));
+          setDraft(resolveNumberDisplay(value, format));
           setInvalid(false);
         }}
         onChange={(event) => {
@@ -202,11 +237,15 @@ function EnumField({ value, options, onChange, disabled }) {
 
 function JsonArrayField({ value, onChange, disabled }) {
   const [draft, setDraft] = React.useState(() => JSON.stringify(value));
+  const [focused, setFocused] = React.useState(false);
   const [invalid, setInvalid] = React.useState(false);
 
+  // Re-sync from the canonical value only while not focused — otherwise every
+  // valid keystroke rewrote the draft (JSON.stringify), jumping the caret and
+  // making spaces impossible to type (issue #4).
   React.useEffect(() => {
-    setDraft(JSON.stringify(value));
-  }, [value]);
+    if (!focused) setDraft(JSON.stringify(value));
+  }, [value, focused]);
 
   return (
     <div className={styles.pricingControl}>
@@ -214,6 +253,12 @@ function JsonArrayField({ value, onChange, disabled }) {
         className="input"
         value={draft}
         disabled={disabled}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false);
+          setDraft(JSON.stringify(value));
+          setInvalid(false);
+        }}
         onChange={(event) => {
           const next = event.target.value;
           setDraft(next);
@@ -239,7 +284,7 @@ function JsonArrayField({ value, onChange, disabled }) {
   );
 }
 
-function ScalarField({ nodeKey, value, onChange, disabled, error }) {
+function ScalarField({ nodeKey, value, onChange, disabled, error, format }) {
   const enumOptions = enumOptionsFor(nodeKey, value);
 
   let control;
@@ -265,7 +310,14 @@ function ScalarField({ nodeKey, value, onChange, disabled, error }) {
       </label>
     );
   } else if (typeof value === "number") {
-    control = <NumberField value={value} onChange={onChange} disabled={disabled} />;
+    control = (
+      <NumberField
+        value={value}
+        format={format}
+        onChange={onChange}
+        disabled={disabled}
+      />
+    );
   } else {
     control = (
       <input
@@ -295,7 +347,8 @@ function KeyLabel({ value, className, siblingKeys, onRename, disabled }) {
 
   const trimmed = draft.trim();
   const isDuplicate = trimmed !== value && siblingKeys.includes(trimmed);
-  const canSave = trimmed !== "" && trimmed !== value && !isDuplicate;
+  const unsafe = isUnsafeKey(trimmed);
+  const canSave = trimmed !== "" && trimmed !== value && !isDuplicate && !unsafe;
 
   const open = () => {
     setDraft(value);
@@ -356,6 +409,8 @@ function KeyLabel({ value, className, siblingKeys, onRename, disabled }) {
       </button>
       {isDuplicate ? (
         <span className={styles.pricingWarn}>Ключ уже існує</span>
+      ) : unsafe ? (
+        <span className={styles.pricingWarn}>Недопустимий ключ</span>
       ) : null}
     </span>
   );
@@ -369,6 +424,7 @@ const TYPE_OPTIONS = [
   { value: "number", label: "Число" },
   { value: "boolean", label: "Так / Ні" },
   { value: "group", label: "Група" },
+  { value: "array", label: "Масив" },
 ];
 
 function initialValueForType(type, rawValue) {
@@ -379,6 +435,7 @@ function initialValueForType(type, rawValue) {
 
   if (type === "boolean") return rawValue === "true" || rawValue === true;
   if (type === "group") return {};
+  if (type === "array") return [];
 
   return rawValue ?? "";
 }
@@ -398,7 +455,12 @@ function AddFieldRow({ existingKeys, onAdd, disabled }) {
 
   const trimmedKey = key.trim();
   const isDuplicate = existingKeys.includes(trimmedKey);
-  const canAdd = trimmedKey !== "" && !isDuplicate;
+  const unsafe = isUnsafeKey(trimmedKey);
+  // A "Число" field must hold a real number — don't silently coerce "abc" to 0.
+  const numberOk = type !== "number" || parseNumberInput(rawValue).ok;
+  const numberInvalid =
+    type === "number" && rawValue.trim() !== "" && !parseNumberInput(rawValue).ok;
+  const canAdd = trimmedKey !== "" && !isDuplicate && !unsafe && numberOk;
 
   const submit = () => {
     if (!canAdd) return;
@@ -445,6 +507,10 @@ function AddFieldRow({ existingKeys, onAdd, disabled }) {
 
       {type === "group" ? (
         <span className={styles.pricingHintInline}>порожня група</span>
+      ) : type === "array" ? (
+        <span className={styles.pricingHintInline}>
+          порожній масив (заповніть після додавання)
+        </span>
       ) : type === "boolean" ? (
         <select
           className="select"
@@ -486,6 +552,12 @@ function AddFieldRow({ existingKeys, onAdd, disabled }) {
 
       {isDuplicate ? (
         <span className={styles.pricingWarn}>Ключ уже існує</span>
+      ) : unsafe ? (
+        <span className={styles.pricingWarn}>Недопустимий ключ</span>
+      ) : numberInvalid ? (
+        <span className={styles.pricingWarn}>
+          Невірне число (напр. 6.5 або 6,5)
+        </span>
       ) : null}
     </div>
   );
@@ -503,6 +575,7 @@ function PricingNode({
   onDelete,
   onRename,
   getError,
+  getFormat,
   disabled,
 }) {
   const handleRemove = () => {
@@ -566,6 +639,7 @@ function PricingNode({
               onDelete={onDelete}
               onRename={onRename}
               getError={getError}
+              getFormat={getFormat}
               disabled={disabled}
             />
           ))}
@@ -599,6 +673,7 @@ function PricingNode({
             value={value}
             disabled={disabled}
             error={getError(path)}
+            format={getFormat(path)}
             onChange={(next) => onSet(path, next)}
           />
         </div>
@@ -618,6 +693,7 @@ export default function PricingSection({ showToast }) {
   const [error, setError] = React.useState(null);
   const [tree, setTree] = React.useState(null);
   const [meta, setMeta] = React.useState({ path: "", hash: "", raw: "" });
+  const [formats, setFormats] = React.useState({});
   const [loadedJson, setLoadedJson] = React.useState("");
   const [showRaw, setShowRaw] = React.useState(false);
   const [conflict, setConflict] = React.useState(null);
@@ -654,6 +730,7 @@ export default function PricingSection({ showToast }) {
 
       setTree(result.tree);
       setMeta({ path: result.path, hash: result.hash, raw: result.raw });
+      setFormats(result.formats || {});
       setLoadedJson(JSON.stringify(result.tree));
       setConflict(null);
       resetHistory();
@@ -682,6 +759,15 @@ export default function PricingSection({ showToast }) {
     (path) => errors[JSON.stringify(path)],
     [errors]
   );
+
+  const getFormat = React.useCallback(
+    (path) => formats[JSON.stringify(path)],
+    [formats]
+  );
+
+  // A root with no keys can never be saved (the server refuses it) — catch it on
+  // the client with a clear message instead of a raw 502 toast (issue #3).
+  const isEmpty = tree != null && Object.keys(tree).length === 0;
 
   // Warn before leaving the tab/page with unsaved edits (issue #10).
   React.useEffect(() => {
@@ -742,6 +828,17 @@ export default function PricingSection({ showToast }) {
   const save = async (overrideHash) => {
     if (!dirty || saving) return;
 
+    if (isEmpty) {
+      showToast?.(
+        {
+          kind: "error",
+          text: "Конфігурація не може бути порожньою — залиште хоча б один ключ.",
+        },
+        3500
+      );
+      return;
+    }
+
     if (hasErrors) {
       showToast?.(
         { kind: "error", text: "Виправте помилки валідації перед збереженням." },
@@ -775,6 +872,7 @@ export default function PricingSection({ showToast }) {
 
       setTree(result.tree);
       setMeta({ path: result.path, hash: result.hash, raw: result.raw });
+      setFormats(result.formats || {});
       setLoadedJson(JSON.stringify(result.tree));
       setConflict(null);
       resetHistory();
@@ -843,7 +941,7 @@ export default function PricingSection({ showToast }) {
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              disabled={!dirty || saving || loading || hasErrors}
+              disabled={!dirty || saving || loading || hasErrors || isEmpty}
               onClick={() => save()}
             >
               {saving ? "Збереження…" : "Зберегти у pricing.yml"}
@@ -891,7 +989,7 @@ export default function PricingSection({ showToast }) {
 
       <FieldRow
         label="Змінні"
-        hint="✎ — перейменувати ключ; × — видалити значення; «Додати поле» — створити нове (текст, число, так/ні або вкладена група)."
+        hint="✎ — перейменувати ключ; × — видалити значення; «Додати поле» — створити нове (текст, число, так/ні, вкладена група або масив)."
       >
         {loading ? (
           <div className="text-muted">Завантаження…</div>
@@ -902,6 +1000,12 @@ export default function PricingSection({ showToast }) {
             {hasErrors ? (
               <div className={styles.pricingError}>
                 Є помилки валідації — виправте позначені поля перед збереженням.
+              </div>
+            ) : null}
+
+            {isEmpty ? (
+              <div className={styles.pricingError}>
+                Конфігурація порожня — додайте хоча б один ключ, щоб зберегти.
               </div>
             ) : null}
 
@@ -916,6 +1020,7 @@ export default function PricingSection({ showToast }) {
                 onDelete={onDelete}
                 onRename={onRename}
                 getError={getError}
+                getFormat={getFormat}
                 disabled={saving}
               />
             ))}
@@ -933,7 +1038,7 @@ export default function PricingSection({ showToast }) {
 
       <FieldRow
         label="Перегляд YAML"
-        hint="Поточний вміст файлу (тільки для читання)."
+        hint="Версія файлу з сервера на момент завантаження (тільки для читання)."
       >
         <div className={styles.inputGroup}>
           <button
@@ -945,7 +1050,15 @@ export default function PricingSection({ showToast }) {
           </button>
 
           {showRaw ? (
-            <pre className={styles.pricingRaw}>{meta.raw || "—"}</pre>
+            <>
+              {dirty ? (
+                <div className={styles.pricingRawNote}>
+                  ⚠ Це версія з сервера на момент завантаження. Незбережені зміни
+                  у формі вище тут <strong>не</strong> відображаються.
+                </div>
+              ) : null}
+              <pre className={styles.pricingRaw}>{meta.raw || "—"}</pre>
+            </>
           ) : null}
         </div>
       </FieldRow>

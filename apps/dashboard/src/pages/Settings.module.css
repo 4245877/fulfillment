@@ -1975,6 +1975,17 @@
   color: var(--error);
 }
 
+.pricingRawNote {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
 .pricingRaw {
   margin: 10px 0 0;
   max-height: 360px;

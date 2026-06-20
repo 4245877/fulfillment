@@ -1,8 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parse } from "yaml";
+import { parse, parseDocument } from "yaml";
 
-import { applyPricingChanges, isPlainObject, sha256 } from "./service";
+import {
+  applyPricingChanges,
+  collectNumberFormats,
+  isPlainObject,
+  sha256,
+  type NumberFormats,
+} from "./service";
 
 // A trimmed-down stand-in for the real pricing.yml, carrying the kind of inline
 // comments that must survive an edit.
@@ -220,6 +226,55 @@ test("string keys that look like numbers stay quoted on rename", () => {
   const out = applyPricingChanges(src, tree);
   assert.match(out, /"0\.3":/);
   assert.equal(parse(out).options.nozzle_mm["0.3"].time_mult, 1.35);
+});
+
+test("collectNumberFormats keeps the file's representation of trailing zeros (issue #1)", () => {
+  const src = `energy:
+  kwh_rate: 6.00
+process:
+  FDM:
+    yield: 0.92
+    waste_pct: 40.0
+rounding:
+  min_price: 850
+  discount: 0.00
+`;
+  const formats: NumberFormats = {};
+  collectNumberFormats(parseDocument(src).contents, [], formats);
+
+  // Sources whose canonical String() form differs are captured...
+  assert.equal(formats[JSON.stringify(["energy", "kwh_rate"])], "6.00");
+  assert.equal(formats[JSON.stringify(["process", "FDM", "waste_pct"])], "40.0");
+  assert.equal(formats[JSON.stringify(["rounding", "discount"])], "0.00");
+  // ...while numbers that already match their canonical form are not.
+  assert.equal(formats[JSON.stringify(["process", "FDM", "yield"])], undefined);
+  assert.equal(formats[JSON.stringify(["rounding", "min_price"])], undefined);
+});
+
+test("refuses to write a file using YAML anchors/aliases (issue #9)", () => {
+  const withAnchor = `defaults: &base
+  yield: 0.9
+process:
+  FDM: *base
+`;
+  const tree = parse(withAnchor) as Record<string, any>;
+  tree.process.FDM.yield = 0.95;
+
+  assert.throws(() => applyPricingChanges(withAnchor, tree), /anchor|alias|якор|псевдонім/i);
+});
+
+test("refuses to write a file using YAML merge keys (issue #9)", () => {
+  const withMerge = `defaults: &base
+  yield: 0.9
+process:
+  FDM:
+    <<: *base
+    waste_pct: 0.1
+`;
+  const tree = parse(withMerge) as Record<string, any>;
+  tree.process.FDM.waste_pct = 0.2;
+
+  assert.throws(() => applyPricingChanges(withMerge, tree), /anchor|alias|merge|злит|якор|псевдонім/i);
 });
 
 test("isPlainObject and sha256 behave as expected", () => {

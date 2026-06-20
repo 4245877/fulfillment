@@ -1,7 +1,17 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { createHash } from "node:crypto";
-import { isMap, parseDocument, stringify, type YAMLMap } from "yaml";
+import {
+  isAlias,
+  isMap,
+  isScalar,
+  parseDocument,
+  stringify,
+  visit,
+  type Document,
+  type Scalar,
+  type YAMLMap,
+} from "yaml";
 
 const execFileAsync = promisify(execFile);
 
@@ -125,6 +135,82 @@ function scalarKeyName(key: unknown): string {
     return String((key as { value: unknown }).value);
   }
   return String(key);
+}
+
+// ---------------------------------------------------------------------------
+// Number formatting hints (issue #1).
+//
+// `doc.toJS()` turns `6.00` / `40.0` / `0.00` into plain JS numbers, so the
+// editor would show `6` / `40` / `0` and the operator sees something other than
+// what is in the file. We can't carry that precision in a JS number, so we ship
+// a side map of `JSON.stringify(path) -> original source text` for every number
+// scalar whose source differs from its canonical `String(value)`. The client
+// uses it for *display only* (and drops it the moment the value is edited), so
+// the data round-trips unchanged while the file's representation is honoured.
+// ---------------------------------------------------------------------------
+export type NumberFormats = Record<string, string>;
+
+export function collectNumberFormats(
+  node: unknown,
+  path: string[],
+  out: NumberFormats
+): void {
+  if (isMap(node)) {
+    for (const pair of (node as YAMLMap).items) {
+      collectNumberFormats(pair.value, [...path, scalarKeyName(pair.key)], out);
+    }
+    return;
+  }
+  // Arrays are edited as raw JSON in the UI, so per-element formatting is never
+  // looked up — only scalars reachable by an object path matter here.
+  if (isScalar(node)) {
+    const value = (node as Scalar).value;
+    const source = (node as Scalar).source;
+    if (
+      typeof value === "number" &&
+      Number.isFinite(value) &&
+      typeof source === "string" &&
+      source !== String(value)
+    ) {
+      out[JSON.stringify(path)] = source;
+    }
+  }
+}
+
+// YAML anchors/aliases and `<<` merge keys are flattened by `toJS()` and would be
+// expanded (and duplicated) on save, silently rewriting the file. We can't yet
+// preserve them surgically, so refuse to write such a file rather than corrupt
+// it (issue #9). Reading stays allowed so the operator can still inspect it.
+function assertNoAnchors(doc: Document): void {
+  let problem: string | null = null;
+
+  visit(doc, {
+    Alias() {
+      problem = "псевдоніми (*alias)";
+      return visit.BREAK;
+    },
+    Pair(_, pair) {
+      const key = pair.key as { value?: unknown } | null;
+      if (key && key.value === "<<") {
+        problem = "ключі злиття (<<)";
+        return visit.BREAK;
+      }
+      return undefined;
+    },
+    Node(_, node) {
+      if ((node as { anchor?: string }).anchor) {
+        problem = "якорі (&anchor)";
+        return visit.BREAK;
+      }
+      return undefined;
+    },
+  });
+
+  if (problem) {
+    throw new Error(
+      `Refusing to write: pricing.yml uses YAML ${problem}, which the editor cannot preserve yet. Edit this file by hand.`
+    );
+  }
 }
 
 // Serialize a scalar (or inline array/object) to a single-line YAML fragment,
@@ -345,6 +431,8 @@ export function applyPricingChanges(currentText: string, newTree: unknown): stri
     throw new Error("Refusing to write an empty pricing config");
   }
 
+  assertNoAnchors(doc);
+
   const currentObj = (doc.toJS() ?? {}) as Record<string, unknown>;
 
   let out: string;
@@ -394,6 +482,7 @@ export type PricingFile = {
   raw: string;
   tree: unknown;
   hash: string;
+  formats: NumberFormats;
 };
 
 export async function readPricing(): Promise<PricingFile> {
@@ -410,18 +499,29 @@ export async function readPricing(): Promise<PricingFile> {
     throw new Error(`pricing.yml is not valid YAML: ${doc.errors[0].message}`);
   }
 
+  const formats: NumberFormats = {};
+  collectNumberFormats(doc.contents, [], formats);
+
   return {
     path: cfg.file,
     raw,
     tree: doc.toJS() ?? {},
     hash: sha256(raw),
+    formats,
   };
 }
 
 export async function writePricing(
   newTree: unknown,
   baseHash?: string
-): Promise<{ ok: true; path: string; raw: string; tree: unknown; hash: string }> {
+): Promise<{
+  ok: true;
+  path: string;
+  raw: string;
+  tree: unknown;
+  hash: string;
+  formats: NumberFormats;
+}> {
   const current = await readPricing();
 
   // Optimistic concurrency: refuse to clobber edits made on the server since the
@@ -438,13 +538,21 @@ export async function writePricing(
 
   // No-op write guard: nothing to do if the result is byte-identical.
   if (newText !== current.raw) {
-    // Write atomically: keep a single rolling .bak, stream the new content into a
-    // temp file, copy the original permissions, then move it into place.
+    // Write atomically:
+    //  - a mandatory rolling `.bak` (no `|| true`: if the backup can't be made
+    //    we abort rather than write without one — issue #8);
+    //  - a best-effort timestamped backup, pruned to the 10 newest, giving a
+    //    short edit history (issue #7);
+    //  - stream the new content into a temp file, copy permissions, then move
+    //    it into place.
     const remoteCommand = [
       "set -e",
       `f='${cfg.file}'`,
       'tmp="$f.tmp.$$"',
-      'cp -p "$f" "$f.bak" 2>/dev/null || true',
+      'cp -p "$f" "$f.bak"',
+      'ts=$(date +%Y%m%d-%H%M%S)',
+      'cp -p "$f" "$f.bak.$ts" 2>/dev/null || true',
+      'ls -1t "$f".bak.* 2>/dev/null | tail -n +11 | xargs -r rm -f -- 2>/dev/null || true',
       'cat > "$tmp"',
       'chmod --reference="$f" "$tmp" 2>/dev/null || true',
       'mv -f "$tmp" "$f"',
@@ -454,6 +562,8 @@ export async function writePricing(
   }
 
   const verify = parseDocument(newText);
+  const formats: NumberFormats = {};
+  collectNumberFormats(verify.contents, [], formats);
 
   return {
     ok: true,
@@ -461,5 +571,6 @@ export async function writePricing(
     raw: newText,
     tree: verify.toJS() ?? {},
     hash: sha256(newText),
+    formats,
   };
 }
