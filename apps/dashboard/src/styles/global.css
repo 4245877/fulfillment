@@ -6,6 +6,11 @@
    ============================================================ */
 
 /* ── Fonts ─────────────────────────────────────────────────── */
+/* Inter (UI) + Lora (headings) are loaded in index.html via Google Fonts
+   with display=swap. Lora was chosen over Latin-only display serifs because
+   the interface is Ukrainian and Lora carries full Cyrillic — warm and
+   gentle, the soul of Yor Forger at home. Families resolve through the
+   --font / --font-display tokens in tokens.css. */
 
 /* ── Reset & Base ───────────────────────────────────────────── */
 *,

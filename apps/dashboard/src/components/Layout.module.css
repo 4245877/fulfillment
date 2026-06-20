@@ -201,9 +201,12 @@
   min-height: 100vh;
   overflow-x: hidden;
   padding: clamp(24px, 3vw, 44px);
+  /* Whisper-soft floral wallpaper (candle-gold petals, rose heart) — a homey,
+     hand-finished texture under the warm corner glows. */
   background:
     radial-gradient(circle at 98% 2%, rgba(159, 40, 66, 0.06), transparent 24rem),
     radial-gradient(circle at 4% 100%, rgba(197, 161, 92, 0.07), transparent 28rem),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cg fill='%23c5a15c' fill-opacity='0.06'%3E%3Ccircle cx='24' cy='17.5' r='2.8'/%3E%3Ccircle cx='24' cy='30.5' r='2.8'/%3E%3Ccircle cx='17.5' cy='24' r='2.8'/%3E%3Ccircle cx='30.5' cy='24' r='2.8'/%3E%3Ccircle cx='72' cy='65.5' r='2.8'/%3E%3Ccircle cx='72' cy='78.5' r='2.8'/%3E%3Ccircle cx='65.5' cy='72' r='2.8'/%3E%3Ccircle cx='78.5' cy='72' r='2.8'/%3E%3C/g%3E%3Cg fill='%23c74b63' fill-opacity='0.05'%3E%3Ccircle cx='24' cy='24' r='2'/%3E%3Ccircle cx='72' cy='72' r='2'/%3E%3C/g%3E%3C/svg%3E") repeat,
     var(--bg);
 }
 

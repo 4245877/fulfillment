@@ -103,9 +103,12 @@
   --space-lg: 1.5rem;
   --space-xl: 2rem;
 
-  /* Typography */
+  /* Typography — loaded in index.html via Google Fonts.
+     Inter: clean, modern UI text. Lora: warm, gentle, calligraphy-rooted
+     serif for headings (full Cyrillic) — the quiet elegance of Yor at home.
+     Warm serif fallbacks keep headings cozy if the web font is unavailable. */
   --font: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-display: Lora, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
 
   /* Motion */
   --transition-fast: 150ms ease;

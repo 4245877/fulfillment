@@ -1,12 +1,14 @@
 /* Orders.module.css — styles for Orders.jsx */
 
 :root {
-  --payment-full-bg: #dcfce7;
-  --payment-full-text: #166534;
-  --payment-partial-bg: #fef3c7;
-  --payment-partial-text: #92400e;
-  --payment-unknown-bg: #e5e7eb;
-  --payment-unknown-text: #374151;
+  /* Payment badges follow the warm palette (gentle forest-green, candle-gold
+     and warm neutral) instead of cold default greens/greys. */
+  --payment-full-bg: var(--success-light);
+  --payment-full-text: var(--success);
+  --payment-partial-bg: var(--warning-bg);
+  --payment-partial-text: var(--warning-text);
+  --payment-unknown-bg: var(--neutral-200);
+  --payment-unknown-text: var(--neutral-600);
 }
 
 /* === Top Row === */
@@ -94,8 +96,8 @@
   content: "";
   background: linear-gradient(
     to bottom,
-    var(--primary, #9b6a43),
-    var(--accent, #d2a06f)
+    var(--primary, #9f2842),
+    var(--accent, #c74b63)
   );
   opacity: 0;
   transition: opacity 0.25s ease;
@@ -106,7 +108,7 @@
   box-shadow: var(--shadow-md, 0 14px 32px rgba(47, 41, 36, 0.12));
   border-color: color-mix(
     in srgb,
-    var(--primary, #9b6a43) 40%,
+    var(--primary, #9f2842) 40%,
     var(--border, #e5ded4)
   );
 }
@@ -150,7 +152,7 @@
   border-radius: 6px;
   background: color-mix(
     in srgb,
-    var(--accent, #d2a06f) 15%,
+    var(--accent, #c74b63) 15%,
     transparent
   );
   font-size: 13px;
@@ -208,7 +210,7 @@
 }
 
 .infoCard {
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--border, #e5dadc);
   border-radius: 14px;
   padding: 12px;
   background: var(--surface-soft, #f9fafb);
@@ -222,8 +224,8 @@
 .infoSubTitle {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid var(--border, #e5e7eb);
-  color: var(--text-muted, #6b7280);
+  border-top: 1px solid var(--border, #e5dadc);
+  color: var(--text-muted, #75676c);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -247,7 +249,7 @@
 }
 
 .infoRow span {
-  color: var(--text-muted, #6b7280);
+  color: var(--text-muted, #75676c);
   font-weight: 600;
 }
 
@@ -259,7 +261,7 @@
 }
 
 .emptyInfo {
-  color: var(--text-muted, #6b7280);
+  color: var(--text-muted, #75676c);
   font-size: 14px;
 }
 
@@ -301,7 +303,7 @@
   display: inline-flex;
   width: fit-content;
   max-width: 100%;
-  color: var(--link, #2563eb);
+  color: var(--link, #9f2842);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -414,15 +416,15 @@
 .fileLink:hover {
   border-color: color-mix(
     in srgb,
-    var(--primary, #9b6a43) 45%,
+    var(--primary, #9f2842) 45%,
     var(--border, #d8cfc4)
   );
-  background: color-mix(in srgb, var(--primary, #9b6a43) 6%, var(--surface));
+  background: color-mix(in srgb, var(--primary, #9f2842) 6%, var(--surface));
   text-decoration: underline;
 }
 
 .fileLink:focus-visible {
-  outline: 2px solid var(--primary, #9b6a43);
+  outline: 2px solid var(--primary, #9f2842);
   outline-offset: 2px;
 }
 
@@ -452,18 +454,18 @@
 }
 
 .details summary:hover {
-  color: var(--primary, #9b6a43);
+  color: var(--primary, #9f2842);
 }
 
 .details summary:focus-visible {
-  outline: 2px solid var(--primary, #9b6a43);
+  outline: 2px solid var(--primary, #9f2842);
   outline-offset: 3px;
   border-radius: 6px;
 }
 
 .details[open] summary {
   margin-bottom: 8px;
-  color: var(--primary, #9b6a43);
+  color: var(--primary, #9f2842);
 }
 
 .pre {
