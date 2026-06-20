@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "test": "node --import tsx --test src/core/*.test.ts src/infra/integrations/telegram/*.test.ts src/modules/notifications/*.test.ts",
+    "test": "node --import tsx --test src/core/*.test.ts src/infra/integrations/telegram/*.test.ts src/modules/notifications/*.test.ts src/modules/printers/*.test.ts",
     "dev": "tsx watch src/server.ts",
     "start": "node --import tsx src/server.ts",
     "db:migrate": "tsx src/infra/db/migrate.ts",
