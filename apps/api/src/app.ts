@@ -7,6 +7,7 @@ import backupsRoutes from "./modules/backups/routes";
 import productReportsRoutes from "./modules/productReports/routes";
 import ordersRoutes from "./modules/orders/routes";
 import notificationsRoutes from "./modules/notifications/routes";
+import pricingRoutes from "./modules/pricing/routes";
 import { registerNotificationOutboxWorker } from "./modules/notifications/dispatcher";
 import { registerPrinterMonitorWorker } from "./modules/printers/monitor";
 import { getInventoryMaterialsSummary } from "./modules/inventory/service";
@@ -142,5 +143,6 @@ app.register(backupsRoutes, { prefix: "/api/ops/backup" });
 app.register(productReportsRoutes, { prefix: "/api" });
 app.register(ordersRoutes, { prefix: "/api/orders" });
 app.register(notificationsRoutes, { prefix: "/api/notifications" });
+app.register(pricingRoutes);
 
 export default app;

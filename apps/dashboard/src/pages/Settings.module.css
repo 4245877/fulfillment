@@ -1708,3 +1708,223 @@
     font-size: 12.5px;
   }
 }
+
+/* ============================================================================
+   PRICING (pricing.yml) EDITOR */
+
+.pricingMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pricingPath {
+  font-size: 12.5px;
+  color: var(--settings-muted);
+  word-break: break-all;
+}
+
+.pricingToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.pricingDirty {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.pricingError {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--error) 45%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--error) 7%, var(--surface));
+  color: var(--danger-text, var(--text));
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.pricingTree {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pricingGroup {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft, var(--surface));
+}
+
+.pricingGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pricingGroupKey {
+  font-family: var(--font-display, inherit);
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.pricingGroupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  /* Indent ribbon to make nesting visible. */
+  border-left: 3px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.pricingRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pricingKey {
+  flex: 0 0 38%;
+  min-width: 120px;
+  font-size: 13px;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.pricingControl {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pricingControl :global(.input) {
+  width: 100%;
+}
+
+.pricingBool {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.pricingDelete {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--settings-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.pricingDelete:hover:not(:disabled) {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 50%, var(--border));
+  background: color-mix(in srgb, var(--error) 8%, var(--surface));
+}
+
+.pricingDelete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pricingAddBtn {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 6px 12px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.pricingAddBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.pricingAddBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pricingAddRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 10px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+
+.pricingAddRow :global(.input) {
+  flex: 1 1 140px;
+  min-width: 100px;
+}
+
+.pricingHintInline {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--settings-muted);
+}
+
+.pricingWarn {
+  font-size: 12px;
+  color: var(--error);
+}
+
+.pricingRaw {
+  margin: 10px 0 0;
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2, var(--surface));
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+@media (max-width: 640px) {
+  .pricingRow {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .pricingKey {
+    flex-basis: 100%;
+  }
+}

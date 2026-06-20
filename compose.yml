@@ -37,6 +37,7 @@ services:
       BACKUP_REMOTE_SCRIPT: /home/miha/app/ops/backups/backup.sh
       BACKUP_REMOTE_STATUS_FILE: /mnt/fast_data/backups/lite-forest/state/backup-status.json
       BACKUP_REMOTE_ARCHIVES_DIR: /mnt/fast_data/backups/lite-forest/archives
+      PRICING_REMOTE_FILE: /home/miha/app/services/ingester/data/pricing.yml
     volumes:
       - .:/app
       - api_node_modules:/app/node_modules

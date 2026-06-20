@@ -5,6 +5,7 @@ import { useSettingsConfig } from "./useSettingsConfig";
 
 import UiSection from "./sections/UiSection";
 import BackupsSection from "./sections/BackupsSection";
+import PricingSection from "./sections/PricingSection";
 import InfraSection from "./sections/InfraSection";
 import SecuritySection from "./sections/SecuritySection";
 
@@ -23,6 +24,11 @@ const SECTIONS = [
     render: ({ cfg, patch, doAction }) => (
       <BackupsSection cfg={cfg} patch={patch} doAction={doAction} />
     ),
+  },
+  {
+    id: "pricing",
+    navTitle: "Ціноутворення",
+    render: ({ showToast }) => <PricingSection showToast={showToast} />,
   },
   {
     id: "infra",
