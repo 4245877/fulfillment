@@ -107,6 +107,121 @@ test("rejects a non-object root payload", () => {
   assert.throws(() => applyPricingChanges(SAMPLE, "nope" as unknown), /root/i);
 });
 
+// A sample with hand-aligned inline comments — the alignment must survive an
+// edit to an unrelated field (the core of issue #1).
+const ALIGNED = `currency: UAH            # валюта
+process:
+  FDM:
+    yield: 0.92            # доля удачных печатей
+    waste_pct: 0.10        # двойной учёт?
+energy:
+  kwh_rate: 5.0            # грн/кВт·ч
+`;
+
+test("editing one field leaves all other lines byte-for-byte (alignment preserved)", () => {
+  const tree = parse(ALIGNED) as Record<string, any>;
+  tree.energy.kwh_rate = 6.0;
+
+  const out = applyPricingChanges(ALIGNED, tree);
+
+  const before = ALIGNED.split("\n");
+  const after = out.split("\n");
+
+  // Every line except the edited kwh_rate one is identical down to the byte.
+  for (let i = 0; i < before.length; i++) {
+    if (before[i].includes("kwh_rate")) continue;
+    assert.equal(after[i], before[i], `line ${i} changed: ${JSON.stringify(after[i])}`);
+  }
+  // The aligned comment on the untouched yield line is intact.
+  assert.match(out, /yield: 0\.92 {12}# доля удачных печатей/);
+  assert.equal(parse(out).energy.kwh_rate, 6);
+});
+
+test("rename keeps the key's value subtree and comments in place", () => {
+  const src = `materials:
+  HYPER_PLA:           # ⚠ waste_pct учитывается дважды
+    unit: kg
+    waste_pct: 0.0     # RESIN из Chitubox уже учтён
+    price_per_kg: 850.0
+`;
+  const tree = parse(src) as Record<string, any>;
+  const value = tree.materials.HYPER_PLA;
+  delete tree.materials.HYPER_PLA;
+  tree.materials.HYPER_PLA_V2 = value; // in-place rename preserves order
+
+  const out = applyPricingChanges(src, tree);
+
+  assert.match(out, /HYPER_PLA_V2:/);
+  assert.doesNotMatch(out, /HYPER_PLA:/);
+  // Domain warnings attached to the renamed block survive.
+  assert.match(out, /⚠ waste_pct учитывается дважды/);
+  assert.match(out, /RESIN из Chitubox уже учтён/);
+  // Untouched neighbour formatting (trailing zero) is preserved.
+  assert.match(out, /price_per_kg: 850\.0/);
+});
+
+test("deleting a key does not eat the next sibling's leading comment", () => {
+  const src = `materials:
+  HYPER_PLA:
+    price_per_kg: 850.0
+  # ⚠ RESIN waste_pct=0 (Chitubox уже учёл)
+  RESIN:
+    price_per_l: 1200.0
+`;
+  const tree = parse(src) as Record<string, any>;
+  delete tree.materials.HYPER_PLA;
+
+  const out = applyPricingChanges(src, tree);
+
+  assert.doesNotMatch(out, /HYPER_PLA/);
+  // The comment belonging to the surviving RESIN block stays.
+  assert.match(out, /⚠ RESIN waste_pct=0/);
+  assert.equal(parse(out).materials.RESIN.price_per_l, 1200);
+});
+
+test("adding a field leaves every other line byte-for-byte", () => {
+  const tree = parse(ALIGNED) as Record<string, any>;
+  tree.process.FDM.consumables = 1.5;
+
+  const out = applyPricingChanges(ALIGNED, tree);
+
+  const before = ALIGNED.split("\n");
+  const after = out.split("\n");
+  for (const line of before) {
+    assert.ok(after.includes(line), `original line lost: ${JSON.stringify(line)}`);
+  }
+  assert.match(out, /yield: 0\.92 {12}# доля удачных печатей/);
+  assert.equal(parse(out).process.FDM.consumables, 1.5);
+});
+
+test("falls back safely when a value changes shape (object <-> scalar)", () => {
+  const tree = parse(ALIGNED) as Record<string, any>;
+  tree.energy = 5; // was an object { kwh_rate } -> now a scalar
+
+  const out = applyPricingChanges(ALIGNED, tree);
+  const parsed = parse(out);
+
+  // Data is correct even though this edit takes the document-rewrite fallback.
+  assert.equal(parsed.energy, 5);
+  assert.equal(parsed.process.FDM.yield, 0.92);
+});
+
+test("string keys that look like numbers stay quoted on rename", () => {
+  const src = `options:
+  nozzle_mm:
+    "0.2":
+      time_mult: 1.35
+`;
+  const tree = parse(src) as Record<string, any>;
+  const value = tree.options.nozzle_mm["0.2"];
+  delete tree.options.nozzle_mm["0.2"];
+  tree.options.nozzle_mm["0.3"] = value;
+
+  const out = applyPricingChanges(src, tree);
+  assert.match(out, /"0\.3":/);
+  assert.equal(parse(out).options.nozzle_mm["0.3"].time_mult, 1.35);
+});
+
 test("isPlainObject and sha256 behave as expected", () => {
   assert.equal(isPlainObject({}), true);
   assert.equal(isPlainObject([]), false);

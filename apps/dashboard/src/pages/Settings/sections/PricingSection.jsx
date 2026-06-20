@@ -36,6 +36,32 @@ function deleteAt(obj, path) {
   return copy;
 }
 
+function getAt(obj, path) {
+  let current = obj;
+  for (const key of path) {
+    if (current == null) return undefined;
+    current = current[key];
+  }
+  return current;
+}
+
+// Rename a key while keeping its position in the parent object (so the YAML
+// backend can recognise it as an in-place rename and preserve comments).
+function renameKeyAt(obj, path, newKey) {
+  const parentPath = path.slice(0, -1);
+  const oldKey = path[path.length - 1];
+  const parent = getAt(obj, parentPath);
+
+  if (!isPlainObject(parent)) return obj;
+
+  const rebuilt = {};
+  for (const key of Object.keys(parent)) {
+    rebuilt[key === oldKey ? newKey : key] = parent[key];
+  }
+
+  return setAt(obj, parentPath, rebuilt);
+}
+
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -44,12 +70,73 @@ function numToStr(value) {
   return Number.isFinite(value) ? String(value) : "";
 }
 
+// Accept both "6.5" and the UA/RU decimal comma "6,5".
+function parseNumberInput(text) {
+  const normalized = String(text).trim().replace(",", ".");
+  if (normalized === "") return { ok: false };
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? { ok: true, value: parsed } : { ok: false };
+}
+
+// ---------------------------------------------------------------------------
+// Validation: known enums + value ranges. Enum dropdowns prevent typos; range
+// checks block saving obviously broken values (negative prices, shares > 1).
+// ---------------------------------------------------------------------------
+const ENUM_OPTIONS = {
+  mode: ["markup", "margin"],
+  missing_material_price: ["error", "zero", "fallback"],
+  strategy: ["nearest_9", "nearest", "none"],
+};
+
+// Returns the option list for a known enum key, always including the current
+// value so a valid value the schema didn't anticipate is never dropped.
+function enumOptionsFor(key, value) {
+  const known = ENUM_OPTIONS[key];
+  if (!known) return null;
+  if (typeof value !== "string") return null;
+  return known.includes(value) ? known : [value, ...known];
+}
+
+function isFractionKey(key) {
+  return key === "yield" || /_pct$/.test(key);
+}
+
+function isNonNegativeKey(key) {
+  return /(price|rate|cost|fee)/i.test(key);
+}
+
+function validateScalar(key, value) {
+  if (typeof value !== "number") return null;
+  if (!Number.isFinite(value)) return "Очікується число";
+  if (isFractionKey(key) && (value < 0 || value > 1)) {
+    return "Має бути частка від 0 до 1";
+  }
+  if (isNonNegativeKey(key) && value < 0) {
+    return "Не може бути від’ємним";
+  }
+  return null;
+}
+
+function collectErrors(node, path, out) {
+  if (Array.isArray(node)) return;
+  if (isPlainObject(node)) {
+    for (const key of Object.keys(node)) {
+      collectErrors(node[key], [...path, key], out);
+    }
+    return;
+  }
+  const key = path[path.length - 1];
+  const message = validateScalar(key, node);
+  if (message) out[JSON.stringify(path)] = message;
+}
+
 // ---------------------------------------------------------------------------
 // Field editors
 // ---------------------------------------------------------------------------
 function NumberField({ value, onChange, disabled }) {
   const [draft, setDraft] = React.useState(() => numToStr(value));
   const [focused, setFocused] = React.useState(false);
+  const [invalid, setInvalid] = React.useState(false);
 
   // Keep the input in sync with external changes, but never fight the user while
   // they are typing (e.g. mid-way through "0.").
@@ -58,28 +145,58 @@ function NumberField({ value, onChange, disabled }) {
   }, [value, focused]);
 
   return (
-    <input
-      className="input"
-      type="text"
-      inputMode="decimal"
-      value={draft}
+    <>
+      <input
+        className="input"
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        disabled={disabled}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false);
+          setDraft(numToStr(value));
+          setInvalid(false);
+        }}
+        onChange={(event) => {
+          const next = event.target.value;
+          setDraft(next);
+
+          if (next.trim() === "") {
+            setInvalid(false);
+            return;
+          }
+
+          const parsed = parseNumberInput(next);
+          if (parsed.ok) {
+            setInvalid(false);
+            onChange(parsed.value);
+          } else {
+            setInvalid(true);
+          }
+        }}
+      />
+      {invalid ? (
+        <span className={styles.pricingWarn}>Невірне число (напр. 6.5 або 6,5)</span>
+      ) : null}
+    </>
+  );
+}
+
+function EnumField({ value, options, onChange, disabled }) {
+  return (
+    <select
+      className="select"
+      value={value ?? ""}
       disabled={disabled}
-      onFocus={() => setFocused(true)}
-      onBlur={() => {
-        setFocused(false);
-        setDraft(numToStr(value));
-      }}
-      onChange={(event) => {
-        const next = event.target.value;
-        setDraft(next);
-
-        const parsed = Number(next);
-
-        if (next.trim() !== "" && Number.isFinite(parsed)) {
-          onChange(parsed);
-        }
-      }}
-    />
+      onChange={(event) => onChange(event.target.value)}
+    >
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -122,9 +239,21 @@ function JsonArrayField({ value, onChange, disabled }) {
   );
 }
 
-function ScalarField({ value, onChange, disabled }) {
-  if (typeof value === "boolean") {
-    return (
+function ScalarField({ nodeKey, value, onChange, disabled, error }) {
+  const enumOptions = enumOptionsFor(nodeKey, value);
+
+  let control;
+  if (enumOptions) {
+    control = (
+      <EnumField
+        value={value}
+        options={enumOptions}
+        onChange={onChange}
+        disabled={disabled}
+      />
+    );
+  } else if (typeof value === "boolean") {
+    control = (
       <label className={styles.pricingBool}>
         <input
           type="checkbox"
@@ -135,20 +264,100 @@ function ScalarField({ value, onChange, disabled }) {
         <span>{value ? "так" : "ні"}</span>
       </label>
     );
-  }
-
-  if (typeof value === "number") {
-    return <NumberField value={value} onChange={onChange} disabled={disabled} />;
+  } else if (typeof value === "number") {
+    control = <NumberField value={value} onChange={onChange} disabled={disabled} />;
+  } else {
+    control = (
+      <input
+        className="input"
+        type="text"
+        value={value ?? ""}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    );
   }
 
   return (
-    <input
-      className="input"
-      type="text"
-      value={value ?? ""}
-      disabled={disabled}
-      onChange={(event) => onChange(event.target.value)}
-    />
+    <>
+      {control}
+      {error ? <span className={styles.pricingWarn}>{error}</span> : null}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline key label with rename-in-place
+// ---------------------------------------------------------------------------
+function KeyLabel({ value, className, siblingKeys, onRename, disabled }) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(value);
+
+  const trimmed = draft.trim();
+  const isDuplicate = trimmed !== value && siblingKeys.includes(trimmed);
+  const canSave = trimmed !== "" && trimmed !== value && !isDuplicate;
+
+  const open = () => {
+    setDraft(value);
+    setEditing(true);
+  };
+
+  const commit = () => {
+    if (canSave) onRename(trimmed);
+    setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <span className={`${styles.pricingKeyWrap} ${className}`}>
+        <span>{value}</span>
+        <button
+          type="button"
+          className={styles.pricingEdit}
+          disabled={disabled}
+          title="Перейменувати ключ"
+          aria-label={`Перейменувати ${value}`}
+          onClick={open}
+        >
+          ✎
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span className={styles.pricingKeyEdit}>
+      <input
+        className="input"
+        autoFocus
+        value={draft}
+        disabled={disabled}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") commit();
+          if (event.key === "Escape") setEditing(false);
+        }}
+      />
+      <button
+        type="button"
+        className="btn btn-primary btn-sm"
+        disabled={disabled || !canSave}
+        onClick={commit}
+      >
+        ✓
+      </button>
+      <button
+        type="button"
+        className="btn btn-secondary btn-sm"
+        disabled={disabled}
+        onClick={() => setEditing(false)}
+      >
+        ×
+      </button>
+      {isDuplicate ? (
+        <span className={styles.pricingWarn}>Ключ уже існує</span>
+      ) : null}
+    </span>
   );
 }
 
@@ -164,8 +373,8 @@ const TYPE_OPTIONS = [
 
 function initialValueForType(type, rawValue) {
   if (type === "number") {
-    const parsed = Number(rawValue);
-    return Number.isFinite(parsed) ? parsed : 0;
+    const parsed = parseNumberInput(rawValue);
+    return parsed.ok ? parsed.value : 0;
   }
 
   if (type === "boolean") return rawValue === "true" || rawValue === true;
@@ -285,7 +494,33 @@ function AddFieldRow({ existingKeys, onAdd, disabled }) {
 // ---------------------------------------------------------------------------
 // Recursive node
 // ---------------------------------------------------------------------------
-function PricingNode({ nodeKey, value, path, onSet, onDelete, disabled }) {
+function PricingNode({
+  nodeKey,
+  value,
+  path,
+  siblingKeys,
+  onSet,
+  onDelete,
+  onRename,
+  getError,
+  disabled,
+}) {
+  const handleRemove = () => {
+    const groupCount = isPlainObject(value) ? Object.keys(value).length : 0;
+    const arrayCount = Array.isArray(value) ? value.length : 0;
+    const childCount = groupCount || arrayCount;
+
+    if (childCount > 0) {
+      const confirmed = window.confirm(
+        `Видалити «${nodeKey}» разом із ${childCount} вкладеними значеннями?\n\n` +
+          "Дію можна скасувати кнопкою «Скасувати останню зміну»."
+      );
+      if (!confirmed) return;
+    }
+
+    onDelete(path);
+  };
+
   const removeButton = (
     <button
       type="button"
@@ -293,10 +528,20 @@ function PricingNode({ nodeKey, value, path, onSet, onDelete, disabled }) {
       disabled={disabled}
       title="Видалити значення"
       aria-label={`Видалити ${nodeKey}`}
-      onClick={() => onDelete(path)}
+      onClick={handleRemove}
     >
       ×
     </button>
+  );
+
+  const keyLabel = (className) => (
+    <KeyLabel
+      value={nodeKey}
+      className={className}
+      siblingKeys={siblingKeys}
+      disabled={disabled}
+      onRename={(newKey) => onRename(path, newKey)}
+    />
   );
 
   if (isPlainObject(value)) {
@@ -305,7 +550,7 @@ function PricingNode({ nodeKey, value, path, onSet, onDelete, disabled }) {
     return (
       <div className={styles.pricingGroup}>
         <div className={styles.pricingGroupHeader}>
-          <span className={styles.pricingGroupKey}>{nodeKey}</span>
+          {keyLabel(styles.pricingGroupKey)}
           {removeButton}
         </div>
 
@@ -316,8 +561,11 @@ function PricingNode({ nodeKey, value, path, onSet, onDelete, disabled }) {
               nodeKey={childKey}
               value={value[childKey]}
               path={[...path, childKey]}
+              siblingKeys={keys}
               onSet={onSet}
               onDelete={onDelete}
+              onRename={onRename}
+              getError={getError}
               disabled={disabled}
             />
           ))}
@@ -336,7 +584,7 @@ function PricingNode({ nodeKey, value, path, onSet, onDelete, disabled }) {
 
   return (
     <div className={styles.pricingRow}>
-      <span className={styles.pricingKey}>{nodeKey}</span>
+      {keyLabel(styles.pricingKey)}
 
       {Array.isArray(value) ? (
         <JsonArrayField
@@ -347,8 +595,10 @@ function PricingNode({ nodeKey, value, path, onSet, onDelete, disabled }) {
       ) : (
         <div className={styles.pricingControl}>
           <ScalarField
+            nodeKey={nodeKey}
             value={value}
             disabled={disabled}
+            error={getError(path)}
             onChange={(next) => onSet(path, next)}
           />
         </div>
@@ -370,6 +620,26 @@ export default function PricingSection({ showToast }) {
   const [meta, setMeta] = React.useState({ path: "", hash: "", raw: "" });
   const [loadedJson, setLoadedJson] = React.useState("");
   const [showRaw, setShowRaw] = React.useState(false);
+  const [conflict, setConflict] = React.useState(null);
+
+  // Undo history (refs avoid re-render churn; the length state drives the button).
+  const treeRef = React.useRef(tree);
+  const historyRef = React.useRef([]);
+  const [historyLen, setHistoryLen] = React.useState(0);
+
+  React.useEffect(() => {
+    treeRef.current = tree;
+  }, [tree]);
+
+  const resetHistory = React.useCallback(() => {
+    historyRef.current = [];
+    setHistoryLen(0);
+  }, []);
+
+  const pushHistory = React.useCallback(() => {
+    historyRef.current.push(treeRef.current);
+    setHistoryLen(historyRef.current.length);
+  }, []);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -385,13 +655,15 @@ export default function PricingSection({ showToast }) {
       setTree(result.tree);
       setMeta({ path: result.path, hash: result.hash, raw: result.raw });
       setLoadedJson(JSON.stringify(result.tree));
+      setConflict(null);
+      resetHistory();
     } catch (caught) {
       setTree(null);
       setError(String(caught?.message || caught));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [resetHistory]);
 
   React.useEffect(() => {
     load();
@@ -399,22 +671,91 @@ export default function PricingSection({ showToast }) {
 
   const dirty = tree != null && JSON.stringify(tree) !== loadedJson;
 
+  const errors = React.useMemo(() => {
+    const out = {};
+    if (tree) collectErrors(tree, [], out);
+    return out;
+  }, [tree]);
+
+  const hasErrors = Object.keys(errors).length > 0;
+  const getError = React.useCallback(
+    (path) => errors[JSON.stringify(path)],
+    [errors]
+  );
+
+  // Warn before leaving the tab/page with unsaved edits (issue #10).
+  React.useEffect(() => {
+    if (!dirty) return undefined;
+
+    const handler = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+      return "";
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
   const onSet = React.useCallback(
-    (path, value) => setTree((current) => setAt(current, path, value)),
-    []
+    (path, value) => {
+      pushHistory();
+      setTree((current) => setAt(current, path, value));
+    },
+    [pushHistory]
   );
 
   const onDelete = React.useCallback(
-    (path) => setTree((current) => deleteAt(current, path)),
-    []
+    (path) => {
+      pushHistory();
+      setTree((current) => deleteAt(current, path));
+    },
+    [pushHistory]
   );
 
-  const save = async () => {
+  const onRename = React.useCallback(
+    (path, newKey) => {
+      pushHistory();
+      setTree((current) => renameKeyAt(current, path, newKey));
+    },
+    [pushHistory]
+  );
+
+  const undo = React.useCallback(() => {
+    const previous = historyRef.current.pop();
+    setHistoryLen(historyRef.current.length);
+    if (previous !== undefined) setTree(previous);
+  }, []);
+
+  const reload = () => {
+    if (
+      dirty &&
+      !window.confirm(
+        "Є незбережені зміни. Перезавантаження їх відкине. Продовжити?"
+      )
+    ) {
+      return;
+    }
+    load();
+  };
+
+  const save = async (overrideHash) => {
     if (!dirty || saving) return;
 
+    if (hasErrors) {
+      showToast?.(
+        { kind: "error", text: "Виправте помилки валідації перед збереженням." },
+        3500
+      );
+      return;
+    }
+
+    const isOverwrite = overrideHash !== undefined;
     const confirmed = window.confirm(
-      `Зберегти зміни у файл pricing.yml на сервері?\n\n${meta.path}\n\n` +
-        "Коментарі та форматування незмінених рядків будуть збережені."
+      isOverwrite
+        ? `Перезаписати версію на сервері вашими змінами?\n\n${meta.path}`
+        : `Зберегти зміни у файл pricing.yml на сервері?\n\n${meta.path}\n\n` +
+            "Коментарі та форматування незмінених рядків будуть збережені."
     );
 
     if (!confirmed) return;
@@ -424,7 +765,7 @@ export default function PricingSection({ showToast }) {
     try {
       const result = await api.put(
         "/api/ops/pricing",
-        { tree, baseHash: meta.hash },
+        { tree, baseHash: overrideHash ?? meta.hash },
         { timeoutMs: 25000 }
       );
 
@@ -435,12 +776,34 @@ export default function PricingSection({ showToast }) {
       setTree(result.tree);
       setMeta({ path: result.path, hash: result.hash, raw: result.raw });
       setLoadedJson(JSON.stringify(result.tree));
+      setConflict(null);
+      resetHistory();
       showToast?.({ kind: "success", text: "Збережено у pricing.yml ✅" }, 2500);
     } catch (caught) {
-      showToast?.(
-        { kind: "error", text: `Помилка: ${String(caught?.message || caught)}` },
-        4000
-      );
+      if (caught?.status === 409) {
+        // Version conflict: keep the user's edits, fetch the new server hash so
+        // they can choose to overwrite or reload (issue #8).
+        let latestHash = null;
+        try {
+          const latest = await api.get("/api/ops/pricing", { timeoutMs: 20000 });
+          if (latest && latest.ok !== false) latestHash = latest.hash;
+        } catch {
+          // ignore — overwrite stays disabled when we can't read the new hash
+        }
+        setConflict({ latestHash });
+        showToast?.(
+          {
+            kind: "error",
+            text: "Файл змінено на сервері. Ваші зміни збережено у формі — оберіть дію нижче.",
+          },
+          5000
+        );
+      } else {
+        showToast?.(
+          { kind: "error", text: `Помилка: ${String(caught?.message || caught)}` },
+          4000
+        );
+      }
     } finally {
       setSaving(false);
     }
@@ -463,16 +826,25 @@ export default function PricingSection({ showToast }) {
               type="button"
               className="btn btn-secondary btn-sm"
               disabled={loading || saving}
-              onClick={load}
+              onClick={reload}
             >
               Перезавантажити
             </button>
 
             <button
               type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={historyLen === 0 || saving}
+              onClick={undo}
+            >
+              Скасувати останню зміну
+            </button>
+
+            <button
+              type="button"
               className="btn btn-primary btn-sm"
-              disabled={!dirty || saving || loading}
-              onClick={save}
+              disabled={!dirty || saving || loading || hasErrors}
+              onClick={() => save()}
             >
               {saving ? "Збереження…" : "Зберегти у pricing.yml"}
             </button>
@@ -481,12 +853,45 @@ export default function PricingSection({ showToast }) {
               <span className={styles.pricingDirty}>Є незбережені зміни</span>
             ) : null}
           </div>
+
+          {conflict ? (
+            <div className={styles.pricingConflict}>
+              <strong>Конфлікт версій.</strong> Файл було змінено на сервері після
+              завантаження. Ваші зміни збережено у формі.
+              <div className={styles.pricingConflictActions}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={saving || conflict.latestHash == null}
+                  onClick={() => save(conflict.latestHash)}
+                >
+                  Перезаписати моїми змінами
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  disabled={saving}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Відхилити ваші зміни і завантажити версію з сервера?"
+                      )
+                    ) {
+                      load();
+                    }
+                  }}
+                >
+                  Завантажити версію з сервера
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </FieldRow>
 
       <FieldRow
         label="Змінні"
-        hint="× — видалити значення; «Додати поле» — створити нове (текст, число, так/ні або вкладена група)."
+        hint="✎ — перейменувати ключ; × — видалити значення; «Додати поле» — створити нове (текст, число, так/ні або вкладена група)."
       >
         {loading ? (
           <div className="text-muted">Завантаження…</div>
@@ -494,14 +899,23 @@ export default function PricingSection({ showToast }) {
           <div className={styles.pricingError}>{error}</div>
         ) : tree ? (
           <div className={styles.pricingTree}>
+            {hasErrors ? (
+              <div className={styles.pricingError}>
+                Є помилки валідації — виправте позначені поля перед збереженням.
+              </div>
+            ) : null}
+
             {Object.keys(tree).map((key) => (
               <PricingNode
                 key={key}
                 nodeKey={key}
                 value={tree[key]}
                 path={[key]}
+                siblingKeys={Object.keys(tree)}
                 onSet={onSet}
                 onDelete={onDelete}
+                onRename={onRename}
+                getError={getError}
                 disabled={saving}
               />
             ))}

@@ -1800,6 +1800,77 @@
   word-break: break-word;
 }
 
+/* Key + rename (✎) affordance. Combined with .pricingKey / .pricingGroupKey. */
+.pricingKeyWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pricingEdit {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--settings-muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.6;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.pricingEdit:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.pricingEdit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pricingKeyEdit {
+  flex: 1 1 100%;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.pricingKeyEdit :global(.input) {
+  flex: 1 1 140px;
+  min-width: 100px;
+}
+
+.pricingConflict {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pricingConflictActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .pricingControl {
   flex: 1 1 auto;
   display: flex;

@@ -1,7 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { createHash } from "node:crypto";
-import { parseDocument, type Document } from "yaml";
+import { isMap, parseDocument, stringify, type YAMLMap } from "yaml";
 
 const execFileAsync = promisify(execFile);
 
@@ -100,40 +100,229 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-// Walks the previous (parsed-from-file) tree and the incoming tree, mutating the
-// YAML Document in place so that only changed/added/removed nodes are touched.
-// Untouched nodes keep their original formatting and — importantly — comments.
-function applyDiff(
-  doc: Document,
-  oldValue: unknown,
-  newValue: unknown,
-  path: Array<string | number>
-) {
-  const oldKeys = isPlainObject(oldValue) ? Object.keys(oldValue) : [];
-  const newKeys = isPlainObject(newValue) ? Object.keys(newValue) : [];
+// ---------------------------------------------------------------------------
+// Surgical, text-level patching.
+//
+// The previous implementation re-serialized the whole YAML Document via
+// `doc.toString()`. The `yaml` library preserves comment *text* but not the
+// hand-aligned whitespace in front of `#` (a column of inline comments collapses
+// to a single space), so editing one field reflowed comment alignment across the
+// ENTIRE file — breaking the "untouched lines stay byte-for-byte" promise.
+//
+// Instead we compute a minimal set of text splices from the parsed node ranges
+// and apply them to the original source, so any line we did not touch is left
+// exactly as it was (comments, alignment and all). Anything we cannot express as
+// a safe splice throws `SurgicalFallback`, and we fall back to the document
+// rewrite (correct data, possibly reflowed) rather than risk corruption.
+// ---------------------------------------------------------------------------
 
-  for (const key of oldKeys) {
-    if (!newKeys.includes(key)) {
-      doc.deleteIn([...path, key]);
+type Splice = { start: number; end: number; text: string };
+
+class SurgicalFallback extends Error {}
+
+function scalarKeyName(key: unknown): string {
+  if (key && typeof key === "object" && "value" in key) {
+    return String((key as { value: unknown }).value);
+  }
+  return String(key);
+}
+
+// Serialize a scalar (or inline array/object) to a single-line YAML fragment,
+// delegating quoting rules to the library so e.g. the string "0.2" stays quoted.
+function serializeInline(value: unknown): string {
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "string") return stringify(value).replace(/\n+$/, "");
+  if (Array.isArray(value)) {
+    return `[${value.map(serializeInline).join(", ")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  return `{ ${entries
+    .map(([k, v]) => `${serializeInline(k)}: ${serializeInline(v)}`)
+    .join(", ")} }`;
+}
+
+// Serialize an object as an indented YAML block (for newly-added keys).
+function serializeBlock(obj: Record<string, unknown>, indent: string): string {
+  const body = stringify(obj, { indent: 2, lineWidth: 0 }).replace(/\n$/, "");
+  return body
+    .split("\n")
+    .map((line) => (line ? indent + line : line))
+    .join("\n");
+}
+
+function lineStartOf(src: string, offset: number): number {
+  return src.lastIndexOf("\n", offset) + 1;
+}
+
+// Offset just after a pair's final line. Block collections already carry the
+// trailing newline in range[1]; scalars stop before it (and before any inline
+// comment), so for those we extend to the end of the line.
+function endOfPairLine(
+  src: string,
+  pair: { key: unknown; value: unknown }
+): number {
+  const keyRange = (pair.key as { range?: [number, number, number] }).range;
+  const valueRange = (pair.value as { range?: [number, number, number] } | null)?.range;
+  let end = valueRange ? valueRange[1] : keyRange![1];
+  if (src[end - 1] !== "\n") {
+    const nl = src.indexOf("\n", end);
+    end = nl === -1 ? src.length : nl + 1;
+  }
+  return end;
+}
+
+// Walks old (parsed-from-file) vs new tree for one map node, pushing splices.
+function diffMap(
+  node: unknown,
+  src: string,
+  edits: Splice[],
+  oldValue: Record<string, unknown>,
+  newValue: Record<string, unknown>
+): void {
+  if (!isMap(node)) throw new SurgicalFallback("expected a block map node");
+
+  const map = node as YAMLMap;
+  const oldKeys = Object.keys(oldValue);
+  const newKeys = Object.keys(newValue);
+  const oldSet = new Set(oldKeys);
+  const newSet = new Set(newKeys);
+
+  const removed = oldKeys.filter((k) => !newSet.has(k));
+  const added = newKeys.filter((k) => !oldSet.has(k));
+
+  const findPair = (key: string) =>
+    map.items.find((pair) => scalarKeyName(pair.key) === key);
+
+  // Rename detection: a removed key whose value deep-equals an added key's value
+  // is treated as an in-place rename (replace the key text only, keeping the
+  // value subtree — and all its comments — byte-for-byte).
+  const renames = new Map<string, string>();
+  const consumedAdds = new Set<string>();
+  for (const oldKey of removed) {
+    const match = added.find(
+      (a) => !consumedAdds.has(a) && deepEqual(oldValue[oldKey], newValue[a])
+    );
+    if (match) {
+      renames.set(oldKey, match);
+      consumedAdds.add(match);
     }
   }
 
+  const structural =
+    removed.some((k) => !renames.has(k)) || added.some((k) => !consumedAdds.has(k));
+  if (map.flow && structural) {
+    throw new SurgicalFallback("structural change inside a flow collection");
+  }
+
+  // 1. Renames — replace just the key token.
+  for (const [oldKey, newKey] of renames) {
+    const pair = findPair(oldKey);
+    const range = (pair?.key as { range?: [number, number, number] } | undefined)?.range;
+    if (!range) throw new SurgicalFallback("rename: missing key range");
+    edits.push({ start: range[0], end: range[1], text: serializeInline(newKey) });
+  }
+
+  // 2. Deletes — remove the key's own line(s), but never the next sibling's
+  //    leading comment.
+  for (const key of removed) {
+    if (renames.has(key)) continue;
+    const pair = findPair(key);
+    const keyRange = (pair?.key as { range?: [number, number, number] } | undefined)?.range;
+    if (!pair || !keyRange) throw new SurgicalFallback("delete: missing pair");
+    const lineStart = lineStartOf(src, keyRange[0]);
+    const end = endOfPairLine(src, pair);
+    edits.push({ start: lineStart, end, text: "" });
+  }
+
+  // 3. Additions — append after the last existing item, matching its indent.
+  const realAdds = added.filter((k) => !consumedAdds.has(k));
+  if (realAdds.length > 0) {
+    if (map.items.length === 0) {
+      throw new SurgicalFallback("add into an empty map");
+    }
+    const firstKeyRange = (map.items[0].key as { range: [number, number, number] }).range;
+    const indent = src.slice(lineStartOf(src, firstKeyRange[0]), firstKeyRange[0]);
+
+    const last = map.items[map.items.length - 1];
+    const insertAt = endOfPairLine(src, last);
+    // A missing newline only happens at EOF; add one so the new block starts
+    // on its own line.
+    const prefix = src[insertAt - 1] === "\n" ? "" : "\n";
+
+    const addObj: Record<string, unknown> = {};
+    for (const key of newKeys) {
+      if (realAdds.includes(key)) addObj[key] = newValue[key];
+    }
+
+    edits.push({
+      start: insertAt,
+      end: insertAt,
+      text: `${prefix}${serializeBlock(addObj, indent)}\n`,
+    });
+  }
+
+  // 4. Kept keys — recurse into objects or replace changed scalar/array values.
   for (const key of newKeys) {
-    const nextPath = [...path, key];
-    const oldChild = isPlainObject(oldValue)
-      ? (oldValue as Record<string, unknown>)[key]
-      : undefined;
-    const newChild = (newValue as Record<string, unknown>)[key];
+    if (!oldSet.has(key)) continue; // additions handled above
+    const oldChild = oldValue[key];
+    const newChild = newValue[key];
+    if (deepEqual(oldChild, newChild)) continue;
 
-    if (!oldKeys.includes(key)) {
-      // Brand-new key: set the whole subtree (scalar or nested object) at once.
-      doc.setIn(nextPath, newChild);
-    } else if (isPlainObject(oldChild) && isPlainObject(newChild)) {
-      applyDiff(doc, oldChild, newChild, nextPath);
-    } else if (!deepEqual(oldChild, newChild)) {
-      doc.setIn(nextPath, newChild);
+    const pair = findPair(key);
+    if (!pair) throw new SurgicalFallback("change: missing pair");
+
+    if (isPlainObject(oldChild) && isPlainObject(newChild)) {
+      diffMap(pair.value, src, edits, oldChild, newChild);
+    } else if (!isPlainObject(oldChild) && !isPlainObject(newChild)) {
+      const range = (pair.value as { range?: [number, number, number] } | null)?.range;
+      if (!range) throw new SurgicalFallback("change: missing value range");
+      edits.push({ start: range[0], end: range[1], text: serializeInline(newChild) });
+    } else {
+      // scalar <-> object reshaping is not safely expressible as a splice.
+      throw new SurgicalFallback("change: value reshaped");
     }
   }
+}
+
+// Document-rewrite fallback (the original strategy): correct data, but may
+// reflow comment alignment. Used only for edits the surgical patcher declines.
+function applyViaDocument(currentText: string, newTree: Record<string, unknown>): string {
+  const doc = parseDocument(currentText);
+  const oldValue = (doc.toJS() ?? {}) as Record<string, unknown>;
+
+  const walk = (
+    oldValueInner: unknown,
+    newValueInner: unknown,
+    path: Array<string | number>
+  ) => {
+    const innerOldKeys = isPlainObject(oldValueInner) ? Object.keys(oldValueInner) : [];
+    const innerNewKeys = isPlainObject(newValueInner) ? Object.keys(newValueInner) : [];
+
+    for (const key of innerOldKeys) {
+      if (!innerNewKeys.includes(key)) doc.deleteIn([...path, key]);
+    }
+
+    for (const key of innerNewKeys) {
+      const nextPath = [...path, key];
+      const oldChild = isPlainObject(oldValueInner)
+        ? (oldValueInner as Record<string, unknown>)[key]
+        : undefined;
+      const newChild = (newValueInner as Record<string, unknown>)[key];
+
+      if (!innerOldKeys.includes(key)) {
+        doc.setIn(nextPath, newChild);
+      } else if (isPlainObject(oldChild) && isPlainObject(newChild)) {
+        walk(oldChild, newChild, nextPath);
+      } else if (!deepEqual(oldChild, newChild)) {
+        doc.setIn(nextPath, newChild);
+      }
+    }
+  };
+
+  walk(oldValue, newTree, []);
+  return doc.toString();
 }
 
 /**
@@ -158,15 +347,43 @@ export function applyPricingChanges(currentText: string, newTree: unknown): stri
 
   const currentObj = (doc.toJS() ?? {}) as Record<string, unknown>;
 
-  applyDiff(doc, currentObj, newTree, []);
+  let out: string;
+  try {
+    const edits: Splice[] = [];
+    diffMap(doc.contents, currentText, edits, currentObj, newTree);
 
-  const out = doc.toString();
+    if (edits.length === 0) {
+      out = currentText; // nothing changed
+    } else {
+      // Apply right-to-left so earlier offsets stay valid; reject overlaps.
+      edits.sort((a, b) => b.start - a.start);
+      out = currentText;
+      let lastStart = Number.POSITIVE_INFINITY;
+      for (const edit of edits) {
+        if (edit.end > lastStart) throw new SurgicalFallback("overlapping edits");
+        out = out.slice(0, edit.start) + edit.text + out.slice(edit.end);
+        lastStart = edit.start;
+      }
+    }
 
-  // Sanity check: the serialized result must round-trip as valid YAML.
+    const verify = parseDocument(out);
+    if (verify.errors.length > 0) throw new SurgicalFallback("surgical output invalid");
+    if (!deepEqual(verify.toJS() ?? {}, newTree)) {
+      throw new SurgicalFallback("surgical output does not match requested tree");
+    }
+  } catch (caught) {
+    if (!(caught instanceof SurgicalFallback)) throw caught;
+    out = applyViaDocument(currentText, newTree);
+  }
+
+  // Sanity check: the serialized result must round-trip as valid YAML and match
+  // the requested tree exactly, whichever path produced it.
   const verify = parseDocument(out);
-
   if (verify.errors.length > 0) {
     throw new Error("Refusing to write: serialized pricing.yml is invalid");
+  }
+  if (!deepEqual(verify.toJS() ?? {}, newTree)) {
+    throw new Error("Refusing to write: serialized pricing.yml lost data");
   }
 
   return out;

@@ -54,8 +54,26 @@ async function request(
     const text = await res.text();
 
     if (!res.ok) {
+      // Prefer the clean { ok:false, error } contract the API returns on
+      // non-2xx so callers can show a human message instead of a raw dump.
+      let parsed = null;
+      if (ct.includes("json") && text) {
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          parsed = null;
+        }
+      }
+
       const snippet = text ? `\n\n${text.slice(0, 300)}` : "";
-      throw new Error(`${res.status} ${res.statusText} @ ${url}${snippet}`);
+      const message =
+        (parsed && typeof parsed.error === "string" && parsed.error) ||
+        `${res.status} ${res.statusText} @ ${url}${snippet}`;
+
+      const err = new Error(message);
+      err.status = res.status;
+      err.body = parsed;
+      throw err;
     }
 
     if (expect === "json") {
