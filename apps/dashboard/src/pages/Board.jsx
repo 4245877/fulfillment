@@ -663,7 +663,7 @@ const SectionLogistics = memo(function SectionLogistics({ logistics = {}, loadin
       title="Логістика"
       subtitle="Статуси відправлень та розподіл за перевізниками"
     >
-      <div className="kpi-grid">
+      <div className="wallboard-grid-2">
         {LOGISTICS_STATUSES.map(([key, label]) => (
           <KpiCard
             key={key}
@@ -1320,34 +1320,28 @@ export default function Board() {
       <TopSummary prints={prints} stats={stats} alertsCount={alerts.length} />
 
       <div className="wallboard-sections">
-        <div className="wallboard-row">
-          <SectionOrders data={stats} loading={loading} />
+        {/* Full-width hero: the order pipeline is the widest-content panel,
+            so it spans the row and its 13 stages spread instead of stacking. */}
+        <SectionOrders data={stats} loading={loading} />
+
+        {/* Masonry body: peer monitoring panels of very different heights pack
+            tightly (no ragged gap under the shorter panel of a fixed row).
+            Order interleaves the two tallest panels (backups, materials) early
+            so the column balancer can split near the true midpoint. */}
+        <div className="wallboard-masonry">
           <SectionAlerts alerts={alerts} loading={loading} />
-        </div>
-
-        <div className="wallboard-row">
-          <SectionServices services={stats.services} loading={loading} />
           <SectionBackups backup={backupStatus} loading={backupLoading} />
-        </div>
-
-        <div className="wallboard-row">
-          <SectionQueues queues={stats.queues} loading={loading} />
-          <SectionPayments payments={stats.payments} loading={loading} />
-        </div>
-
-        <div className="wallboard-row">
-          <SectionLogistics logistics={stats.logistics} loading={loading} />
           <SectionMaterials materials={stats.materials} loading={loading} />
-        </div>
-
-        <div className="wallboard-row">
-          <SectionWebhooks wh={stats.webhooks} loading={loading} />
+          <SectionQueues queues={stats.queues} loading={loading} />
+          <SectionServices services={stats.services} loading={loading} />
+          <SectionPayments payments={stats.payments} loading={loading} />
+          <SectionLogistics logistics={stats.logistics} loading={loading} />
           <SectionIndexer idx={stats.indexer} loading={loading} />
+          <SectionWebhooks wh={stats.webhooks} loading={loading} />
         </div>
 
-        <div className="wallboard-row wallboard-row--full">
-          <SectionIngester ing={stats.ingester} loading={loading} />
-        </div>
+        {/* Full-width footer: the import log has a wide 5-column table. */}
+        <SectionIngester ing={stats.ingester} loading={loading} />
       </div>
     </div>
   );

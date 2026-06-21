@@ -7,7 +7,7 @@
 .wallboard {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: var(--space-lg);
   padding-bottom: var(--space-xl);
   animation: fadeUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
@@ -324,7 +324,6 @@
 .kpi-card-top {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   margin-bottom: var(--space-sm);
 }
 
@@ -346,32 +345,6 @@
 .kpi-card:hover .kpi-card-icon {
   background: color-mix(in srgb, var(--kpi-color, var(--primary)) 18%, var(--bg));
   transform: scale(1.05) rotate(-3deg);
-}
-
-.kpi-card-menu {
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--neutral-400);
-  border-radius: 6px;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  opacity: 0;
-  transition:
-    opacity var(--transition-fast),
-    background var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.kpi-card:hover .kpi-card-menu {
-  opacity: 1;
-}
-
-.kpi-card-menu:hover {
-  background: var(--neutral-200);
-  color: var(--text);
 }
 
 .kpi-label {
@@ -430,30 +403,33 @@
   overflow-wrap: anywhere;
 }
 
-/* ── Wallboard Sections Row ─────────────────────────────────── */
+/* ── Wallboard Sections ─────────────────────────────────────────
+   Full-width "feature" panels (the order pipeline and the import log)
+   stack directly in this column; the peer monitoring panels sit in a
+   masonry body between them. Masonry (CSS multi-column) lets panels of
+   very different heights pack tightly, instead of the old fixed two-up
+   rows that left a ragged gap under whichever panel was shorter and
+   crammed dense panels into a narrow 380px sidebar column. */
 .wallboard-sections {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-md);
 }
 
-.wallboard-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
-  gap: var(--space-md);
-  align-items: start;
+.wallboard-masonry {
+  columns: 2;
+  column-gap: var(--space-md);
 }
 
-.wallboard-row--full {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.wallboard-row--full > * {
-  grid-column: 1 / -1;
+.wallboard-masonry > .panel {
+  width: 100%;
+  margin-bottom: var(--space-md);
+  break-inside: avoid;
 }
 
 @media (max-width: 1100px) {
-  .wallboard-row {
-    grid-template-columns: 1fr;
+  .wallboard-masonry {
+    columns: 1;
   }
 }
 
