@@ -2,10 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { DEFAULTS, STORAGE_KEY } from "./defaults.js";
 import { safeParseJSON, mergeDefaults, cloneDeep, setByPath } from "./utils.js";
 
+const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN || "";
+
 async function postJson(url, body) {
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(ADMIN_TOKEN ? { "x-admin-token": ADMIN_TOKEN } : {}),
+    },
     body: JSON.stringify(body ?? {}),
   });
 

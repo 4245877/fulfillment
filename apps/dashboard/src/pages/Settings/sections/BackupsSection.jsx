@@ -125,6 +125,7 @@ function normalizeArchiveList(raw) {
         createdAt: null,
         sizeBytes: null,
         path: null,
+        isLatest: item === "latest",
       };
     }
 
@@ -134,6 +135,10 @@ function normalizeArchiveList(raw) {
       createdAt: item.created_at || item.createdAt || item.mtime || null,
       sizeBytes: item.size_bytes || item.sizeBytes || item.size || null,
       path: item.path || item.run_dir || item.runDir || null,
+      isLatest:
+        item.isLatest === true ||
+        item.is_latest === true ||
+        item.name === "latest",
     };
   });
 }
@@ -233,17 +238,51 @@ function BackupProgressPanel({ progress }) {
   );
 }
 
-function BackupContents() {
+const DEFAULT_INCLUDES = [
+  "Товари та база даних",
+  "Зображення",
+  "STL / 3MF файли",
+  "Дані користувачів",
+];
+
+function BackupContents({ includes }) {
+  const items = Array.isArray(includes) && includes.length ? includes : DEFAULT_INCLUDES;
+
   return (
     <div className={styles.inputGroup}>
-      <div>База даних PostgreSQL</div>
-      <div>/srv/drukarnya/uploads</div>
-      <div>Docker volume app_minio-data</div>
-      <div>/home/miha/app/services/ingester/data</div>
-      <div>/mnt/stl_large</div>
-      <div>/mnt/stl_small</div>
-      <div>docker-compose, nginx, migrations</div>
-      <div>manifest.json і sha256sums.txt</div>
+      {items.map((item) => (
+        <div key={item}>{item}</div>
+      ))}
+    </div>
+  );
+}
+
+function BackupRoute({ backups, serverConfig }) {
+  const source = backups?.source || {};
+  const destination = backups?.destination || {};
+  const retentionDays = serverConfig?.retentionDays ?? backups?.retentionDays;
+
+  const sourceHost = serverConfig?.sourceHost || source.host || "—";
+  const destHost = serverConfig?.destHost || destination.host || "—";
+  const destDisk = serverConfig?.destDisk || destination.disk || "";
+
+  return (
+    <div className={styles.inputGroup}>
+      <div>
+        Звідки: {source.label ? `${source.label} ` : ""}({sourceHost})
+      </div>
+      <div>
+        Куди: {destination.label ? `${destination.label} ` : ""}({destHost})
+        {destDisk ? ` · ${destDisk}` : ""}
+      </div>
+      <div>Запуск: лише вручну, без розкладу</div>
+      <div>
+        Зберігання: автоматичне видалення копій, старших за{" "}
+        {retentionDays ? `${retentionDays} днів (≈3–4 тижні)` : "налаштований строк"}
+      </div>
+      {serverConfig?.archivesDir ? (
+        <div>Каталог архівів: {serverConfig.archivesDir}</div>
+      ) : null}
     </div>
   );
 }
@@ -266,7 +305,10 @@ function ArchiveList({ archives }) {
             borderRadius: 12,
           }}
         >
-          <strong>{archive.name}</strong>
+          <strong>
+            {archive.name}
+            {archive.isLatest ? " · latest" : ""}
+          </strong>
 
           <span className="text-muted">
             Дата: {formatDateTime(archive.createdAt)}
@@ -287,13 +329,24 @@ function ArchiveList({ archives }) {
   );
 }
 
-export default function BackupsSection({ doAction }) {
+export default function BackupsSection({ cfg, doAction }) {
   const [progress, setProgress] = React.useState(() => normalizeProgress(null));
   const [archives, setArchives] = React.useState([]);
   const [isBusy, setIsBusy] = React.useState(false);
   const [listError, setListError] = React.useState(null);
+  const [serverConfig, setServerConfig] = React.useState(null);
+
+  // Guard against overlapping polls: each request opens an SSH connection, so a
+  // slow reply must not let the next interval tick stack a second one on top.
+  const statusInFlight = React.useRef(false);
+  const listInFlight = React.useRef(false);
+
+  const backups = cfg?.backups;
 
   const loadBackupStatus = React.useCallback(async () => {
+    if (statusInFlight.current) return;
+    statusInFlight.current = true;
+
     try {
       const result = await api.get("/api/ops/backup/status", {
         timeoutMs: 10000,
@@ -309,32 +362,57 @@ export default function BackupsSection({ doAction }) {
         message: "Не вдалося отримати статус резервного копіювання.",
         updatedAt: new Date().toISOString(),
       }));
+    } finally {
+      statusInFlight.current = false;
     }
   }, []);
 
   const loadBackupList = React.useCallback(async () => {
+    if (listInFlight.current) return;
+    listInFlight.current = true;
+
     try {
       const result = await api.get("/api/ops/backup/list", {
-        timeoutMs: 10000,
+        timeoutMs: 15000,
       });
 
       setArchives(normalizeArchiveList(result));
       setListError(null);
     } catch {
       setListError("Не вдалося завантажити список резервних копій.");
+    } finally {
+      listInFlight.current = false;
     }
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    api
+      .get("/api/ops/backup/config", { timeoutMs: 10000 })
+      .then((result) => {
+        if (!cancelled) setServerConfig(result || null);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   React.useEffect(() => {
     loadBackupStatus();
     loadBackupList();
 
-    const timer = window.setInterval(() => {
-      loadBackupStatus();
-      loadBackupList();
-    }, 5000);
+    // Status is cheap and polled often; the archive list runs `du` over large
+    // directories, so it refreshes less frequently.
+    const statusTimer = window.setInterval(loadBackupStatus, 5000);
+    const listTimer = window.setInterval(loadBackupList, 30000);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(statusTimer);
+      window.clearInterval(listTimer);
+    };
   }, [loadBackupStatus, loadBackupList]);
 
   const runBackup = async () => {
@@ -354,10 +432,10 @@ export default function BackupsSection({ doAction }) {
     try {
       const result = await runPostAction(doAction, {
         title: "Запустити резервне копіювання",
-        description: "Запустити /home/miha/app/ops/backups/backup.sh на основному сервері.",
+        description: "Запустити резервне копіювання на сервері магазину.",
         url: "/api/ops/backup/run",
         body: {},
-        timeoutMs: 10000,
+        timeoutMs: 15000,
       });
 
       setProgress(normalizeProgress(result?.progress || result));
@@ -392,10 +470,10 @@ export default function BackupsSection({ doAction }) {
     try {
       const result = await runPostAction(doAction, {
         title: "Перевірити останню резервну копію",
-        description: "Запустити check-backup.sh для archives/latest.",
+        description: "Запустити перевірку для останньої копії (latest).",
         url: "/api/ops/backup/test-restore",
         body: {},
-        timeoutMs: 10000,
+        timeoutMs: 130000,
       });
 
       setProgress(normalizeProgress(result?.progress || result));
@@ -421,14 +499,21 @@ export default function BackupsSection({ doAction }) {
     >
       <FieldRow
         label="Що входить до резервної копії"
-        hint="Поточний склад відповідає backup.sh на основному сервері."
+        hint="Склад відповідає backup.sh на сервері магазину."
       >
-        <BackupContents />
+        <BackupContents includes={backups?.includes} />
+      </FieldRow>
+
+      <FieldRow
+        label="Звідки / куди та зберігання"
+        hint="Хости, диск призначення та строк зберігання беруться з конфігурації API."
+      >
+        <BackupRoute backups={backups} serverConfig={serverConfig} />
       </FieldRow>
 
       <FieldRow
         label="Поточний статус"
-        hint="Зчитується з /mnt/fast_data/backups/lite-forest/state/backup-status.json через API."
+        hint="Зчитується зі status-файла резервного копіювання через API."
       >
         <BackupProgressPanel progress={progress} />
       </FieldRow>
@@ -472,7 +557,11 @@ export default function BackupsSection({ doAction }) {
 
       <FieldRow
         label="Архіви"
-        hint="Локальні резервні копії з /mnt/fast_data/backups/lite-forest/archives."
+        hint={
+          serverConfig?.archivesDir
+            ? `Резервні копії з ${serverConfig.archivesDir}.`
+            : "Резервні копії з каталогу архівів на сервері."
+        }
       >
         {listError ? (
           <div className="text-muted">{listError}</div>

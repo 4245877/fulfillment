@@ -42,35 +42,27 @@ export const DEFAULTS = {
   },
 
   backups: {
-    schedulePreset: "daily", // hourly | daily | weekly | custom
-    cron: "0 3 * * *",
-    mode: "full", // full | incremental
+    // Ручний запуск, без розкладу. Копії, старші за retentionDays, прибирає
+    // backup.sh на сервері магазину. Шляхи/хости приходять з /api/ops/backup/config.
+    manualOnly: true,
+    retentionDays: 28, // ≈3–4 тижні
 
-    include: {
-      db: true,
-      media: true,
-      config: true,
-      search: false,
+    includes: [
+      "Товари та база даних",
+      "Зображення",
+      "STL / 3MF файли",
+      "Дані користувачів",
+    ],
+
+    source: {
+      host: "192.168.0.135",
+      label: "Сервер магазину",
     },
 
-    window: {
-      start: "02:00",
-      end: "06:00",
-      avoidPeak: true,
-    },
-
-    retention: {
-      daily: 14,
-      weekly: 8,
-      monthly: 6,
-    },
-
-    storage: {
-      provider: "minio", // s3 | minio | filesystem
-      bucket: "backups",
-      path: "fulfillment/",
-      encryptionProfile: "server-managed", // server-managed | none | custom
-      keyProfile: "default",
+    destination: {
+      host: "192.168.0.139",
+      disk: "SSD 240 GB",
+      label: "Сервер застосунку",
     },
   },
 
