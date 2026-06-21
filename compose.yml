@@ -35,8 +35,12 @@ services:
       BACKUP_SSH_KEY: /run/secrets/lite_forest_ops
       BACKUP_REMOTE_PROJECT_ROOT: /home/miha/app
       BACKUP_REMOTE_SCRIPT: /home/miha/app/ops/backups/backup.sh
+      BACKUP_REMOTE_CHECK_SCRIPT: /home/miha/app/ops/backups/check-backup.sh
       BACKUP_REMOTE_STATUS_FILE: /mnt/fast_data/backups/lite-forest/state/backup-status.json
       BACKUP_REMOTE_ARCHIVES_DIR: /mnt/fast_data/backups/lite-forest/archives
+      BACKUP_DEST_HOST: 192.168.0.139
+      BACKUP_DEST_DISK: SSD 240 GB
+      BACKUP_RETENTION_DAYS: "28"
       PRICING_REMOTE_FILE: /home/miha/app/services/ingester/data/pricing.yml
     volumes:
       - .:/app
