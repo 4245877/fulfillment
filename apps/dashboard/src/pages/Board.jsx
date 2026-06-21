@@ -286,25 +286,23 @@ function getAlertLabel(level) {
   return "Інфо";
 }
 
-function getServiceTone(status) {
-  const v = String(status || "").toLowerCase();
+// Single source of truth for the "Стан сервісів" panel so that the tag colour,
+// the Ukrainian label and the "problem" counter never drift apart.
+function describeService(status) {
+  const v = String(status || "").trim().toLowerCase();
 
-  if (!v || v === "unknown") return "primary";
-  if (v === "up" || v === "ok" || v === "healthy") return "success";
-  if (v === "degraded" || v === "warning") return "warning";
+  if (!v || v === "unknown")
+    return { tone: "primary", label: "Невідомо", problem: false };
+  if (v === "up" || v === "ok" || v === "healthy")
+    return { tone: "success", label: "Працює", problem: false };
+  if (v === "degraded" || v === "warning" || v === "warn")
+    return { tone: "warning", label: "Частково", problem: false };
+  if (v === "down" || v === "offline" || v === "unreachable")
+    return { tone: "danger", label: "Недоступний", problem: true };
 
-  return "danger";
-}
-
-function getServiceLabel(status) {
-  const v = String(status || "").toLowerCase();
-
-  if (!v || v === "unknown") return "Невідомо";
-  if (v === "up" || v === "ok" || v === "healthy") return "Працює";
-  if (v === "degraded" || v === "warning") return "Частково";
-  if (v === "down") return "Недоступний";
-
-  return String(status);
+  // Any other value (error, failed, timeout, …) is an unhealthy state: keep it
+  // red and counted, but never leak the raw English token into the UI.
+  return { tone: "danger", label: "Помилка", problem: true };
 }
 
 function getBackupTone(status) {
@@ -757,13 +755,12 @@ const SectionPayments = memo(function SectionPayments({ payments = {}, loading =
 });
 
 const SectionServices = memo(function SectionServices({ services = {}, loading = false }) {
-  const downCount = SERVICE_ROWS.reduce((count, [, key]) => {
-    const status = String(services[key] || "unknown").toLowerCase();
-
-    return status === "down" || status === "error" || status === "failed"
-      ? count + 1
-      : count;
-  }, 0);
+  const rows = SERVICE_ROWS.map(([name, key]) => ({
+    name,
+    key,
+    ...describeService(services[key]),
+  }));
+  const downCount = rows.reduce((count, row) => count + (row.problem ? 1 : 0), 0);
 
   return (
     <Panel
@@ -782,13 +779,11 @@ const SectionServices = memo(function SectionServices({ services = {}, loading =
           </thead>
 
           <tbody>
-            {SERVICE_ROWS.map(([name, key]) => (
-              <tr key={key}>
-                <td className="col-name">{name}</td>
+            {rows.map((row) => (
+              <tr key={row.key}>
+                <td className="col-name">{row.name}</td>
                 <td>
-                  <StatusTag tone={getServiceTone(services[key])}>
-                    {getServiceLabel(services[key])}
-                  </StatusTag>
+                  <StatusTag tone={row.tone}>{row.label}</StatusTag>
                 </td>
               </tr>
             ))}

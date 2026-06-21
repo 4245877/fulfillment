@@ -13,6 +13,7 @@ import { registerPrinterMonitorWorker } from "./modules/printers/monitor";
 import { getInventoryMaterialsSummary } from "./modules/inventory/service";
 import { getOrdersStatusSummary } from "./modules/orders/service";
 import { checkDbConnection } from "./infra/db/knex";
+import { getServicesHealth } from "./modules/ops/serviceHealth";
 
 const app = Fastify({ logger: true });
 
@@ -49,7 +50,10 @@ app.get("/ready", async (_req, reply) => {
 });
 
 app.get("/api/ops/overview", async () => {
-  const materials = await getInventoryMaterialsSummary();
+  const [materials, services] = await Promise.all([
+    getInventoryMaterialsSummary(),
+    getServicesHealth(),
+  ]);
 
   return {
     stats: {
@@ -75,14 +79,7 @@ app.get("/api/ops/overview", async () => {
         webhooks: { backlog: 0, lagMs: 0 },
         notify: { backlog: 0, lagMs: 0 },
       },
-      services: {
-        shop: "down",
-        fulfillment: "up",
-        printers: "down",
-        db: (await checkDbConnection()) ? "up" : "down",
-        redis: "down",
-        indexer: "down",
-      },
+      services,
       indexer: {
         backlog: 0,
         lastIndexedAt: "—",
