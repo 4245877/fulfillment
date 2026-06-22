@@ -71,6 +71,26 @@ services:
     depends_on:
       - api
 
+  # Bridges the Creality K2's proprietary WebRTC camera into a JPEG snapshot the
+  # API can fetch at http://go2rtc:1984/api/frame.jpeg?src=k2 (the K2 exposes no
+  # plain MJPEG/snapshot endpoint of its own). Set that URL as the K2's
+  # "URL знімка камери" in the dashboard printer manager.
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: fulfillment-go2rtc
+    restart: unless-stopped
+    environment:
+      # Replace the IP with your K2's. Stock firmware below v1.1.5.5 serves the
+      # camera's WebRTC signaling on :8000; newer firmware moved it (port 8000
+      # was disabled "for security"). Open http://<server>:1984 to confirm the
+      # `k2` stream connects, and adjust the host/port here if it does not.
+      K2_CAMERA_SOURCE: "webrtc:http://192.168.0.132:8000/call/webrtc_local#format=creality"
+    volumes:
+      - ./infra/go2rtc/go2rtc.yaml:/config/go2rtc.yaml:ro
+    ports:
+      # go2rtc web UI / API — handy for verifying the camera bridge.
+      - "1984:1984"
+
 volumes:
   api_node_modules:
   api_api_node_modules:

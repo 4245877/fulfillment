@@ -14,6 +14,7 @@ const DEFAULT_PRINTER = {
   host: "",
   port: 80,
   deviceUi: "",
+  snapshotUrl: "",
   profile: "fdm-0.4",
   material: "PLA",
   nozzle: "0.4",
@@ -441,6 +442,18 @@ export default function PrinterManagerPanel({ onChanged }) {
                   value={form.deviceUi || ""}
                   onChange={(event) => patchForm("deviceUi", event.target.value)}
                   placeholder="http://192.168.0.132"
+                />
+              </label>
+
+              <label>
+                <span>URL знімка камери</span>
+                <input
+                  className="input"
+                  value={form.snapshotUrl || ""}
+                  onChange={(event) =>
+                    patchForm("snapshotUrl", event.target.value)
+                  }
+                  placeholder="http://go2rtc:1984/api/frame.jpeg?src=k2"
                 />
               </label>
 

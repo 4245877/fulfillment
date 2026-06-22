@@ -98,7 +98,12 @@ export const env = {
     15000
   ),
   PRINTER_SNAPSHOT_ENABLED: booleanEnv("PRINTER_SNAPSHOT_ENABLED", true),
-  PRINTER_SNAPSHOT_TIMEOUT_MS: numberEnv("PRINTER_SNAPSHOT_TIMEOUT_MS", 4000),
+  // Generous default: a go2rtc-bridged camera (e.g. the Creality K2's
+  // proprietary WebRTC stream) negotiates a peer connection and waits for a
+  // keyframe before it can return the first JPEG, which can take several
+  // seconds when cold. Plain MJPEG/Bambu sources still return as soon as a
+  // frame arrives, so they are unaffected by the higher ceiling.
+  PRINTER_SNAPSHOT_TIMEOUT_MS: numberEnv("PRINTER_SNAPSHOT_TIMEOUT_MS", 8000),
   PRINTER_SNAPSHOT_MAX_BYTES: numberEnv(
     "PRINTER_SNAPSHOT_MAX_BYTES",
     3_000_000
