@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  fetchPrinterConfigs,
   savePrinterConfigs,
   testPrinterConnection,
 } from "../../api/printerFarmApi.js";
@@ -65,12 +64,31 @@ function makeEmptyPrinter() {
   };
 }
 
+function formToPrinter(form, fallbackName) {
+  return {
+    ...form,
+    id: String(form.id || "").trim() || makeIdFromName(fallbackName ?? form.name),
+    name: String(form.name || "").trim(),
+    host: String(form.host || "").trim(),
+    port: Number(form.port) || undefined,
+    enabled: form.enabled !== false,
+  };
+}
 
-export default function PrinterManagerPanel({ onChanged }) {
-  const [printers, setPrinters] = useState([]);
+export default function PrinterManagerPanel({
+  printers = [],
+  loading = false,
+  onChanged,
+}) {
+  // `selectedId` is the id of the existing printer being edited. While creating a
+  // brand-new printer `isCreating` is true and `selectedId` is "". Keeping these
+  // as two distinct signals (instead of overloading selectedId="") is what lets
+  // the selector reliably target one specific printer — the previous version had
+  // no selector at all, so edits always landed on printers[0] (e.g. a camera URL
+  // typed for the K2 was saved onto the first printer in the list).
   const [selectedId, setSelectedId] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(makeEmptyPrinter);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
@@ -80,52 +98,42 @@ export default function PrinterManagerPanel({ onChanged }) {
     [printers, selectedId]
   );
 
+  // Keep the form in sync with the authoritative list coming from the parent.
+  // We only (re)load the form when the current selection is no longer valid
+  // (initial load, or the selected printer was removed). While the user is
+  // actively editing a still-present printer — or creating a new one — we leave
+  // their in-progress form untouched.
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadPrinters() {
-      try {
-        const data = await fetchPrinterConfigs();
-
-        if (cancelled) return;
-
-        const items = Array.isArray(data?.printers) ? data.printers : [];
-        setPrinters(items);
-
-        if (items.length) {
-          setSelectedId(items[0].id);
-          setForm({
-            ...DEFAULT_PRINTER,
-            ...items[0],
-          });
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setMessage(
-            error instanceof Error
-              ? error.message
-              : "Не вдалося завантажити список принтерів"
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
+    if (isCreating) return;
+    if (selectedId && printers.some((printer) => printer.id === selectedId)) {
+      return;
     }
 
-    loadPrinters();
+    const first = printers[0];
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (first) {
+      setSelectedId(first.id);
+      setForm({ ...DEFAULT_PRINTER, ...first });
+    } else {
+      setSelectedId("");
+      setForm(makeEmptyPrinter());
+    }
+  }, [printers, isCreating, selectedId]);
+
+  const selectPrinter = (id) => {
+    const printer = printers.find((item) => item.id === id);
+    if (!printer) return;
+
+    setIsCreating(false);
+    setSelectedId(id);
+    setForm({ ...DEFAULT_PRINTER, ...printer });
+    setMessage("");
+  };
 
   const startCreate = () => {
-    const next = makeEmptyPrinter();
-
+    setIsCreating(true);
     setSelectedId("");
-    setForm(next);
+    setForm(makeEmptyPrinter());
     setMessage("");
   };
 
@@ -136,7 +144,14 @@ export default function PrinterManagerPanel({ onChanged }) {
         [key]: value,
       };
 
-      if (key === "name" && (!current.id || current.id.startsWith("printer-"))) {
+      // Auto-derive the id from the name only while creating a new printer.
+      // For an existing printer the id is its primary key (the server restores
+      // masked secrets by id), so it must stay stable — the field is read-only.
+      if (
+        key === "name" &&
+        isCreating &&
+        (!current.id || current.id.startsWith("printer-"))
+      ) {
         next.id = makeIdFromName(value);
       }
 
@@ -155,22 +170,16 @@ export default function PrinterManagerPanel({ onChanged }) {
         current.name && current.name !== "Новий принтер"
           ? current.name
           : preset.model,
+      // Only adjust the id while creating; never rewrite an existing id.
       id:
-        current.id && !current.id.startsWith("printer-")
-          ? current.id
-          : makeIdFromName(preset.model),
+        isCreating && (!current.id || current.id.startsWith("printer-"))
+          ? makeIdFromName(preset.model)
+          : current.id,
     }));
   };
 
   const saveCurrent = async () => {
-    const nextPrinter = {
-      ...form,
-      id: String(form.id || "").trim() || makeIdFromName(form.name),
-      name: String(form.name || "").trim(),
-      host: String(form.host || "").trim(),
-      port: Number(form.port) || undefined,
-      enabled: form.enabled !== false,
-    };
+    const nextPrinter = formToPrinter(form);
 
     const duplicateId = printers.some(
       (printer) => printer.id === nextPrinter.id && printer.id !== selectedId
@@ -190,7 +199,8 @@ export default function PrinterManagerPanel({ onChanged }) {
     setMessage("");
 
     try {
-      const exists = printers.some((printer) => printer.id === selectedId);
+      const exists =
+        !isCreating && printers.some((printer) => printer.id === selectedId);
 
       const nextPrinters = exists
         ? printers.map((printer) =>
@@ -203,14 +213,17 @@ export default function PrinterManagerPanel({ onChanged }) {
         ? saved.printers
         : nextPrinters;
 
-      setPrinters(savedPrinters);
-      setSelectedId(nextPrinter.id);
-      setForm({
-        ...DEFAULT_PRINTER,
-        ...nextPrinter,
-      });
+      // Re-seed the form from the server's authoritative (secret-masked) record
+      // so the inputs reflect exactly what was persisted.
+      const savedSelf =
+        savedPrinters.find((printer) => printer.id === nextPrinter.id) ||
+        nextPrinter;
+
+      setIsCreating(false);
+      setSelectedId(savedSelf.id);
+      setForm({ ...DEFAULT_PRINTER, ...savedSelf });
       setMessage("Збережено.");
-      onChanged?.();
+      onChanged?.(savedPrinters);
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Не вдалося зберегти принтер"
@@ -243,9 +256,8 @@ export default function PrinterManagerPanel({ onChanged }) {
         ? saved.printers
         : nextPrinters;
 
-      setPrinters(savedPrinters);
-
       if (savedPrinters.length) {
+        setIsCreating(false);
         setSelectedId(savedPrinters[0].id);
         setForm({
           ...DEFAULT_PRINTER,
@@ -256,7 +268,7 @@ export default function PrinterManagerPanel({ onChanged }) {
       }
 
       setMessage("Видалено.");
-      onChanged?.();
+      onChanged?.(savedPrinters);
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Не вдалося видалити принтер"
@@ -296,6 +308,12 @@ export default function PrinterManagerPanel({ onChanged }) {
     }
   };
 
+  const editingLabel = isCreating
+    ? "Новий принтер"
+    : selectedPrinter
+      ? `${selectedPrinter.name} · ${selectedPrinter.id}`
+      : "Новий принтер";
+
   return (
     <section className="panel">
       <div className="panel-header">
@@ -327,6 +345,38 @@ export default function PrinterManagerPanel({ onChanged }) {
 
         <div className="printer-manager-layout">
           <div className="printer-manager-editor">
+            <div className="printer-form-grid">
+              <label>
+                <span>Принтер для редагування</span>
+                <select
+                  className="input"
+                  value={isCreating ? "" : selectedId}
+                  onChange={(event) => {
+                    const id = event.target.value;
+                    if (!id) {
+                      startCreate();
+                    } else {
+                      selectPrinter(id);
+                    }
+                  }}
+                >
+                  {isCreating || !printers.length ? (
+                    <option value="">Новий принтер</option>
+                  ) : null}
+                  {printers.map((printer) => (
+                    <option key={printer.id} value={printer.id}>
+                      {printer.name || printer.id}
+                      {printer.enabled === false ? " (вимкнено)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="printer-manager-editing-hint">
+              Редагується: <strong>{editingLabel}</strong>
+            </div>
+
             <div className="printer-manager-preview">
               <img
                 src={form.imageUrl || "/printer-images/default-printer.png"}
@@ -378,6 +428,13 @@ export default function PrinterManagerPanel({ onChanged }) {
                   value={form.id || ""}
                   onChange={(event) => patchForm("id", event.target.value)}
                   placeholder="creality-k2-petg-04"
+                  readOnly={!isCreating}
+                  disabled={!isCreating}
+                  title={
+                    isCreating
+                      ? undefined
+                      : "ID існуючого принтера не можна змінювати"
+                  }
                 />
               </label>
 
@@ -559,7 +616,7 @@ export default function PrinterManagerPanel({ onChanged }) {
                 {testing ? "Перевіряю…" : "Перевірити підключення"}
               </button>
 
-              {selectedPrinter ? (
+              {selectedPrinter && !isCreating ? (
                 <button
                   className="btn btn-danger"
                   type="button"

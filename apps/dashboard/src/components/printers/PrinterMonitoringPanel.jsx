@@ -110,14 +110,10 @@ function normalizeLookupKey(value) {
 }
 
 function getPrinterLookupKeys(printer) {
-  return [
-    printer?.id,
-    printer?.name,
-    printer?.model,
-    printer?.host,
-    printer?.ip,
-    printer?.deviceUi,
-  ]
+  // `model` is intentionally excluded: it is a descriptive label, not an
+  // identity, and two printers can share a model (or carry a mistyped one),
+  // which would let a live status attach to the wrong config card.
+  return [printer?.id, printer?.name, printer?.host, printer?.ip, printer?.deviceUi]
     .map(normalizeLookupKey)
     .filter(Boolean);
 }

@@ -198,6 +198,19 @@ export default function Printers() {
     }
   }, []);
 
+  // Called by the manager panel after a successful save/delete. Apply the
+  // server's authoritative list synchronously so the manager's selector reflects
+  // the change immediately, then kick a full refresh for live status/prints.
+  const handleConfigsChanged = useCallback(
+    (savedPrinters) => {
+      if (Array.isArray(savedPrinters)) {
+        setPrinterConfigs(savedPrinters);
+      }
+      refreshPrinters();
+    },
+    [refreshPrinters]
+  );
+
   useEffect(() => {
     let isMounted = true;
 
@@ -401,7 +414,11 @@ export default function Printers() {
           loading={monitorLoading}
         />
 
-        <PrinterManagerPanel onChanged={refreshPrinters} />
+        <PrinterManagerPanel
+          printers={printerConfigs}
+          loading={loading}
+          onChanged={handleConfigsChanged}
+        />
       </div>
     </div>
   );

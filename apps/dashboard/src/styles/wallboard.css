@@ -1237,6 +1237,19 @@
   gap: var(--space-md);
 }
 
+.printer-manager-editing-hint {
+  font-size: 0.85rem;
+  color: var(--muted, #888);
+  padding: 6px 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 96%, var(--border));
+}
+
+.printer-manager-editing-hint strong {
+  color: var(--text);
+}
+
 .printer-manager-preview {
   display: flex;
   align-items: center;
