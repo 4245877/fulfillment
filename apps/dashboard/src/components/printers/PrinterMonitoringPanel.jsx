@@ -322,6 +322,10 @@ export default function PrinterMonitoringPanel({
     return buildConfigMap([...configs, ...printers]);
   }, [configs, printers]);
 
+  const enabledConfigCount = useMemo(() => {
+    return configs.filter((printer) => printer.enabled !== false).length;
+  }, [configs]);
+
   const visiblePrinters = useMemo(() => {
     const source = livePrinters.length ? livePrinters : printers;
 
@@ -451,8 +455,16 @@ export default function PrinterMonitoringPanel({
         </div>
       ) : (
         <EmptyState
-          title="Немає даних про принтери"
-          desc="Список принтерів зʼявиться після першого успішного опитування API."
+          title={
+            configs.length && !enabledConfigCount
+              ? "Усі принтери вимкнено"
+              : "Немає даних про принтери"
+          }
+          desc={
+            configs.length && !enabledConfigCount
+              ? "Увімкни принтер у керуванні та збережи налаштування, щоб він зʼявився в моніторингу."
+              : "Список принтерів зʼявиться після першого успішного опитування API."
+          }
         />
       )}
 

@@ -241,7 +241,11 @@ export default function PrinterManagerPanel({
       });
 
       if (result?.ok) {
-        setMessage("З’єднання успішне.");
+        setMessage(
+          form.enabled === false
+            ? "З’єднання успішне, але принтер вимкнений. Увімкни та збережи його, щоб він зʼявився в моніторингу."
+            : "З’єднання успішне."
+        );
       } else {
         setMessage(
           result?.status?.error
