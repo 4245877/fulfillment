@@ -3,25 +3,12 @@ import {
   savePrinterConfigs,
   testPrinterConnection,
 } from "../../api/printerFarmApi.js";
-
-const DEFAULT_PRINTER = {
-  id: "",
-  name: "",
-  model: "",
-  imageUrl: "/printer-images/default-printer.png",
-  protocol: "moonraker",
-  host: "",
-  port: 80,
-  deviceUi: "",
-  snapshotUrl: "",
-  profile: "fdm-0.4",
-  material: "PLA",
-  nozzle: "0.4",
-  enabled: true,
-  apiKey: "",
-  serial: "",
-  accessCode: "",
-};
+import {
+  DEFAULT_PRINTER,
+  makeEmptyPrinter,
+  makeIdFromName,
+  buildNextPrinters,
+} from "./printerForm.js";
 
 const MODEL_PRESETS = [
   {
@@ -43,37 +30,6 @@ const MODEL_PRESETS = [
     port: 8883,
   },
 ];
-
-function normalizeSlug(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9а-яіїєґё]+/gi, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function makeIdFromName(name) {
-  return normalizeSlug(name) || `printer-${Date.now()}`;
-}
-
-function makeEmptyPrinter() {
-  return {
-    ...DEFAULT_PRINTER,
-    id: `printer-${Date.now()}`,
-    name: "Новий принтер",
-  };
-}
-
-function formToPrinter(form, fallbackName) {
-  return {
-    ...form,
-    id: String(form.id || "").trim() || makeIdFromName(fallbackName ?? form.name),
-    name: String(form.name || "").trim(),
-    host: String(form.host || "").trim(),
-    port: Number(form.port) || undefined,
-    enabled: form.enabled !== false,
-  };
-}
 
 export default function PrinterManagerPanel({
   printers = [],
@@ -179,7 +135,12 @@ export default function PrinterManagerPanel({
   };
 
   const saveCurrent = async () => {
-    const nextPrinter = formToPrinter(form);
+    const { nextPrinter, nextPrinters } = buildNextPrinters({
+      printers,
+      form,
+      selectedId,
+      isCreating,
+    });
 
     const duplicateId = printers.some(
       (printer) => printer.id === nextPrinter.id && printer.id !== selectedId
@@ -199,15 +160,6 @@ export default function PrinterManagerPanel({
     setMessage("");
 
     try {
-      const exists =
-        !isCreating && printers.some((printer) => printer.id === selectedId);
-
-      const nextPrinters = exists
-        ? printers.map((printer) =>
-            printer.id === selectedId ? nextPrinter : printer
-          )
-        : [...printers, nextPrinter];
-
       const saved = await savePrinterConfigs(nextPrinters);
       const savedPrinters = Array.isArray(saved?.printers)
         ? saved.printers
