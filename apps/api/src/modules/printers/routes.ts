@@ -228,19 +228,66 @@ function readPrintersConfigFromEnv(): PrinterConfig[] {
   }
 }
 
+// Latches the last config-source warning so a problem that recurs on every read
+// (readPrintersConfig is called by the status route and on every monitor poll)
+// is logged once, not on every tick.
+let lastConfigSourceWarning: string | null = null;
+
+function warnConfigSourceOnce(message: string) {
+  if (lastConfigSourceWarning === message) return;
+
+  lastConfigSourceWarning = message;
+  console.warn(`[printers] ${message}`);
+}
+
 export async function readPrintersConfig(): Promise<PrinterConfig[]> {
+  let raw: string;
+
   try {
-    const raw = await fs.readFile(PRINTERS_CONFIG_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed
-      .map(normalizePrinterConfig)
-      .filter((printer): printer is PrinterConfig => Boolean(printer));
+    raw = await fs.readFile(PRINTERS_CONFIG_PATH, "utf8");
   } catch {
+    // No file yet (normal on a fresh deploy): use the env-provided seed config.
     return readPrintersConfigFromEnv();
   }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // A present-but-corrupt file must never silently shadow a valid env config
+    // and leave the farm empty — this is exactly how a truncated write once made
+    // every printer but one disappear. Recover from the env seed instead.
+    warnConfigSourceOnce(
+      `Config file ${PRINTERS_CONFIG_PATH} is not valid JSON; falling back to PRINTERS_CONFIG_JSON`
+    );
+    return readPrintersConfigFromEnv();
+  }
+
+  if (!Array.isArray(parsed)) {
+    warnConfigSourceOnce(
+      `Config file ${PRINTERS_CONFIG_PATH} is not a JSON array; falling back to PRINTERS_CONFIG_JSON`
+    );
+    return readPrintersConfigFromEnv();
+  }
+
+  const printers = parsed
+    .map(normalizePrinterConfig)
+    .filter((printer): printer is PrinterConfig => Boolean(printer));
+
+  // A non-empty file that yields zero usable printers means every entry was
+  // malformed — treat that as corruption and fall back to the env seed. An
+  // intentionally empty file (`[]`) is respected so the operator can still clear
+  // the farm; only a non-empty-but-all-invalid file triggers recovery.
+  if (printers.length === 0 && parsed.length > 0) {
+    warnConfigSourceOnce(
+      `Config file ${PRINTERS_CONFIG_PATH} has ${parsed.length} entries but none are valid; falling back to PRINTERS_CONFIG_JSON`
+    );
+    return readPrintersConfigFromEnv();
+  }
+
+  lastConfigSourceWarning = null;
+  return printers;
 }
 
 async function writePrintersConfig(printers: PrinterConfig[]) {
@@ -592,8 +639,19 @@ export function buildBambuStatusFromPayload(
     return null;
   }
 
-  const hasError = printErrorCode !== null && printErrorCode > 0;
-  const mappedStatus = hasError ? "error" : toStatusState(rawState);
+  // A non-zero print_error routinely accompanies a normal PAUSE (e.g. an
+  // auto-pause for a filament swap) and can linger after a job ends, so it must
+  // not override the device's own paused/idle/finish state. Otherwise a routine
+  // pause is surfaced as a scary generic "error" and — worse — a finished print
+  // stays pinned to "error" and never produces a completion notification. A real
+  // print failure is reported as gcode_state FAILED, which toStatusState already
+  // maps to "error" on its own.
+  const baseStatus = toStatusState(rawState);
+  const hasErrorCode = printErrorCode !== null && printErrorCode > 0;
+  const isError =
+    baseStatus === "error" ||
+    (hasErrorCode && baseStatus !== "paused" && baseStatus !== "idle");
+  const mappedStatus: PrinterStatus["status"] = isError ? "error" : baseStatus;
 
   return addPrinterMeta(printer, {
     online: true,
@@ -607,8 +665,10 @@ export function buildBambuStatusFromPayload(
     bedTemp: bedTemp !== null ? Math.round(bedTemp) : null,
     updatedAt: new Date().toISOString(),
     stateText: rawState || null,
-    error: hasError
-      ? `Bambu повідомив про помилку (код ${printErrorCode})`
+    error: isError
+      ? hasErrorCode
+        ? `Bambu повідомив про помилку (код ${printErrorCode})`
+        : "Bambu повідомив про помилку друку"
       : undefined,
   });
 }

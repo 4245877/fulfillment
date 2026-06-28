@@ -2,6 +2,25 @@
   "version": 1,
   "reports": [
     {
+      "report_id": "product_report_7a7bb053-ee21-43dd-b019-419707f4f80e",
+      "product_id": "bb78d66f-4dff-4e5b-a527-37d49ba22e5d",
+      "product_name": "Кріплення в стійку для UniFi USW-Pro-Max-16-PoE",
+      "product_sku": "unifi-usw-pro-max-16-poe-7ZWA_L",
+      "reason": "Некоректний опис",
+      "comment": "Не відповідає реальним габаритам",
+      "page_url": "http://192.168.0.135/products/unifi-usw-pro-max-16-poe-7ZWA_L",
+      "status": "resolved",
+      "created_at": "2026-06-24T09:43:15.774Z",
+      "resolved_at": "2026-06-24T09:43:33.876Z",
+      "admin_note": null,
+      "archived_at": null,
+      "deleted_at": "2026-06-24T09:43:40.176Z",
+      "source": "shop",
+      "client_ip_hash": "fc1fa43bcc0a3cce859fec16b0e70cedeb5781b245410e8c2e5f0d68ec877836",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0",
+      "referer": "http://192.168.0.135/products/unifi-usw-pro-max-16-poe-7ZWA_L"
+    },
+    {
       "report_id": "product_report_68c04a05-13d2-482f-bb38-be3c81c9026b",
       "product_id": "c3925777-762e-445b-857c-ee06697a6545",
       "product_name": "Кріплення Beelink S12/S13 для стійки 10 дюймів",

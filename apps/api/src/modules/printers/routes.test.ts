@@ -97,6 +97,37 @@ test("buildBambuStatusFromPayload surfaces a print error", () => {
   assert.equal(healthy?.error, undefined);
 });
 
+test("a print_error code does not override an explicit PAUSE", () => {
+  // The A1 reports a non-zero print_error alongside a normal auto-pause; the card
+  // must read "paused" (so the operator gets a pause alert, not a scary generic
+  // error) rather than being pinned to "error".
+  const result = buildBambuStatusFromPayload(bambuPrinter(), {
+    print: { gcode_state: "PAUSE", mc_percent: 9, print_error: 50364436 },
+  });
+  assert.equal(result?.status, "paused");
+  assert.equal(result?.stateText, "PAUSE");
+  assert.equal(result?.error, undefined);
+});
+
+test("a lingering print_error code does not mask a finished print", () => {
+  // print_error can stay non-zero after a job ends. If it overrode the FINISH
+  // state the print would stay "error" forever and never yield a completion
+  // notification.
+  const result = buildBambuStatusFromPayload(bambuPrinter(), {
+    print: { gcode_state: "FINISH", mc_percent: 100, print_error: 50364436 },
+  });
+  assert.equal(result?.status, "idle");
+  assert.equal(result?.error, undefined);
+});
+
+test("a FAILED state is an error even without a print_error code", () => {
+  const result = buildBambuStatusFromPayload(bambuPrinter(), {
+    print: { gcode_state: "FAILED", mc_percent: 40 },
+  });
+  assert.equal(result?.status, "error");
+  assert.match(result?.error ?? "", /помилку/);
+});
+
 test("buildBambuStatusFromPayload returns null when nothing usable is present", () => {
   assert.equal(buildBambuStatusFromPayload(bambuPrinter(), { print: {} }), null);
   assert.equal(buildBambuStatusFromPayload(bambuPrinter(), null), null);
