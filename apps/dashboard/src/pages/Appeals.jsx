@@ -309,8 +309,15 @@ export default function Appeals() {
       .then((data) => {
         if (alive) setThreads(data);
       })
-      .catch(() => {
-        if (alive) setListError("Не вдалося завантажити звернення");
+      .catch((err) => {
+        // The API returns a clean { ok:false, error } message (e.g. "Сервіс
+        // звернень недоступний"); fall back to a generic line only when the
+        // request never reached it (API down / network).
+        if (alive)
+          setListError(
+            err?.body?.error ||
+              "Не вдалося завантажити звернення. Перевірте підключення до сервісу."
+          );
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -394,8 +401,10 @@ export default function Appeals() {
       setThreads((prev) =>
         sortThreads(prev.map((item) => (item.id === thread.id ? thread : item)))
       );
-    } catch {
-      setActionError("Не вдалося надіслати повідомлення. Спробуйте ще раз.");
+    } catch (err) {
+      setActionError(
+        err?.body?.error || "Не вдалося надіслати повідомлення. Спробуйте ще раз."
+      );
       setThreads((prev) =>
         prev.map((thread) =>
           thread.id === id
@@ -415,6 +424,7 @@ export default function Appeals() {
   async function handleStatusChange(status) {
     if (!active) return;
     const id = active.id;
+    const prevStatus = active.status;
     setActionError("");
     setThreads((prev) =>
       prev.map((thread) => (thread.id === id ? { ...thread, status } : thread))
@@ -425,8 +435,14 @@ export default function Appeals() {
       setThreads((prev) =>
         prev.map((item) => (item.id === thread.id ? thread : item))
       );
-    } catch {
-      setActionError("Не вдалося змінити статус звернення");
+    } catch (err) {
+      // Roll back so the UI never shows a status the service didn't accept.
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === id ? { ...thread, status: prevStatus } : thread
+        )
+      );
+      setActionError(err?.body?.error || "Не вдалося змінити статус звернення");
     }
   }
 
@@ -496,7 +512,11 @@ export default function Appeals() {
             </div>
           ) : visibleThreads.length === 0 ? (
             <div className={s.listEmpty}>
-              <p>Звернень за цими умовами немає.</p>
+              <p>
+                {threads.length === 0
+                  ? "Поки що немає звернень."
+                  : "Звернень за цими умовами немає."}
+              </p>
             </div>
           ) : (
             visibleThreads.map((thread) => (

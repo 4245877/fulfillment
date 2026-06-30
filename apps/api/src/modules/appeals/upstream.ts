@@ -17,8 +17,9 @@
 //   POST   /api/appeals/:id/messages    → { message, item }    body: { text }
 //   PATCH  /api/appeals/:id             → { item: Appeal }     body: { status }
 //
-// Until that lands, leave APPEALS_SERVICE_URL unset and the service layer serves
-// the in-memory store (./store.ts) so the page works end-to-end today.
+// Until that lands, leaving APPEALS_SERVICE_URL unset makes the page report the
+// service as unavailable (see ./service.ts). The in-memory store (./store.ts) is
+// only served when APPEALS_USE_MOCK is explicitly enabled for local dev/demo.
 
 import { env } from "../../shared/env";
 
@@ -61,10 +62,18 @@ async function call<T>(
     const json = text ? safeJson(text) : null;
 
     if (!res.ok) {
-      const message =
-        (json && typeof json.error === "string" && json.error) ||
-        `Сервіс звернень повернув ${res.status}`;
-      throw new UpstreamError(message, res.status);
+      // A JSON { error } body means we reached the appeals API and it rejected
+      // the request — surface its message and status (e.g. a real 404 for an
+      // unknown thread id). A non-JSON body (an nginx HTML error page, a wrong
+      // host, the service not deployed) means we never reached it: report it as
+      // unavailable rather than leaking a misleading status.
+      if (json && typeof json.error === "string") {
+        throw new UpstreamError(json.error, res.status);
+      }
+      if (json) {
+        throw new UpstreamError(`Сервіс звернень повернув ${res.status}`, res.status);
+      }
+      throw new UpstreamError("Сервіс звернень недоступний", 503);
     }
 
     return json as T;

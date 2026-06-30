@@ -1,13 +1,13 @@
-// In-memory appeals store — the local fallback data source.
+// In-memory appeals store — DEV/DEMO ONLY seed data.
 //
-// This keeps the dashboard "Звернення" page fully working end-to-end before the
-// shop service at 192.168.0.139 exposes its own appeals API. When
-// APPEALS_SERVICE_URL is set the service layer proxies to that upstream instead
-// and this store is bypassed (see ./service.ts and ./upstream.ts).
+// This is NOT a fallback for the real service: it is served only when
+// APPEALS_USE_MOCK is explicitly enabled and no APPEALS_SERVICE_URL is set (see
+// ./service.ts). In every other case the page reports the service as
+// unavailable instead of showing these demo chats as if they were real.
 //
-// The data lives in process memory: it is seeded on boot, mutates as the
-// operator works, and resets on restart. Swap this out for a DB-backed repo (or
-// rely on the upstream proxy) once the real backend lands.
+// Use it to work on the dashboard "Звернення" UI offline. The data lives in
+// process memory: it is seeded on boot, mutates as the operator works, and
+// resets on restart.
 
 import type { Appeal, AppealStatus } from "./types";
 
