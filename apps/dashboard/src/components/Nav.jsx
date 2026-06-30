@@ -11,6 +11,7 @@ const NAV_GROUPS = [
       { to: "/printers", label: "3D-принтери", icon: "printers" },
       { to: "/inventory", label: "Матеріали", icon: "inventory" },
       { to: "/shipments", label: "Відправлення", icon: "shipments" },
+      { to: "/appeals", label: "Звернення", icon: "appeals" },
       { to: "/product-reports", label: "Скарги", icon: "reports" },
     ],
   },
@@ -56,6 +57,12 @@ function NavIcon({ name }) {
         <path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z" />
         <circle cx="7" cy="18" r="2" />
         <circle cx="18" cy="18" r="2" />
+      </>
+    ),
+    appeals: (
+      <>
+        <path d="M5 5h14v10H8l-3 3V5Z" />
+        <path d="M8 9h8M8 12h5" />
       </>
     ),
     reports: (

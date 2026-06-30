@@ -13,6 +13,7 @@ const Print = lazy(() => import("./pages/Print.jsx"));
 const Printers = lazy(() => import("./pages/Printers.jsx"));
 const Inventory = lazy(() => import("./pages/Inventory.jsx"));
 const Shipments = lazy(() => import("./pages/Shipments.jsx"));
+const Appeals = lazy(() => import("./pages/Appeals.jsx"));
 const ProductReports = lazy(() => import("./pages/ProductReports.jsx"));
 const Audit = lazy(() => import("./pages/Audit.jsx"));
 const SettingsPage = lazy(() => import("./pages/Settings/SettingsPage.jsx"));
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="prints/:id" element={<Print />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="shipments" element={<Shipments />} />
+          <Route path="appeals" element={<Appeals />} />
           <Route path="product-reports" element={<ProductReports />} />
           <Route path="audit" element={<Audit />} />
           <Route path="settings" element={<SettingsPage />} />
