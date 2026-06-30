@@ -191,7 +191,7 @@
   background: transparent;
   font-family: var(--font);
   font-size: 0.8rem;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-muted);
   cursor: pointer;
   transition:
@@ -326,7 +326,7 @@
 }
 
 .row[data-unread="true"] .rowName {
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .rowProduct {
@@ -414,9 +414,9 @@
 }
 
 .avatarLg {
-  width: 46px;
-  height: 46px;
-  font-size: 1rem;
+  width: 54px;
+  height: 54px;
+  font-size: 1.1rem;
 }
 
 .avatar[data-status="new"] {
@@ -470,7 +470,7 @@
 }
 
 .statusPill[data-status="in_progress"] {
-  color: color-mix(in srgb, var(--yor-gold) 62%, var(--text));
+  color: color-mix(in srgb, var(--yor-gold) 42%, var(--text));
   background: color-mix(in srgb, var(--yor-gold) 16%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--yor-gold) 32%, var(--border));
 }
@@ -625,6 +625,20 @@
   flex: 0 0 auto;
 }
 
+/* Chevron painted with currentColor so it follows the status colour
+   (crimson → gold → green) instead of a fixed brand hex. */
+.statusControl::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin: 0 0.5rem 0 -0.1rem;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  pointer-events: none;
+}
+
 .statusControl[data-status="new"] {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
@@ -632,7 +646,7 @@
 }
 
 .statusControl[data-status="in_progress"] {
-  color: color-mix(in srgb, var(--yor-gold) 62%, var(--text));
+  color: color-mix(in srgb, var(--yor-gold) 42%, var(--text));
   background: color-mix(in srgb, var(--yor-gold) 16%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--yor-gold) 34%, var(--border));
 }
@@ -652,11 +666,8 @@
   font-family: var(--font);
   font-size: 0.78rem;
   font-weight: 700;
-  padding: 0.3rem 1.7rem 0.3rem 0.45rem;
+  padding: 0.3rem 0.2rem 0.3rem 0.45rem;
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239f2842' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.55rem center;
 }
 
 .statusSelect:focus-visible {
@@ -759,7 +770,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  scroll-behavior: smooth;
 }
 
 .daySep {
@@ -852,7 +862,7 @@
 
 /* ── Composer ────────────────────────────────────────────────── */
 .actionError {
-  margin: 0 var(--space-lg);
+  margin: var(--space-xs) var(--space-lg);
   padding: 0.5rem 0.75rem;
   font-size: 0.8rem;
   color: var(--danger-text);
@@ -1015,7 +1025,10 @@
 
 @media (max-width: 768px) {
   .page {
-    height: calc(100dvh - 110px);
+    /* Matches Layout's mobile <main> vertical padding (82px top + 28px bottom,
+       see Layout.module.css). Kept in one place so the two stay in sync. */
+    --page-chrome: 110px;
+    height: calc(100dvh - var(--page-chrome));
     min-height: 0;
     grid-template-columns: 1fr;
     gap: 0;
@@ -1037,9 +1050,8 @@
 }
 
 @media (max-width: 480px) {
-  .page {
-    height: calc(100dvh - 98px);
-  }
+  /* <main> keeps the same 110px vertical padding down here, so .page inherits
+     --page-chrome from the 768px rule — no separate height override needed. */
 
   .listHeader,
   .chatHeader,

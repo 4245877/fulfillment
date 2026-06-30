@@ -267,6 +267,7 @@ export default function Appeals() {
 
   const messagesRef = useRef(null);
   const composerRef = useRef(null);
+  const prevSelectedRef = useRef(null);
 
   const active = useMemo(
     () => threads.find((thread) => thread.id === selectedId) || null,
@@ -328,10 +329,21 @@ export default function Appeals() {
     };
   }, [refreshKey]);
 
-  // Keep the conversation pinned to the newest message.
+  // Keep the conversation pinned to the newest message. Jump instantly when
+  // switching threads; glide only for a new message in the open thread (and
+  // never glide when the user prefers reduced motion).
   useEffect(() => {
     const node = messagesRef.current;
-    if (node) node.scrollTop = node.scrollHeight;
+    if (!node) return;
+    const switchedThread = prevSelectedRef.current !== selectedId;
+    prevSelectedRef.current = selectedId;
+    const reduceMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    node.scrollTo({
+      top: node.scrollHeight,
+      behavior: switchedThread || reduceMotion ? "auto" : "smooth",
+    });
   }, [selectedId, active?.messages.length]);
 
   function handleSelect(id) {
@@ -484,13 +496,12 @@ export default function Appeals() {
             />
           </div>
 
-          <div className={s.filters} role="tablist" aria-label="Фільтр за статусом">
+          <div className={s.filters} role="group" aria-label="Фільтр за статусом">
             {FILTERS.map((filter) => (
               <button
                 key={filter.value}
                 type="button"
-                role="tab"
-                aria-selected={statusFilter === filter.value}
+                aria-pressed={statusFilter === filter.value}
                 className={s.filterBtn}
                 data-active={statusFilter === filter.value ? "true" : "false"}
                 data-status={filter.value}
