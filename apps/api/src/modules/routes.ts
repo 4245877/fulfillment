@@ -5,6 +5,7 @@ import inventoryRoutes from "./inventory/routes";
 import backupsRoutes from "./backups/routes";
 import productReportsRoutes from "./productReports/routes";
 import ordersRoutes from "./orders/routes";
+import appealsRoutes from "./appeals/routes";
 
 const modulesRoutes: FastifyPluginAsync = async (app) => {
   app.register(printersRoutes, { prefix: "/api/printers" });
@@ -12,6 +13,7 @@ const modulesRoutes: FastifyPluginAsync = async (app) => {
   app.register(backupsRoutes, { prefix: "/api/ops/backup" });
   app.register(productReportsRoutes, { prefix: "/api" });
   app.register(ordersRoutes, { prefix: "/api/orders" });
+  app.register(appealsRoutes, { prefix: "/api/appeals" });
 };
 
 export default modulesRoutes;

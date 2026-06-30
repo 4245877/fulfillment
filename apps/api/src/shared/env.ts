@@ -108,4 +108,10 @@ export const env = {
     "PRINTER_SNAPSHOT_MAX_BYTES",
     3_000_000
   ),
+
+  // Base URL of the shop's appeals (Звернення) service, e.g.
+  // http://192.168.0.139. When set, the appeals module proxies the dashboard's
+  // /api/appeals calls to that host; when unset it serves an in-memory store so
+  // the page works end-to-end before the real backend is ready.
+  APPEALS_SERVICE_URL: optionalString("APPEALS_SERVICE_URL"),
 };
