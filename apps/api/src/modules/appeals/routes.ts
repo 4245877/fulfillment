@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 
 import {
   getAppeal,
+  ingestAppeal,
   listAppeals,
   markAppealRead,
   sendAppealMessage,
@@ -29,6 +30,46 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
       app.log.error({ err: error }, "failed to list appeals");
       reply.code(errorStatus(error));
       return { ok: false, error: errorMessage(error, "Не вдалося завантажити звернення") };
+    }
+  });
+
+  // POST /api/appeals/ingest — a customer question from the shop's
+  // "Поставити запитання майстру" chat. The shop forwards its OutboundQuestion
+  // here (nested product/customer + thread_id); a flat variant is also accepted.
+  app.post("/ingest", async (req, reply) => {
+    const body = (req.body ?? {}) as Record<string, any>;
+    const text = String(body.message ?? "").trim();
+
+    if (!text) {
+      reply.code(400);
+      return { ok: false, error: "Порожнє повідомлення" };
+    }
+
+    const product = body.product ?? {};
+    const customer = body.customer ?? {};
+
+    try {
+      const { item, message, created } = await ingestAppeal({
+        threadId: body.thread_id ?? body.threadId ?? null,
+        message: text,
+        customer: {
+          name: customer.name ?? body.customer_name ?? null,
+          contact: customer.contact ?? body.customer_contact ?? null,
+        },
+        product: {
+          id: product.id ?? body.product_id ?? null,
+          name: product.name ?? body.product_name ?? null,
+          sku: product.sku ?? body.product_sku ?? null,
+          url: product.url ?? body.product_url ?? null,
+        },
+        at: body.received_at ?? body.client_sent_at ?? null,
+      });
+
+      return { ok: true, thread_id: item.id, created, item, message };
+    } catch (error) {
+      app.log.error({ err: error }, "failed to ingest appeal");
+      reply.code(errorStatus(error));
+      return { ok: false, error: errorMessage(error, "Не вдалося прийняти звернення") };
     }
   });
 

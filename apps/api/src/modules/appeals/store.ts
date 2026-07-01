@@ -10,6 +10,11 @@
 // resets on restart.
 
 import type { Appeal, AppealStatus } from "./types";
+import type { AppealIngestInput } from "./persistentStore";
+
+const str = (value: unknown): string =>
+  value === null || value === undefined ? "" : String(value);
+const randomId = () => `apl-${Math.random().toString(36).slice(2, 10)}`;
 
 const now = Date.now();
 const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
@@ -302,5 +307,49 @@ export const localStore = {
     if (!thread) throw new AppealNotFoundError();
     thread.status = status;
     return clone(thread);
+  },
+
+  // Customer question from the shop (dev/demo mirror of persistentStore.ingest).
+  ingest(input: AppealIngestInput): { item: Appeal; message: Appeal["messages"][number]; created: boolean } {
+    const at =
+      typeof input.at === "string" && input.at.trim() ? input.at : new Date().toISOString();
+    const message = {
+      id: nextMessageId(),
+      author: "customer" as const,
+      text: String(input.message ?? "").trim(),
+      at,
+    };
+
+    const existingId = input.threadId ? String(input.threadId) : "";
+    let thread = existingId ? find(existingId) : undefined;
+    let created = false;
+
+    if (!thread) {
+      thread = {
+        id: existingId || randomId(),
+        status: "new",
+        unread: 0,
+        createdAt: at,
+        lastMessageAt: at,
+        customer: { name: str(input.customer?.name), contact: str(input.customer?.contact) },
+        product: {
+          id: str(input.product?.id),
+          name: str(input.product?.name),
+          sku: str(input.product?.sku),
+          url: str(input.product?.url),
+        },
+        messages: [],
+      };
+      store.push(thread);
+      created = true;
+    } else if (thread.status === "closed") {
+      thread.status = "in_progress";
+    }
+
+    thread.messages.push(message);
+    thread.lastMessageAt = at;
+    thread.unread += 1;
+
+    return { item: clone(thread), message: clone(message), created };
   },
 };

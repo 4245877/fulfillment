@@ -1,16 +1,18 @@
 // Appeals service — picks the data source for every operation and normalises
 // what comes back to the shapes the dashboard "Звернення" page expects.
 //
-// Three explicit modes, resolved per call (never a silent fallback):
+// Three explicit modes, resolved per call:
 //
-//   1. upstream     — APPEALS_SERVICE_URL is set → proxy to the shop service at
-//                     192.168.0.139 and serve its real appeals.
-//   2. mock         — APPEALS_SERVICE_URL is unset AND APPEALS_USE_MOCK is true →
-//                     serve the in-memory demo store (./store.ts). Dev only.
-//   3. unconfigured — neither is set → throw AppealsServiceUnavailableError so the
-//                     page shows "Сервіс звернень недоступний" instead of fake
-//                     chats. This is the default: we never pass seed data off as
-//                     real customer appeals.
+//   1. upstream — APPEALS_SERVICE_URL is set → proxy to an external appeals
+//                 service and serve its appeals. (Not used in the current
+//                 topology; kept for flexibility.)
+//   2. mock     — APPEALS_SERVICE_URL is unset AND APPEALS_USE_MOCK is true →
+//                 serve the in-memory demo store (./store.ts). Dev only.
+//   3. local    — default: this API is the appeals store. Threads live in a
+//                 file-backed store (./persistentStore.ts): the shop's
+//                 "Поставити запитання майстру" chat creates them via
+//                 ingestAppeal(), and operators read/answer them here. Starts
+//                 empty (no seed data), so an empty inbox is real, not fake.
 //
 // Upstream payloads are unwrapped from optional { item } / { items } envelopes
 // and run through normalizeAppeal so a slightly different upstream format can't
@@ -19,6 +21,7 @@
 import type { Appeal, AppealMessage, AppealStatus } from "./types";
 import { isAppealStatus } from "./types";
 import { localStore } from "./store";
+import { persistentStore, type AppealIngestInput } from "./persistentStore";
 import { isUpstreamEnabled, upstream } from "./upstream";
 import { env } from "../../shared/env";
 
@@ -30,18 +33,15 @@ export class AppealsServiceUnavailableError extends Error {
   }
 }
 
-type Mode = "upstream" | "mock" | "unconfigured";
+type Mode = "upstream" | "mock" | "local";
 
-// APPEALS_SERVICE_URL wins when set — the real service is always the source of
-// truth, so a stray APPEALS_USE_MOCK can never shadow it in production.
+// APPEALS_SERVICE_URL wins when set (proxy to an external service). Otherwise
+// APPEALS_USE_MOCK serves demo data (dev only), and the default is the local
+// file-backed store — this API owns the appeals.
 function resolveMode(): Mode {
   if (isUpstreamEnabled()) return "upstream";
   if (env.APPEALS_USE_MOCK) return "mock";
-  return "unconfigured";
-}
-
-function unavailable(): never {
-  throw new AppealsServiceUnavailableError();
+  return "local";
 }
 
 const unwrapItem = (res: any): any => (res && res.item ? res.item : res);
@@ -92,8 +92,9 @@ export async function listAppeals(): Promise<Appeal[]> {
       return unwrapItems(await upstream.list()).map(normalizeAppeal);
     case "mock":
       return localStore.list();
+    case "local":
     default:
-      return unavailable();
+      return persistentStore.list();
   }
 }
 
@@ -103,8 +104,9 @@ export async function getAppeal(id: string): Promise<Appeal> {
       return normalizeAppeal(unwrapItem(await upstream.get(id)));
     case "mock":
       return localStore.get(id);
+    case "local":
     default:
-      return unavailable();
+      return persistentStore.get(id);
   }
 }
 
@@ -114,8 +116,9 @@ export async function markAppealRead(id: string): Promise<Appeal> {
       return normalizeAppeal(unwrapItem(await upstream.markRead(id)));
     case "mock":
       return localStore.markRead(id);
+    case "local":
     default:
-      return unavailable();
+      return persistentStore.markRead(id);
   }
 }
 
@@ -134,8 +137,9 @@ export async function sendAppealMessage(
     }
     case "mock":
       return localStore.sendMessage(id, text);
+    case "local":
     default:
-      return unavailable();
+      return persistentStore.sendMessage(id, text);
   }
 }
 
@@ -148,7 +152,31 @@ export async function setAppealStatus(
       return normalizeAppeal(unwrapItem(await upstream.setStatus(id, status)));
     case "mock":
       return localStore.setStatus(id, status);
+    case "local":
     default:
-      return unavailable();
+      return persistentStore.setStatus(id, status);
+  }
+}
+
+// Customer question from the shop's "Поставити запитання майстру" chat. Creates
+// or appends to a thread. In upstream mode it forwards to the external service;
+// otherwise it writes to the local (or, in dev, mock) store.
+export async function ingestAppeal(
+  input: AppealIngestInput
+): Promise<{ item: Appeal; message: AppealMessage; created: boolean }> {
+  switch (resolveMode()) {
+    case "upstream": {
+      const res = await upstream.ingest(input);
+      const item = normalizeAppeal(unwrapItem(res));
+      const message = res?.message
+        ? normalizeMessage(res.message)
+        : item.messages[item.messages.length - 1] ?? normalizeMessage({ text: input.message });
+      return { item, message, created: Boolean(res?.created) };
+    }
+    case "mock":
+      return localStore.ingest(input);
+    case "local":
+    default:
+      return persistentStore.ingest(input);
   }
 }

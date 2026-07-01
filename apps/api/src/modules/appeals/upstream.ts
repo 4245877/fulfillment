@@ -104,6 +104,8 @@ export const upstream = {
       method: "POST",
       body: { text },
     }),
+  ingest: (input: unknown) =>
+    call<any>("/api/appeals/ingest", { method: "POST", body: input }),
   setStatus: (id: string, status: string) =>
     call<any>(`/api/appeals/${encodeURIComponent(id)}`, {
       method: "PATCH",

@@ -109,14 +109,14 @@ export const env = {
     3_000_000
   ),
 
-  // Base URL of the shop's appeals (Звернення) service, e.g.
-  // http://192.168.0.139. When set, the appeals module proxies the dashboard's
-  // /api/appeals calls to that host and serves real customer chats. When unset,
-  // the page shows a "service unavailable" error instead of fake data — unless
-  // APPEALS_USE_MOCK is on (see below).
+  // Appeals (Звернення) source. By default this API IS the appeals store:
+  // threads live in a file-backed store (apps/api/data/appeals.json), created by
+  // the shop's "Поставити запитання майстру" chat via POST /api/appeals/ingest
+  // and answered by operators from the dashboard. Set APPEALS_SERVICE_URL only
+  // to instead proxy to a separate external appeals service.
   APPEALS_SERVICE_URL: optionalString("APPEALS_SERVICE_URL"),
   // Dev/demo escape hatch: serve the in-memory seed store (./modules/appeals/
-  // store.ts) when no real service is configured. Ignored when
+  // store.ts) instead of the real file-backed store. Ignored when
   // APPEALS_SERVICE_URL is set. Never enable in production — it shows demo
   // chats, not real appeals.
   APPEALS_USE_MOCK: booleanEnv("APPEALS_USE_MOCK", false),

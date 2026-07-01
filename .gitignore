@@ -34,6 +34,12 @@ test-results/
 .env.*
 !.env.example
 
+# --- Live customer data (do not commit PII) ---
+# Appeals (Звернення) chat store — customer names/contacts/messages, written at
+# runtime by the appeals module. See apps/api/src/modules/appeals/persistentStore.ts
+apps/api/data/appeals.json
+apps/api/data/appeals.json.tmp
+
 # --- Logs ---
 logs/
 *.log
