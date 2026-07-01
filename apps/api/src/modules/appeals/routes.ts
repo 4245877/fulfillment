@@ -73,6 +73,34 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
+  // GET /api/appeals/ingest/:threadId — public read side of the shop mini-chat.
+  // The "Поставити запитання майстру" chat polls this with the thread_id it got
+  // back from POST /ingest to pull operator replies. Deliberately narrow: it
+  // returns ONLY this one thread's messages — never the inbox listing or other
+  // customers' contacts — and is read-only, so it must NOT touch the operator's
+  // unread counter. Pairs with /ingest so the shop uses the same base path for
+  // both directions of the conversation.
+  app.get("/ingest/:threadId", async (req, reply) => {
+    const { threadId } = req.params as { threadId: string };
+    try {
+      const item = await getAppeal(threadId);
+      return {
+        ok: true,
+        thread_id: item.id,
+        status: item.status,
+        messages: item.messages.map((m) => ({
+          id: m.id,
+          author: m.author,
+          text: m.text,
+          at: m.at,
+        })),
+      };
+    } catch (error) {
+      reply.code(errorStatus(error));
+      return { ok: false, error: errorMessage(error, "Звернення не знайдено") };
+    }
+  });
+
   // GET /api/appeals/:id — single conversation.
   app.get("/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
