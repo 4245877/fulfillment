@@ -380,6 +380,7 @@ export default function Appeals() {
     if (!text || !active || sending) return;
 
     const id = active.id;
+    const prevThread = active; // snapshot for a clean rollback on failure
     setSending(true);
     setActionError("");
 
@@ -417,15 +418,11 @@ export default function Appeals() {
       setActionError(
         err?.body?.error || "Не вдалося надіслати повідомлення. Спробуйте ще раз."
       );
+      // Full rollback: drop the optimistic message and restore the thread's
+      // prior status and lastMessageAt (the send may have advanced new →
+      // in_progress and bumped the list sort key).
       setThreads((prev) =>
-        prev.map((thread) =>
-          thread.id === id
-            ? {
-                ...thread,
-                messages: thread.messages.filter((m) => m.id !== optimistic.id),
-              }
-            : thread
-        )
+        sortThreads(prev.map((thread) => (thread.id === id ? prevThread : thread)))
       );
       setDraft(text);
     } finally {
@@ -461,7 +458,7 @@ export default function Appeals() {
   return (
     <section
       className={s.page}
-      data-pane={selectedId ? "chat" : "list"}
+      data-pane={active ? "chat" : "list"}
       aria-label="Звернення клієнтів"
     >
       {/* ── Inbox / thread list ───────────────────────────────── */}
@@ -636,11 +633,31 @@ export default function Appeals() {
           <div className={s.chatEmpty}>
             <div className={s.chatEmptyArt} aria-hidden="true">
               <svg viewBox="0 0 120 120" fill="none">
-                <rect x="20" y="24" width="80" height="58" rx="20" className={s.chatEmptyBubble} />
-                <path d="M40 72 L62 72 L40 96 Z" className={s.chatEmptyBubble} />
+                <defs>
+                  <linearGradient id="appealsEmptyHeart" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" className={s.chatEmptyHeartStop1} />
+                    <stop offset="1" className={s.chatEmptyHeartStop2} />
+                  </linearGradient>
+                </defs>
+                {/* One continuous speech bubble — body and tail share a single
+                    outline, so the pointer joins seamlessly (no severed edge,
+                    no stray inner stroke). */}
                 <path
-                  d="M60 64c-10-7-18-13-18-22 0-6 5-9 9-9 4 0 7 2 9 5 2-3 5-5 9-5 4 0 9 3 9 9 0 9-8 15-18 22Z"
+                  className={s.chatEmptyBubble}
+                  d="M20 40 C20 30.1 28.1 22 38 22 L82 22 C91.9 22 100 30.1 100 40 L100 60 C100 69.9 91.9 78 82 78 L58 78 L33 96 L46 78 L38 78 C28.1 78 20 69.9 20 60 Z"
+                />
+                <path
                   className={s.chatEmptyHeart}
+                  d="M60 60 C52 54 45 50 45 42 C45 36 47 32 51 32 C55 32 58 35 60 37 C62 35 65 32 69 32 C73 32 75 36 75 42 C75 50 68 54 60 60 Z"
+                />
+                <path
+                  className={s.chatEmptySparkle}
+                  d="M90 28 L91.4 31.6 L95 33 L91.4 34.4 L90 38 L88.6 34.4 L85 33 L88.6 31.6 Z"
+                />
+                <path
+                  className={s.chatEmptySparkle}
+                  style={{ animationDelay: "1.1s" }}
+                  d="M32 52 L33.12 54.88 L36 56 L33.12 57.12 L32 60 L30.88 57.12 L28 56 L30.88 54.88 Z"
                 />
               </svg>
             </div>

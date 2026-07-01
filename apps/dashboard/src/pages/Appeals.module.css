@@ -20,7 +20,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-soft) 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
@@ -73,10 +73,12 @@
 }
 
 .subtitle {
-  margin-top: 2px;
-  font-size: 0.85rem;
+  margin-top: 3px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.9rem;
   color: var(--text-muted);
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .refreshBtn {
@@ -770,6 +772,14 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  /* Whisper-soft floral wallpaper (candle-gold petals + rose heart, ~5% alpha)
+     — the same homey, hand-finished texture as the app shell, kept faint so
+     message bubbles stay perfectly legible. */
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--yor-gold) 4%, transparent), transparent 40%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%23c5a15c' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='23.5' r='2.6'/%3E%3Ccircle cx='30' cy='36.5' r='2.6'/%3E%3Ccircle cx='23.5' cy='30' r='2.6'/%3E%3Ccircle cx='36.5' cy='30' r='2.6'/%3E%3C/g%3E%3Cpath d='M90 82 C86 78.5 83 76 83 73 C83 71 84.5 69.6 86.4 69.6 C87.8 69.6 89.2 70.5 90 71.9 C90.8 70.5 92.2 69.6 93.6 69.6 C95.5 69.6 97 71 97 73 C97 76 94 78.5 90 82 Z' fill='%23c74b63' fill-opacity='0.045'/%3E%3C/svg%3E") repeat,
+    var(--surface);
+  background-size: auto, 150px 150px, auto;
 }
 
 .daySep {
@@ -975,25 +985,45 @@
 }
 
 .chatEmptyArt {
-  width: 96px;
-  height: 96px;
+  width: 110px;
+  height: 110px;
   margin-bottom: var(--space-sm);
-  animation: floaty 4s ease-in-out infinite;
+  animation: floaty 5s ease-in-out infinite;
 }
 
 .chatEmptyArt svg {
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
 
 .chatEmptyBubble {
-  fill: color-mix(in srgb, var(--primary) 9%, var(--surface));
-  stroke: color-mix(in srgb, var(--primary) 22%, var(--border));
-  stroke-width: 2;
+  fill: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  stroke: color-mix(in srgb, var(--primary) 26%, var(--border));
+  stroke-width: 2.4;
+  stroke-linejoin: round;
 }
 
+/* Soft rose → crimson depth on the heart — Yor's signature, gently lit. */
+.chatEmptyHeartStop1 { stop-color: var(--yor-rose); }
+.chatEmptyHeartStop2 { stop-color: var(--yor-crimson); }
+
 .chatEmptyHeart {
-  fill: var(--accent);
+  fill: url(#appealsEmptyHeart);
+  filter: drop-shadow(0 3px 5px color-mix(in srgb, var(--primary) 26%, transparent));
+}
+
+/* Candle-gold sparkles — a quiet, living warmth of home. */
+.chatEmptySparkle {
+  fill: var(--yor-gold);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: twinkle 2.8s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3;  transform: scale(0.7); }
+  50%      { opacity: 0.95; transform: scale(1); }
 }
 
 @keyframes floaty {
@@ -1002,9 +1032,11 @@
 }
 
 .chatEmptyTitle {
+  margin-top: 0.15rem;
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--text);
 }
 
@@ -1012,7 +1044,7 @@
   max-width: 34ch;
   font-size: 0.9rem;
   color: var(--text-muted);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 /* ── Responsive ──────────────────────────────────────────────── */
@@ -1050,8 +1082,11 @@
 }
 
 @media (max-width: 480px) {
-  /* <main> keeps the same 110px vertical padding down here, so .page inherits
-     --page-chrome from the 768px rule — no separate height override needed. */
+  .page {
+    /* <main> tightens to 76px top + 22px bottom padding here
+       (see Layout.module.css), so the page chrome shrinks to match. */
+    --page-chrome: 98px;
+  }
 
   .listHeader,
   .chatHeader,
@@ -1060,6 +1095,17 @@
   .messages {
     padding-left: var(--space-md);
     padding-right: var(--space-md);
+  }
+
+  /* Give the name/contact room next to the back button on narrow phones. */
+  .chatHeader {
+    gap: 0.55rem;
+  }
+
+  .avatarLg {
+    width: 46px;
+    height: 46px;
+    font-size: 1rem;
   }
 
   .prodLink {
