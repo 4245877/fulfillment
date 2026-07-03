@@ -9,6 +9,7 @@ import {
   setAppealStatus,
 } from "./service";
 import { isAppealStatus } from "./types";
+import { publishEvent } from "../../core/events";
 
 function errorStatus(error: unknown): number {
   const status = Number((error as { statusCode?: number })?.statusCode);
@@ -63,6 +64,12 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
           url: product.url ?? body.product_url ?? null,
         },
         at: body.received_at ?? body.client_sent_at ?? null,
+      });
+
+      publishEvent({
+        domain: "appeals",
+        type: created ? "created" : "message",
+        payload: { threadId: item.id, author: "customer", status: item.status, unread: item.unread },
       });
 
       return { ok: true, thread_id: item.id, created, item, message };
@@ -134,7 +141,13 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     try {
-      return await sendAppealMessage(id, text);
+      const result = await sendAppealMessage(id, text);
+      publishEvent({
+        domain: "appeals",
+        type: "message",
+        payload: { threadId: id, author: "operator", status: result.item.status },
+      });
+      return result;
     } catch (error) {
       app.log.error({ err: error }, "failed to send appeal message");
       reply.code(errorStatus(error));

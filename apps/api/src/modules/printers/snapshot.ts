@@ -94,14 +94,40 @@ export async function captureSnapshot(
       return null;
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
+    // Read the body incrementally and bail out the moment it exceeds maxBytes,
+    // aborting the request. Buffering the whole response first (arrayBuffer())
+    // would let a misconfigured endpoint (e.g. an endless MJPEG ?action=stream)
+    // grow unbounded in memory before the size check ever ran.
+    const reader = response.body?.getReader();
 
-    if (buffer.byteLength === 0 || buffer.byteLength > maxBytes) {
+    if (!reader) {
+      return null;
+    }
+
+    const chunks: Buffer[] = [];
+    let total = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      total += value.byteLength;
+
+      if (total > maxBytes) {
+        controller.abort();
+        return null;
+      }
+
+      chunks.push(Buffer.from(value));
+    }
+
+    if (total === 0) {
       return null;
     }
 
     return {
-      base64: buffer.toString("base64"),
+      base64: Buffer.concat(chunks).toString("base64"),
       mime: contentType || "image/jpeg",
     };
   } catch {

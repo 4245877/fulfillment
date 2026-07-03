@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { readPricing, writePricing } from "./service";
+import { requireAdmin } from "../../core/auth";
 
 type PutBody = {
   tree?: unknown;
@@ -44,6 +45,11 @@ const pricingRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.put("/api/ops/pricing", async (req, reply) => {
+    // Writing pricing.yml runs an SSH write to the production ingester host, so
+    // it must be admin-gated like the other remote-mutating endpoints.
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     const body = (req.body || {}) as PutBody;
 
     if (!body || typeof body !== "object" || !("tree" in body)) {

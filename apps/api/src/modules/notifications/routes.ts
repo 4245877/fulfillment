@@ -1,35 +1,10 @@
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
 
 import {
   dispatchPendingNotifications,
   enqueueTelegramTopicTestNotifications,
 } from "./dispatcher";
-
-function getHeaderValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
-  const expectedToken = process.env.ADMIN_TOKEN;
-
-  if (!expectedToken && process.env.NODE_ENV === "production") {
-    reply.code(500);
-    return { error: "ADMIN_TOKEN is not configured" };
-  }
-
-  if (!expectedToken) {
-    return null;
-  }
-
-  const token = getHeaderValue(request.headers["x-admin-token"]);
-
-  if (token !== expectedToken) {
-    reply.code(401);
-    return { error: "Unauthorized" };
-  }
-
-  return null;
-}
+import { requireAdmin } from "../../core/auth";
 
 const notificationsRoutes: FastifyPluginAsync = async (app) => {
   app.post("/test", async (req, reply) => {

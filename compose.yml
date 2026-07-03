@@ -62,6 +62,10 @@ services:
     build:
       context: .
       dockerfile: infra/docker/dashboard.Dockerfile
+      args:
+        # Bakes the admin token into the SPA so the operator UI can call the
+        # admin-gated endpoints. Sourced from ADMIN_TOKEN in the root .env.
+        VITE_ADMIN_TOKEN: ${ADMIN_TOKEN:-}
     container_name: fulfillment-dashboard
     restart: unless-stopped
     ports:

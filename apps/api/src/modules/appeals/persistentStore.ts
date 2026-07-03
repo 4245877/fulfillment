@@ -198,9 +198,10 @@ export const persistentStore = {
     }, true);
   },
 
-  // Customer question from the shop. Creates a new thread (keyed by the shop's
-  // thread id when provided) or appends to the existing one. A reply from the
-  // customer re-opens a closed thread so the operator sees it again.
+  // Customer question from the shop. A provided threadId is used only to look up
+  // an existing thread to append to; a new thread always gets a server-minted
+  // UUID (see below). A reply from the customer re-opens a closed thread so the
+  // operator sees it again.
   ingest(
     input: AppealIngestInput
   ): Promise<{ item: Appeal; message: AppealMessage; created: boolean }> {
@@ -219,8 +220,13 @@ export const persistentStore = {
       let created = false;
 
       if (!thread) {
+        // A brand-new thread always gets an unguessable server-minted UUID. The
+        // read side (GET /api/appeals/ingest/:threadId) is public and returns a
+        // thread's whole message history by id, so honouring a caller-chosen
+        // (possibly sequential) id would let anyone enumerate other customers'
+        // chats. The caller gets this id back and uses it for follow-up messages.
         thread = {
-          id: existingId || randomUUID(),
+          id: randomUUID(),
           status: "new",
           unread: 0,
           createdAt: at,

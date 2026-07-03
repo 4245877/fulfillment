@@ -5,6 +5,12 @@ const RAW_BASE =
 
 const API_BASE = String(RAW_BASE).replace(/\/+$/, "");
 
+// Shared admin token, baked into the bundle at build time (VITE_ADMIN_TOKEN).
+// Attached to mutating requests so admin-gated endpoints (e.g. pricing writes)
+// accept them. Read-only GETs don't need it.
+const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN || "";
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
 export function apiUrl(path) {
   const p = String(path || "");
   if (!p) return API_BASE || "/";
@@ -45,6 +51,9 @@ async function request(
       signal: usedSignal,
       headers: {
         ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(ADMIN_TOKEN && MUTATING_METHODS.has(method)
+          ? { "x-admin-token": ADMIN_TOKEN }
+          : {}),
         ...(headers || {}),
       },
       body: body ? JSON.stringify(body) : undefined,

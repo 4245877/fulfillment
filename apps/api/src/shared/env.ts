@@ -69,6 +69,19 @@ export const env = {
   HOST: optional("HOST", "0.0.0.0"),
   DATABASE_URL: required("DATABASE_URL"),
 
+  // Comma-separated list of browser origins allowed to call the API cross-site
+  // (e.g. "https://ops.example.com"). When set, only these origins are allowed
+  // and credentials are permitted. When empty, any origin may call the API but
+  // WITHOUT credentials — never the wildcard-origin + credentials combo, which
+  // lets any site make credentialed cross-site requests. The dashboard is served
+  // same-origin via nginx, so it needs no entry here.
+  CORS_ALLOWED_ORIGINS: optionalString("CORS_ALLOWED_ORIGINS"),
+
+  // Run pending DB migrations automatically on API startup. On by default so a
+  // fresh deployment doesn't boot against a schema-less database. Set to false
+  // to manage migrations out of band (e.g. a dedicated migration job).
+  MIGRATE_ON_START: booleanEnv("MIGRATE_ON_START", true),
+
   TELEGRAM_ENABLED: booleanEnv("TELEGRAM_ENABLED", false),
   TELEGRAM_BOT_TOKEN: optionalString("TELEGRAM_BOT_TOKEN"),
   TELEGRAM_CHAT_ID: optionalString("TELEGRAM_CHAT_ID"),

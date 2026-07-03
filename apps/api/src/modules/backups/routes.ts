@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
 import {
   getBackupConfig,
   getBackupStatus,
@@ -6,35 +6,7 @@ import {
   runBackupNow,
   testRestoreLatest,
 } from "./service";
-
-function getHeaderValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-// Mutating backup operations must require the admin token. With `cors origin:true`
-// an unauthenticated /run or /test-restore would let anyone who can reach the API
-// trigger remote shell scripts.
-function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
-  const expectedToken = process.env.ADMIN_TOKEN;
-
-  if (!expectedToken && process.env.NODE_ENV === "production") {
-    reply.code(500);
-    return { error: "ADMIN_TOKEN is not configured" };
-  }
-
-  if (!expectedToken) {
-    return null;
-  }
-
-  const token = getHeaderValue(request.headers["x-admin-token"]);
-
-  if (token !== expectedToken) {
-    reply.code(401);
-    return { error: "Unauthorized" };
-  }
-
-  return null;
-}
+import { requireAdmin } from "../../core/auth";
 
 // Map a thrown error onto an HTTP status + a safe, user-facing message.
 //  - `expose`-tagged errors carry an operator-safe message we authored → surface it;

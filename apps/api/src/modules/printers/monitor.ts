@@ -192,6 +192,16 @@ export async function pollPrintersOnce(
     (printer) => printer.enabled !== false
   );
 
+  // Drop baselines for printers no longer enabled/configured so the map can't
+  // grow without bound as printers come and go. A printer re-enabled later is
+  // then treated as a fresh first observation (no spurious alert).
+  const activeIds = new Set(printers.map((printer) => printer.id));
+  for (const knownId of lastStatusByPrinter.keys()) {
+    if (!activeIds.has(knownId)) {
+      lastStatusByPrinter.delete(knownId);
+    }
+  }
+
   let enqueued = 0;
 
   for (const printer of printers) {

@@ -59,6 +59,23 @@ export async function findOrderRepo(idOrShopId: string): Promise<OrderRecord | n
   return row ? toOrderRecord(row) : null;
 }
 
+// Row-locking variant used inside a transaction so read-modify-write flows
+// (status transition validation, order upsert) serialise against concurrent
+// writers instead of racing (TOCTOU).
+export async function findOrderForUpdateRepo(
+  idOrShopId: string,
+  trx: DbLike
+): Promise<OrderRecord | null> {
+  const row = await trx(ORDERS_TABLE)
+    .select("*")
+    .where("id", idOrShopId)
+    .orWhere("shop_order_id", idOrShopId)
+    .forUpdate()
+    .first();
+
+  return row ? toOrderRecord(row) : null;
+}
+
 export async function insertOrderRepo(
   row: Record<string, unknown>,
   trx: DbLike = db
@@ -108,4 +125,43 @@ export async function getOrderStatusCountsRepo(): Promise<Record<string, number>
     acc[row.status] = Number(row.count || 0);
     return acc;
   }, {});
+}
+
+export async function getOrdersOverviewAggregatesRepo(): Promise<{
+  avgCheckUah: number;
+  byCarrier: Record<string, number>;
+  paymentStatusCounts: Record<string, number>;
+}> {
+  const [avgRow, carrierRows, paymentRows] = await Promise.all([
+    db(ORDERS_TABLE).whereNotNull("total_uah").avg<{ avg: string | null }>({ avg: "total_uah" }).first(),
+    db(ORDERS_TABLE)
+      .whereNotNull("shipping_method")
+      .select("shipping_method")
+      .count<{ shipping_method: string; count: string }[]>({ count: "*" })
+      .groupBy("shipping_method"),
+    db(ORDERS_TABLE)
+      .whereNotNull("payment_status")
+      .select("payment_status")
+      .count<{ payment_status: string; count: string }[]>({ count: "*" })
+      .groupBy("payment_status"),
+  ]);
+
+  const byCarrier = (carrierRows as any[]).reduce<Record<string, number>>((acc, row) => {
+    acc[row.shipping_method] = Number(row.count || 0);
+    return acc;
+  }, {});
+
+  const paymentStatusCounts = (paymentRows as any[]).reduce<Record<string, number>>(
+    (acc, row) => {
+      acc[String(row.payment_status).toLowerCase()] = Number(row.count || 0);
+      return acc;
+    },
+    {}
+  );
+
+  return {
+    avgCheckUah: Math.round(Number(avgRow?.avg || 0)),
+    byCarrier,
+    paymentStatusCounts,
+  };
 }

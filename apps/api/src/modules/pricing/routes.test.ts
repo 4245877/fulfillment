@@ -45,14 +45,18 @@ test("classifyError hides internal (500) and upstream (502) details", () => {
 // ---------------------------------------------------------------------------
 // Route wiring: a malformed body is rejected with 400 before any SSH work, so a
 // bad request never becomes a 502 (issue #2). Uses app.inject (no network).
+// The write path is admin-gated, so the request must carry the token first.
 // ---------------------------------------------------------------------------
 test("PUT /api/ops/pricing without a 'tree' returns 400, not 502", async () => {
+  process.env.ADMIN_TOKEN = "secret";
+
   const app = Fastify();
   await app.register(pricingRoutes);
 
   const res = await app.inject({
     method: "PUT",
     url: "/api/ops/pricing",
+    headers: { "x-admin-token": "secret" },
     payload: {},
   });
 
@@ -60,4 +64,33 @@ test("PUT /api/ops/pricing without a 'tree' returns 400, not 502", async () => {
   assert.match(res.json().error, /tree/i);
 
   await app.close();
+  delete process.env.ADMIN_TOKEN;
+});
+
+test("PUT /api/ops/pricing is admin-gated", async () => {
+  const app = Fastify();
+  await app.register(pricingRoutes);
+
+  // No ADMIN_TOKEN configured on the server → fail closed (never runs the SSH
+  // write unauthenticated).
+  const unconfigured = await app.inject({
+    method: "PUT",
+    url: "/api/ops/pricing",
+    payload: { tree: {} },
+  });
+  assert.equal(unconfigured.statusCode, 503);
+
+  // Configured, but the caller sends the wrong token → 401.
+  process.env.ADMIN_TOKEN = "secret";
+  const wrongToken = await app.inject({
+    method: "PUT",
+    url: "/api/ops/pricing",
+    headers: { "x-admin-token": "nope" },
+    payload: { tree: {} },
+  });
+  assert.equal(wrongToken.statusCode, 401);
+  assert.deepEqual(wrongToken.json(), { error: "Unauthorized" });
+
+  await app.close();
+  delete process.env.ADMIN_TOKEN;
 });

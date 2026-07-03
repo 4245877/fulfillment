@@ -12,20 +12,33 @@ import appealsRoutes from "./modules/appeals/routes";
 import { registerNotificationOutboxWorker } from "./modules/notifications/dispatcher";
 import { registerPrinterMonitorWorker } from "./modules/printers/monitor";
 import { getInventoryMaterialsSummary } from "./modules/inventory/service";
-import { getOrdersStatusSummary } from "./modules/orders/service";
+import { getOrdersOverview } from "./modules/orders/service";
 import { checkDbConnection } from "./infra/db/knex";
 import { getServicesHealth } from "./modules/ops/serviceHealth";
+import { env } from "./shared/env";
+import { subscribeEvents } from "./core/events";
 
 const app = Fastify({ logger: true });
 
 registerNotificationOutboxWorker(app);
 registerPrinterMonitorWorker(app);
 
-// Важно: без await, чтобы не упираться в top-level await при CJS
-app.register(cors, {
-  origin: true,
-  credentials: true,
-});
+// CORS. An explicit allowlist (CORS_ALLOWED_ORIGINS) gets credentialed access;
+// otherwise any origin is allowed but WITHOUT credentials — we never combine
+// origin-reflection with credentials (that lets any website make credentialed
+// cross-site requests). The dashboard is same-origin via nginx, so it needs no
+// entry here. Важно: без await, чтобы не упираться в top-level await при CJS.
+const corsAllowlist = (env.CORS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.register(
+  cors,
+  corsAllowlist.length > 0
+    ? { origin: corsAllowlist, credentials: true }
+    : { origin: true, credentials: false }
+);
 
 app.get("/health", async () => ({ ok: true }));
 
@@ -51,27 +64,17 @@ app.get("/ready", async (_req, reply) => {
 });
 
 app.get("/api/ops/overview", async () => {
-  const [materials, services] = await Promise.all([
+  const [materials, services, ordersOverview] = await Promise.all([
     getInventoryMaterialsSummary(),
     getServicesHealth(),
+    getOrdersOverview(),
   ]);
 
   return {
     stats: {
-      orders: await getOrdersStatusSummary(),
-      payments: {
-        awaitingPrepay: 0,
-        awaitingRest: 0,
-        disputes: 0,
-        avgCheckUAH: 0,
-      },
-      logistics: {
-        new: 0,
-        inTransit: 0,
-        delivered: 0,
-        problem: 0,
-        byCarrier: {},
-      },
+      orders: ordersOverview.statusCounts,
+      payments: ordersOverview.payments,
+      logistics: ordersOverview.logistics,
       materials,
       queues: {
         prints: { ready: 0, running: 0, lagMs: 0 },
@@ -121,18 +124,29 @@ app.get("/api/events/stream", async (req, reply) => {
   reply.hijack();
   reply.raw.write(`: connected ${new Date().toISOString()}\n\n`);
 
-  const timer = setInterval(() => {
-    const event = {
-      domain: "ops",
-      type: "heartbeat",
-      ts: new Date().toISOString(),
-      payload: {},
-    };
+  const send = (event: unknown) => {
+    // Writes can throw if the socket is already gone between the close event and
+    // the next tick; swallow so a disconnect never crashes the emitter loop.
+    try {
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+    } catch {
+      /* client went away */
+    }
+  };
 
-    reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+  // Forward real domain events (orders, appeals, …) published on the in-process
+  // bus to this client.
+  const unsubscribe = subscribeEvents(send);
+
+  // Heartbeat keeps proxies/load balancers from idling the connection out.
+  const timer = setInterval(() => {
+    send({ domain: "ops", type: "heartbeat", ts: new Date().toISOString(), payload: {} });
   }, 5000);
 
-  req.raw.on("close", () => clearInterval(timer));
+  req.raw.on("close", () => {
+    clearInterval(timer);
+    unsubscribe();
+  });
 });
 
 app.register(printersRoutes, { prefix: "/api/printers" });

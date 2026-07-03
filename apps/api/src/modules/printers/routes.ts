@@ -4,6 +4,8 @@ import path from "node:path";
 import mqtt from "mqtt";
 import WebSocket from "ws";
 
+import { requireAdmin } from "../../core/auth";
+
 export type PrinterProtocol = "moonraker" | "bambu" | "creality";
 
 export type PrinterConfig = {
@@ -114,32 +116,6 @@ function restoreMaskedSecrets(
     accessCode:
       value.accessCode === SECRET_MASK ? existing.accessCode : value.accessCode,
   };
-}
-
-function getHeaderValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
-  const expectedToken = process.env.ADMIN_TOKEN;
-
-  if (!expectedToken && process.env.NODE_ENV === "production") {
-    return reply.code(500).send({
-      error: "ADMIN_TOKEN is not configured",
-    });
-  }
-
-  if (!expectedToken) return null;
-
-  const token = getHeaderValue(request.headers["x-admin-token"]);
-
-  if (token !== expectedToken) {
-    return reply.code(401).send({
-      error: "Unauthorized",
-    });
-  }
-
-  return null;
 }
 
 function resetBambuClient(printerId: string) {
