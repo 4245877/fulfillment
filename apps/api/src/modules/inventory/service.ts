@@ -29,7 +29,15 @@ type AddFilamentInput = {
 type ConsumeFilamentInput = {
   material?: string;
   color?: string;
-  quantityG: number;
+  /** Grams to consume. Provide this OR lengthMm. */
+  quantityG?: number;
+  /**
+   * Extruded filament length in mm (e.g. Klipper print_stats.filament_used).
+   * Converted to grams via the resolved material's density when quantityG is absent.
+   */
+  lengthMm?: number;
+  /** Filament diameter in mm for the length→grams conversion (default 1.75). */
+  diameterMm?: number;
   source?: FilamentMovementSource;
   note?: string;
   printerId?: string;
@@ -123,6 +131,53 @@ function normalizeNonNegative(value: unknown, field: string): number {
   }
 
   return Math.round(quantity);
+}
+
+function normalizePositiveFloat(value: unknown, field: string): number {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${field} must be a positive number`);
+  }
+
+  return parsed;
+}
+
+const DEFAULT_FILAMENT_DIAMETER_MM = 1.75;
+const DEFAULT_FILAMENT_DENSITY_G_CM3 = 1.24;
+
+// Filament density by material (g/cm³), used to convert extruded length → mass.
+const FILAMENT_DENSITY_G_CM3: Record<string, number> = {
+  PLA: 1.24,
+  PETG: 1.27,
+  ABS: 1.06,
+  ASA: 1.06,
+  TPU: 1.21,
+  PC: 1.2,
+  PA: 1.14,
+  NYLON: 1.14,
+};
+
+function densityForMaterial(material: string): number {
+  return (
+    FILAMENT_DENSITY_G_CM3[material.toUpperCase()] ?? DEFAULT_FILAMENT_DENSITY_G_CM3
+  );
+}
+
+/**
+ * Converts extruded filament length (mm) to mass (grams) for a solid cylindrical
+ * strand: mass = π·r²·length·density. Diameter/length in mm, density in g/cm³.
+ */
+function lengthMmToGrams(
+  lengthMm: number,
+  material: string,
+  diameterMm = DEFAULT_FILAMENT_DIAMETER_MM
+): number {
+  const radiusCm = diameterMm / 2 / 10;
+  const lengthCm = lengthMm / 10;
+  const volumeCm3 = Math.PI * radiusCm * radiusCm * lengthCm;
+
+  return volumeCm3 * densityForMaterial(material);
 }
 
 function getStatus(stock: FilamentStock): StockStatus {
@@ -303,7 +358,22 @@ export async function addFilament(input: AddFilamentInput) {
 }
 
 export async function consumeFilament(input: ConsumeFilamentInput) {
-  const quantityG = normalizeQuantity(input.quantityG);
+  const hasGrams = input.quantityG != null;
+  const hasLength = input.lengthMm != null;
+
+  if (!hasGrams && !hasLength) {
+    throw new Error("Either quantityG or lengthMm is required");
+  }
+
+  // Length is validated up front; grams are derived after the material (and thus
+  // its density) is resolved inside the transaction.
+  const lengthMm = hasLength
+    ? normalizePositiveFloat(input.lengthMm, "lengthMm")
+    : null;
+  const diameterMm =
+    input.diameterMm != null
+      ? normalizePositiveFloat(input.diameterMm, "diameterMm")
+      : DEFAULT_FILAMENT_DIAMETER_MM;
 
   return updateInventoryStore((store) => {
     if (input.idempotencyKey) {
@@ -347,6 +417,13 @@ export async function consumeFilament(input: ConsumeFilamentInput) {
     if (!stock) {
       throw new Error(`Filament stock not found: ${material} ${color}`);
     }
+
+    // Explicit quantityG wins; otherwise derive grams from the extruded length
+    // using the resolved material's density.
+    const quantityG =
+      lengthMm != null
+        ? normalizeQuantity(lengthMmToGrams(lengthMm, material, diameterMm))
+        : normalizeQuantity(input.quantityG);
 
     const beforeG = stock.stockG;
     const afterG = beforeG - quantityG;
