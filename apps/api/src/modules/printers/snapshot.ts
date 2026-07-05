@@ -77,6 +77,20 @@ export async function captureSnapshot(
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
 
+  return fetchImageSnapshot(url, timeoutMs, maxBytes);
+}
+
+/**
+ * Fetches a single image from `url` and returns it as a snapshot. Returns `null`
+ * (never throws) on any failure — a non-OK response, a non-image body, an empty
+ * body, a body larger than `maxBytes`, or a timeout. Shared by the direct camera
+ * path and the orchestrator-delegated path.
+ */
+async function fetchImageSnapshot(
+  url: string,
+  timeoutMs: number,
+  maxBytes: number
+): Promise<PrinterSnapshot | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -135,4 +149,30 @@ export async function captureSnapshot(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Captures a snapshot via the atelier print-orchestrator's camera endpoint with
+ * `ensureLight`, so the orchestrator (which owns light control and the night
+ * schedule) switches the chamber light on before grabbing the frame when it is
+ * night — avoiding the dark night photos this API would otherwise send.
+ *
+ * The printer `id` must match the orchestrator's config (both read the same
+ * `printers.json` shape). Returns `null` (never throws) when the orchestrator is
+ * unreachable, does not know the printer, or has no frame, so the caller can
+ * fall back to a direct device capture.
+ */
+export async function captureSnapshotViaOrchestrator(
+  baseUrl: string,
+  printer: PrinterConfig,
+  options: CaptureSnapshotOptions = {}
+): Promise<PrinterSnapshot | null> {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  if (!trimmed) return null;
+
+  const url = `${trimmed}/api/printers/${encodeURIComponent(printer.id)}/camera.jpg?ensureLight=1`;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+
+  return fetchImageSnapshot(url, timeoutMs, maxBytes);
 }

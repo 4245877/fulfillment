@@ -121,6 +121,15 @@ export const env = {
     "PRINTER_SNAPSHOT_MAX_BYTES",
     3_000_000
   ),
+  // Base URL of the atelier print-orchestrator (e.g. `http://print-orchestrator:3100`
+  // or `http://<host>:3100`). When set, printer snapshots are grabbed through the
+  // orchestrator's camera endpoint with `ensureLight`, so it turns the chamber
+  // light on before capturing at night (the orchestrator owns light control and
+  // the night schedule) — this API has no light control of its own. Empty keeps
+  // the direct device capture; a failed orchestrator call also falls back to it.
+  PRINTER_SNAPSHOT_ORCHESTRATOR_URL: optionalString(
+    "PRINTER_SNAPSHOT_ORCHESTRATOR_URL"
+  ),
 
   // Appeals (Звернення) source. By default this API IS the appeals store:
   // threads live in a file-backed store (apps/api/data/appeals.json), created by

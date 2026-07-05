@@ -13,7 +13,7 @@ import {
   type PrinterConfig,
   type PrinterStatus,
 } from "./routes";
-import { captureSnapshot } from "./snapshot";
+import { captureSnapshot, captureSnapshotViaOrchestrator } from "./snapshot";
 
 export type PrinterTransitionKind =
   | "error"
@@ -151,8 +151,14 @@ export type PollPrintersOptions = {
   snapshotEnabled?: boolean;
   snapshotTimeoutMs?: number;
   snapshotMaxBytes?: number;
+  /** When set, capture snapshots through the atelier orchestrator (see capturePhoto). */
+  snapshotOrchestratorUrl?: string | null;
   logger?: LoggerLike;
 };
+
+// Extra time the orchestrator may need over a direct capture: it can switch the
+// chamber light on and wait for it to come up before grabbing the frame.
+const ORCHESTRATOR_SNAPSHOT_EXTRA_MS = 3000;
 
 const lastStatusByPrinter = new Map<string, PrinterStatus>();
 
@@ -164,10 +170,28 @@ async function capturePhoto(
   printer: PrinterConfig,
   options: PollPrintersOptions
 ): Promise<NotificationPhoto | null> {
-  const snapshot = await captureSnapshot(printer, {
-    timeoutMs: options.snapshotTimeoutMs,
-    maxBytes: options.snapshotMaxBytes,
-  });
+  const orchestratorUrl = options.snapshotOrchestratorUrl?.trim();
+
+  // Prefer the orchestrator's light-aware capture when configured: it turns the
+  // chamber light on before grabbing the frame at night, which this API cannot
+  // do on its own. Fall back to a direct device capture if it is unreachable,
+  // does not know the printer, or returns no frame.
+  let snapshot = orchestratorUrl
+    ? await captureSnapshotViaOrchestrator(orchestratorUrl, printer, {
+        timeoutMs:
+          options.snapshotTimeoutMs != null
+            ? options.snapshotTimeoutMs + ORCHESTRATOR_SNAPSHOT_EXTRA_MS
+            : undefined,
+        maxBytes: options.snapshotMaxBytes,
+      })
+    : null;
+
+  if (!snapshot) {
+    snapshot = await captureSnapshot(printer, {
+      timeoutMs: options.snapshotTimeoutMs,
+      maxBytes: options.snapshotMaxBytes,
+    });
+  }
 
   if (!snapshot) {
     return null;
@@ -272,6 +296,7 @@ export function registerPrinterMonitorWorker(app: FastifyInstance) {
         snapshotEnabled: env.PRINTER_SNAPSHOT_ENABLED,
         snapshotTimeoutMs: env.PRINTER_SNAPSHOT_TIMEOUT_MS,
         snapshotMaxBytes: env.PRINTER_SNAPSHOT_MAX_BYTES,
+        snapshotOrchestratorUrl: env.PRINTER_SNAPSHOT_ORCHESTRATOR_URL,
         logger: app.log,
       });
 
