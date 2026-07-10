@@ -2,6 +2,7 @@ import { NOTIFICATION_EVENT_TYPES, type NotificationEventType } from "./types";
 import { TELEGRAM_TOPIC_LABELS } from "./routing";
 import type {
   CriticalErrorNotificationPayload,
+  FilamentLowStockNotificationPayload,
   NotificationPayload,
   OrderNotificationPayload,
   PrinterNotificationPayload,
@@ -163,6 +164,27 @@ function renderPrinter(payload: PrinterNotificationPayload): string {
   return lines.join("\n");
 }
 
+function kg(grams: number): string {
+  return `${(Math.round(grams) / 1000).toFixed(2)} кг (${Math.round(grams)} г)`;
+}
+
+function renderFilamentLowStock(
+  payload: FilamentLowStockNotificationPayload
+): string {
+  const title =
+    payload.status === "critical"
+      ? "🛑 Критичний запас філаменту"
+      : "⚠️ Філамент закінчується";
+
+  return [
+    `<b>${title}</b>`,
+    line("Матеріал", payload.label),
+    line("Залишок", kg(payload.stockG)),
+    line("Поріг", kg(payload.thresholdG)),
+    line("Час", payload.occurredAt),
+  ].join("\n");
+}
+
 function renderCriticalError(payload: CriticalErrorNotificationPayload): string {
   const lines = [
     "<b>Критична помилка API</b>",
@@ -209,6 +231,11 @@ export function renderNotificationMessage(
     case NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_COMPLETED:
     case NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_CANCELLED:
       return renderPrinter(payload as PrinterNotificationPayload);
+
+    case NOTIFICATION_EVENT_TYPES.INVENTORY_FILAMENT_LOW:
+      return renderFilamentLowStock(
+        payload as FilamentLowStockNotificationPayload
+      );
 
     case NOTIFICATION_EVENT_TYPES.SYSTEM_CRITICAL_ERROR:
       return renderCriticalError(payload as CriticalErrorNotificationPayload);

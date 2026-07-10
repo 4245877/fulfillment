@@ -223,13 +223,13 @@ export async function writeInventoryStore(store: InventoryStore): Promise<void> 
 }
 
 export async function updateInventoryStore<T>(
-  mutator: (store: InventoryStore) => T | Promise<T>
+  mutator: (store: InventoryStore, trx: Knex.Transaction) => T | Promise<T>
 ): Promise<T> {
   return db.transaction(async (trx) => {
     await trx.raw("select pg_advisory_xact_lock(?)", [INVENTORY_LOCK_ID]);
 
     const store = await readInventoryStoreFrom(trx);
-    const result = await mutator(store);
+    const result = await mutator(store, trx);
 
     await replaceInventoryStore(trx, store);
 

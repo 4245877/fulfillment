@@ -8,6 +8,7 @@ export const NOTIFICATION_EVENT_TYPES = {
   PRINTER_FILAMENT_RUNOUT: "notification.printer.filament_runout",
   PRINTER_PRINT_COMPLETED: "notification.printer.print_completed",
   PRINTER_PRINT_CANCELLED: "notification.printer.print_cancelled",
+  INVENTORY_FILAMENT_LOW: "notification.inventory.filament_low",
   SYSTEM_CRITICAL_ERROR: "notification.system.critical_error",
   TEST: "notification.test",
 } as const;
@@ -94,6 +95,32 @@ export type PrinterNotificationPayload = {
   photo?: NotificationPhoto | null;
 };
 
+/**
+ * A filament reel whose remaining stock just crossed a warning threshold
+ * downwards (ok→low, ok→critical or low→critical). Edge-triggered by a
+ * consumption in the inventory service, so exactly one is raised per crossing —
+ * not one per consume while the reel stays in the same band.
+ */
+export type FilamentLowStockNotificationPayload = {
+  stockId: string;
+  material: string;
+  color: string;
+  colorName: string;
+  /** Human label, e.g. "PETG Чорний". */
+  label: string;
+  /** The band it dropped into — the one that fired this alert. */
+  status: "low" | "critical";
+  stockG: number;
+  stockKg: number;
+  /** The threshold that was crossed: criticalStockG for "critical", else lowStockG. */
+  thresholdG: number;
+  lowStockG: number;
+  criticalStockG: number;
+  /** What consumed the filament (dashboard, printer, …). */
+  source: string;
+  occurredAt: string;
+};
+
 export type CriticalErrorNotificationPayload = {
   message: string;
   name?: string | null;
@@ -115,6 +142,7 @@ export type NotificationPayload =
   | OrderNotificationPayload
   | ProductReportNotificationPayload
   | PrinterNotificationPayload
+  | FilamentLowStockNotificationPayload
   | CriticalErrorNotificationPayload
   | TestNotificationPayload;
 

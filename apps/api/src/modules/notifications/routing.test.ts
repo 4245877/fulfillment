@@ -43,6 +43,16 @@ test("routes printer events to the prints topic", () => {
   );
 });
 
+test("routes low-stock filament alerts to the prints topic", () => {
+  assert.equal(
+    routeNotificationToTopic(
+      NOTIFICATION_EVENT_TYPES.INVENTORY_FILAMENT_LOW,
+      {} as any
+    ),
+    "prints"
+  );
+});
+
 test("routes Telegram topic tests only to known topics", () => {
   assert.equal(
     routeNotificationToTopic(NOTIFICATION_EVENT_TYPES.TEST, {

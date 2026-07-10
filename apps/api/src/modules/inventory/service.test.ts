@@ -230,6 +230,84 @@ test("no loaded reel and no explicit stock is an explicit error", () => {
   );
 });
 
+test("a consume crossing the low threshold raises a low-stock alert", () => {
+  const store = storeWith(); // 2000 g, low 1000, critical 300
+  const result = svc.applyConsume(store, {
+    material: "PETG",
+    color: "black",
+    quantityG: 1200, // -> 800 g, into the low band
+  });
+
+  assert.ok(result.lowStockAlert, "alert raised on the downward crossing");
+  assert.equal(result.lowStockAlert!.status, "low");
+  assert.equal(result.lowStockAlert!.label, "PETG Чорний");
+  assert.equal(result.lowStockAlert!.stockG, 800);
+  assert.equal(result.lowStockAlert!.thresholdG, 1000);
+});
+
+test("a consume that stays in the ok band raises no alert", () => {
+  const store = storeWith();
+  const result = svc.applyConsume(store, {
+    material: "PETG",
+    color: "black",
+    quantityG: 300, // -> 1700 g, still ok
+  });
+
+  assert.equal(result.lowStockAlert, null);
+});
+
+test("consuming while already low does not re-alert", () => {
+  const store = storeWith({ filamentStock: [stock({ stockG: 800 })] });
+  const result = svc.applyConsume(store, {
+    material: "PETG",
+    color: "black",
+    quantityG: 100, // 800 -> 700, stays low
+  });
+
+  assert.equal(result.lowStockAlert, null);
+});
+
+test("a consume straight into the critical band alerts as critical", () => {
+  const store = storeWith();
+  const result = svc.applyConsume(store, {
+    material: "PETG",
+    color: "black",
+    quantityG: 1800, // -> 200 g, into critical
+  });
+
+  assert.equal(result.lowStockAlert!.status, "critical");
+  assert.equal(result.lowStockAlert!.thresholdG, 300);
+});
+
+test("a low reel dropping into critical escalates with a fresh alert", () => {
+  const store = storeWith({ filamentStock: [stock({ stockG: 800 })] });
+  const result = svc.applyConsume(store, {
+    material: "PETG",
+    color: "black",
+    quantityG: 600, // 800 (low) -> 200 (critical)
+  });
+
+  assert.equal(result.lowStockAlert!.status, "critical");
+});
+
+test("a redelivered consume does not re-raise the low-stock alert", () => {
+  const store = storeWith();
+  const input: ConsumeFilamentInput = {
+    material: "PETG",
+    color: "black",
+    quantityG: 1200,
+    idempotencyKey: "consume-1",
+  };
+
+  const first = svc.applyConsume(store, input);
+  const second = svc.applyConsume(store, input);
+
+  assert.ok(first.lowStockAlert, "the real consume alerts");
+  assert.equal(second.duplicate, true);
+  assert.equal(second.lowStockAlert, null, "the duplicate is silent");
+  assert.equal(store.filamentStock[0].stockG, 800, "deducted exactly once");
+});
+
 test("updateFilament edits thresholds, colour name and active flag by id", () => {
   const store = storeWith();
   const result = svc.applyUpdateFilament(store, {

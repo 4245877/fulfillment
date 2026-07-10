@@ -34,6 +34,7 @@ import {
   NOTIFICATION_EVENT_TYPE_VALUES,
   isNotificationEventType,
   type CriticalErrorNotificationPayload,
+  type FilamentLowStockNotificationPayload,
   type NotificationEventType,
   type NotificationPayload,
   type NotificationPhoto,
@@ -199,6 +200,25 @@ export async function enqueuePrinterNotification(
   return enqueueOutboxEvent(
     {
       eventType: printerEventType(payload.kind),
+      payload,
+    },
+    trx
+  );
+}
+
+/**
+ * Raised by the inventory service when a consumption drops a reel across a
+ * warning threshold. Meant to be enqueued inside the inventory transaction (pass
+ * `trx`) so the alert commits atomically with the stock movement that triggered
+ * it. Edge-triggered upstream, so no dedupe key is needed here.
+ */
+export async function enqueueFilamentLowStockNotification(
+  payload: FilamentLowStockNotificationPayload,
+  trx?: DbLike
+): Promise<OutboxEvent> {
+  return enqueueOutboxEvent(
+    {
+      eventType: NOTIFICATION_EVENT_TYPES.INVENTORY_FILAMENT_LOW,
       payload,
     },
     trx

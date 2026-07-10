@@ -97,6 +97,55 @@ test("renders a cancelled print without an error line", () => {
   assert.equal(html.includes("Опис"), false);
 });
 
+test("renders a low-stock filament alert naming the material and remaining kg", () => {
+  const html = renderNotificationMessage(
+    NOTIFICATION_EVENT_TYPES.INVENTORY_FILAMENT_LOW,
+    {
+      stockId: "stock_1",
+      material: "PETG",
+      color: "black",
+      colorName: "Чорний",
+      label: "PETG Чорний",
+      status: "low",
+      stockG: 800,
+      stockKg: 0.8,
+      thresholdG: 1000,
+      lowStockG: 1000,
+      criticalStockG: 300,
+      source: "printer",
+      occurredAt: "2026-06-20T10:00:00.000Z",
+    } as any
+  );
+
+  assert.equal(html.includes("⚠️ Філамент закінчується"), true);
+  assert.equal(html.includes("PETG Чорний"), true);
+  assert.equal(html.includes("0.80 кг (800 г)"), true);
+});
+
+test("renders a critical filament alert with the critical title and threshold", () => {
+  const html = renderNotificationMessage(
+    NOTIFICATION_EVENT_TYPES.INVENTORY_FILAMENT_LOW,
+    {
+      stockId: "stock_1",
+      material: "PETG",
+      color: "black",
+      colorName: "Чорний",
+      label: "PETG Чорний",
+      status: "critical",
+      stockG: 200,
+      stockKg: 0.2,
+      thresholdG: 300,
+      lowStockG: 1000,
+      criticalStockG: 300,
+      source: "printer",
+      occurredAt: "2026-06-20T10:00:00.000Z",
+    } as any
+  );
+
+  assert.equal(html.includes("🛑 Критичний запас філаменту"), true);
+  assert.equal(html.includes("0.30 кг (300 г)"), true);
+});
+
 test("clamps an oversized critical error within the Telegram message limit", () => {
   const html = renderNotificationMessage(
     NOTIFICATION_EVENT_TYPES.SYSTEM_CRITICAL_ERROR,

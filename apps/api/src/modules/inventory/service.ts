@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { enqueueFilamentLowStockNotification } from "../notifications/dispatcher";
 import {
   readInventoryStore,
   updateInventoryStore,
@@ -202,16 +203,83 @@ function lengthMmToGrams(
   return volumeCm3 * densityForMaterial(material);
 }
 
-function getStatus(stock: FilamentStock): StockStatus {
-  if (stock.stockG <= stock.criticalStockG) {
+function statusForGrams(
+  stockG: number,
+  lowStockG: number,
+  criticalStockG: number
+): StockStatus {
+  if (stockG <= criticalStockG) {
     return "critical";
   }
 
-  if (stock.stockG <= stock.lowStockG) {
+  if (stockG <= lowStockG) {
     return "low";
   }
 
   return "ok";
+}
+
+function getStatus(stock: FilamentStock): StockStatus {
+  return statusForGrams(stock.stockG, stock.lowStockG, stock.criticalStockG);
+}
+
+const STATUS_SEVERITY: Record<StockStatus, number> = {
+  ok: 0,
+  low: 1,
+  critical: 2,
+};
+
+/**
+ * A reel that just crossed a warning threshold downwards — the shape the
+ * inventory service hands to the notification layer. Kept free of transport
+ * concerns (source/time are stamped at enqueue) so {@link detectLowStockAlert}
+ * stays pure and unit-testable.
+ */
+export type FilamentLowStockAlert = {
+  stockId: string;
+  material: string;
+  color: string;
+  colorName: string;
+  label: string;
+  status: "low" | "critical";
+  stockG: number;
+  stockKg: number;
+  thresholdG: number;
+  lowStockG: number;
+  criticalStockG: number;
+};
+
+/**
+ * Edge-detects a downward threshold crossing for a single stock movement:
+ * returns an alert only when the status got strictly worse (ok→low, ok→critical,
+ * low→critical), so refills and consumes that keep the reel in the same band are
+ * silent. The alert reports the band it landed in and the threshold it broke.
+ */
+function detectLowStockAlert(
+  stock: FilamentStock,
+  beforeG: number,
+  afterG: number
+): FilamentLowStockAlert | null {
+  const before = statusForGrams(beforeG, stock.lowStockG, stock.criticalStockG);
+  const after = statusForGrams(afterG, stock.lowStockG, stock.criticalStockG);
+
+  if (after === "ok" || STATUS_SEVERITY[after] <= STATUS_SEVERITY[before]) {
+    return null;
+  }
+
+  return {
+    stockId: stock.id,
+    material: stock.material,
+    color: stock.color,
+    colorName: stock.colorName,
+    label: `${stock.material} ${stock.colorName}`,
+    status: after,
+    stockG: afterG,
+    stockKg: Math.round(afterG) / 1000,
+    thresholdG: after === "critical" ? stock.criticalStockG : stock.lowStockG,
+    lowStockG: stock.lowStockG,
+    criticalStockG: stock.criticalStockG,
+  };
 }
 
 function toStockView(stock: FilamentStock): FilamentStockView {
@@ -485,6 +553,7 @@ export function applyConsume(store: InventoryStore, input: ConsumeFilamentInput)
         stock:
           store.filamentStock.find((item) => item.id === existing.stockId) ||
           null,
+        lowStockAlert: null as FilamentLowStockAlert | null,
       };
     }
   }
@@ -527,11 +596,29 @@ export function applyConsume(store: InventoryStore, input: ConsumeFilamentInput)
     duplicate: false,
     stock: toStockView(stock),
     movement,
+    lowStockAlert: detectLowStockAlert(stock, beforeG, afterG),
   };
 }
 
 export async function consumeFilament(input: ConsumeFilamentInput) {
-  return updateInventoryStore((store) => applyConsume(store, input));
+  return updateInventoryStore(async (store, trx) => {
+    const result = applyConsume(store, input);
+
+    // Enqueue on the same transaction as the movement so the alert commits
+    // atomically with the stock drop that triggered it (outbox pattern).
+    if (result.lowStockAlert) {
+      await enqueueFilamentLowStockNotification(
+        {
+          ...result.lowStockAlert,
+          source: input.source || "dashboard",
+          occurredAt: nowIso(),
+        },
+        trx
+      );
+    }
+
+    return result;
+  });
 }
 
 export async function adjustFilament(input: AdjustFilamentInput) {
