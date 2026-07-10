@@ -1,0 +1,253 @@
+import assert from "node:assert/strict";
+import { before, test } from "node:test";
+
+import type { FilamentStock, InventoryStore } from "./types";
+
+/*
+ * DB-free tests for the consume/load mutations: applyConsume and
+ * applyLoadPrinterFilament run against an in-memory InventoryStore, exactly the
+ * object updateInventoryStore hands them inside the transaction. Covered: the
+ * print-orchestrator contract (grams alias, lengthMm, amsTray reel resolution,
+ * idempotent redelivery), the unchanged dashboard flows, and the guard rails
+ * (insufficient stock, material mismatch, nothing loaded).
+ */
+
+// Loaded lazily so DATABASE_URL (required transitively via the repo's knex
+// import) has a value before shared/env is evaluated — same idiom as
+// modules/printers/monitor.test.ts. No query ever runs against it.
+async function loadService() {
+  process.env.DATABASE_URL ??= "postgres://user:pass@localhost:5432/test";
+  return import("./service");
+}
+
+type Service = Awaited<ReturnType<typeof loadService>>;
+type ConsumeFilamentInput = Parameters<Service["applyConsume"]>[1];
+
+let svc: Service;
+
+before(async () => {
+  svc = await loadService();
+});
+
+function stock(over: Partial<FilamentStock> = {}): FilamentStock {
+  const now = new Date().toISOString();
+  return {
+    id: "stock_petg_black",
+    material: "PETG",
+    color: "black",
+    colorName: "Чорний",
+    stockG: 2000,
+    lowStockG: 1000,
+    criticalStockG: 300,
+    enabled: true,
+    createdAt: now,
+    updatedAt: now,
+    ...over,
+  };
+}
+
+function storeWith(over: Partial<InventoryStore> = {}): InventoryStore {
+  return {
+    version: 1,
+    filamentStock: [stock()],
+    filamentMovements: [],
+    printerFilamentState: [],
+    ...over,
+  };
+}
+
+function loadReel(
+  store: InventoryStore,
+  printerId: string,
+  material: string,
+  color: string,
+  amsTray: number | null = null
+) {
+  return svc.applyLoadPrinterFilament(store, { printerId, material, color, amsTray });
+}
+
+test("dashboard flow: explicit material+color deducts that stock (unchanged)", () => {
+  const store = storeWith();
+  const result = svc.applyConsume(store, {
+    material: "PETG",
+    color: "black",
+    quantityG: 300,
+  });
+
+  assert.equal(result.duplicate, false);
+  assert.equal(store.filamentStock[0].stockG, 1700);
+  assert.equal(result.movement!.quantityG, -300);
+  assert.equal(result.movement!.source, "dashboard");
+});
+
+test("orchestrator flow: grams is accepted as an alias for quantityG", () => {
+  const store = storeWith();
+  loadReel(store, "bambu-a1-combo", "PETG", "black");
+
+  const result = svc.applyConsume(store, {
+    printerId: "bambu-a1-combo",
+    grams: 120,
+    source: "printer",
+    idempotencyKey: "a1:run-1:t0",
+  });
+
+  assert.equal(result.duplicate, false);
+  assert.equal(store.filamentStock[0].stockG, 1880);
+  assert.equal(result.movement!.idempotencyKey, "a1:run-1:t0");
+});
+
+test("lengthMm converts to grams via the resolved material's density", () => {
+  const store = storeWith();
+  loadReel(store, "creality-k2", "PETG", "black");
+
+  svc.applyConsume(store, {
+    printerId: "creality-k2",
+    lengthMm: 100000, // 100 m of 1.75 mm PETG (ρ 1.27) ≈ 305 g
+    source: "printer",
+  });
+
+  assert.equal(store.filamentStock[0].stockG, 2000 - 305);
+});
+
+test("a redelivered idempotencyKey is a duplicate no-op, not a second deduction", () => {
+  const store = storeWith();
+  loadReel(store, "creality-k2", "PETG", "black");
+  const input: ConsumeFilamentInput = {
+    printerId: "creality-k2",
+    grams: 100,
+    idempotencyKey: "k2:run-7",
+    source: "printer",
+  };
+
+  const first = svc.applyConsume(store, input);
+  const second = svc.applyConsume(store, input);
+
+  assert.equal(first.duplicate, false);
+  assert.equal(second.duplicate, true);
+  assert.equal(second.movement!.id, first.movement!.id);
+  assert.equal(store.filamentStock[0].stockG, 1900, "deducted exactly once");
+});
+
+test("Bambu hints (material + hex color) resolve via the loaded reel, not the hint", () => {
+  const store = storeWith();
+  loadReel(store, "bambu-a1-combo", "PETG", "black");
+
+  // No "PETG #00ff00" stock exists — the hex hint must not 404 the call.
+  const result = svc.applyConsume(store, {
+    printerId: "bambu-a1-combo",
+    grams: 50,
+    material: "PETG",
+    color: "#00FF00",
+    source: "printer",
+  });
+
+  assert.equal(result.stock!.color, "black");
+  assert.equal(store.filamentStock[0].stockG, 1950);
+});
+
+test("amsTray resolves the per-slot reel; other slots and printers are untouched", () => {
+  const petgBlack = stock();
+  const plaWhite = stock({
+    id: "stock_pla_white",
+    material: "PLA",
+    color: "white",
+    colorName: "Білий",
+    stockG: 750,
+  });
+  const store = storeWith({ filamentStock: [petgBlack, plaWhite] });
+  loadReel(store, "bambu-a1-combo", "PETG", "black", 0);
+  loadReel(store, "bambu-a1-combo", "PLA", "white", 1);
+
+  svc.applyConsume(store, {
+    printerId: "bambu-a1-combo",
+    grams: 50,
+    amsTray: 1,
+    material: "PLA",
+    source: "printer",
+  });
+
+  assert.equal(plaWhite.stockG, 700, "slot 1 reel deducted");
+  assert.equal(petgBlack.stockG, 2000, "slot 0 reel untouched");
+});
+
+test("a slot with no per-tray row falls back to the printer-level reel", () => {
+  const store = storeWith();
+  loadReel(store, "bambu-a1-combo", "PETG", "black"); // printer-level, no tray
+
+  svc.applyConsume(store, {
+    printerId: "bambu-a1-combo",
+    grams: 25,
+    amsTray: 2,
+    source: "printer",
+  });
+
+  assert.equal(store.filamentStock[0].stockG, 1975);
+});
+
+test("a material hint contradicting the loaded reel is rejected", () => {
+  const store = storeWith();
+  loadReel(store, "bambu-a1-combo", "PETG", "black");
+
+  assert.throws(
+    () =>
+      svc.applyConsume(store, {
+        printerId: "bambu-a1-combo",
+        grams: 50,
+        material: "PLA",
+        source: "printer",
+      }),
+    /reports PLA, but the loaded reel is PETG black/
+  );
+  assert.equal(store.filamentStock[0].stockG, 2000, "nothing deducted");
+});
+
+test("consuming more than the stock holds is rejected and deducts nothing", () => {
+  const store = storeWith();
+  loadReel(store, "creality-k2", "PETG", "black");
+
+  assert.throws(
+    () => svc.applyConsume(store, { printerId: "creality-k2", grams: 5000 }),
+    /Not enough filament stock/
+  );
+  assert.equal(store.filamentStock[0].stockG, 2000);
+});
+
+test("no loaded reel and no explicit stock is an explicit error", () => {
+  const store = storeWith();
+
+  assert.throws(
+    () => svc.applyConsume(store, { printerId: "creality-k2", grams: 10 }),
+    /No filament loaded for printer creality-k2/
+  );
+  assert.throws(
+    () => svc.applyConsume(store, { grams: 10 }),
+    /Material and color are required/
+  );
+  assert.throws(
+    () =>
+      svc.applyConsume(store, { material: "PLA", color: "red", quantityG: 10 }),
+    /Filament stock not found: PLA red/
+  );
+});
+
+test("loadPrinterFilament upserts per (printerId, amsTray)", () => {
+  const store = storeWith({
+    filamentStock: [
+      stock(),
+      stock({ id: "stock_pla_white", material: "PLA", color: "white", stockG: 500 }),
+    ],
+  });
+
+  const level = loadReel(store, "bambu-a1-combo", "PETG", "black");
+  const tray0 = loadReel(store, "bambu-a1-combo", "PETG", "black", 0);
+  const tray0Again = loadReel(store, "bambu-a1-combo", "PLA", "white", 0);
+
+  assert.equal(store.printerFilamentState.length, 2, "printer-level + one tray row");
+  assert.notEqual(level.id, tray0.id);
+  assert.equal(tray0Again.id, tray0.id, "same slot re-load updates in place");
+  assert.equal(tray0Again.material, "PLA");
+  assert.throws(
+    () => loadReel(store, "bambu-a1-combo", "PLA", "white", -1),
+    /amsTray must be a non-negative integer/
+  );
+});

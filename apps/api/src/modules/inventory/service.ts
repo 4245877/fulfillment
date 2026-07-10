@@ -26,11 +26,13 @@ type AddFilamentInput = {
   note?: string;
 };
 
-type ConsumeFilamentInput = {
+export type ConsumeFilamentInput = {
   material?: string;
   color?: string;
-  /** Grams to consume. Provide this OR lengthMm. */
+  /** Grams to consume. Provide this OR grams OR lengthMm. */
   quantityG?: number;
+  /** Alias for quantityG — the field name the print-orchestrator sends. */
+  grams?: number;
   /**
    * Extruded filament length in mm (e.g. Klipper print_stats.filament_used).
    * Converted to grams via the resolved material's density when quantityG is absent.
@@ -38,6 +40,12 @@ type ConsumeFilamentInput = {
   lengthMm?: number;
   /** Filament diameter in mm for the length→grams conversion (default 1.75). */
   diameterMm?: number;
+  /**
+   * AMS slot the consumption came from (Bambu). Resolves the reel loaded into
+   * that slot via printer_filament_state (printerId, amsTray); without a
+   * per-slot row the printer-level reel (amsTray null) is used.
+   */
+  amsTray?: number;
   source?: FilamentMovementSource;
   note?: string;
   printerId?: string;
@@ -56,6 +64,8 @@ type AdjustFilamentInput = {
 
 type LoadPrinterFilamentInput = {
   printerId: string;
+  /** AMS slot to bind the reel to (multi-slot printers); omit for the printer-level reel. */
+  amsTray?: number | null;
   material: string;
   color: string;
   colorName?: string;
@@ -357,105 +367,159 @@ export async function addFilament(input: AddFilamentInput) {
   });
 }
 
-export async function consumeFilament(input: ConsumeFilamentInput) {
-  const hasGrams = input.quantityG != null;
+/**
+ * Resolves which stock a consumption должен списаться from, in priority order:
+ *
+ *  1. Explicit material+color that matches an existing stock — the dashboard's
+ *     manual flow, unchanged.
+ *  2. The reel loaded on the printer: the per-slot row (printerId, amsTray)
+ *     when a tray is named, falling back to the printer-level row (amsTray
+ *     null). Printer-originated calls land here — their material/color are
+ *     device hints (Bambu colours are hex, stock colours are names), so the
+ *     loaded-reel binding, not the hint, decides the stock. A material hint
+ *     that contradicts the loaded reel is rejected rather than silently
+ *     deducting the wrong spool.
+ *  3. Otherwise the old errors: unknown explicit stock without a printer to
+ *     fall back to, no loaded reel, or no way to resolve at all.
+ */
+function resolveConsumeStock(
+  store: InventoryStore,
+  input: ConsumeFilamentInput
+): FilamentStock {
+  const material = input.material ? normalizeMaterial(input.material) : "";
+  const color = input.color ? normalizeColor(input.color) : "";
+
+  if (material && color) {
+    const direct = findStock(store, material, color);
+    if (direct) {
+      return direct;
+    }
+
+    if (!input.printerId) {
+      throw new Error(`Filament stock not found: ${material} ${color}`);
+    }
+  }
+
+  if (!input.printerId) {
+    throw new Error("Material and color are required");
+  }
+
+  const states = store.printerFilamentState.filter(
+    (item) => item.printerId === input.printerId
+  );
+  const printerState =
+    (input.amsTray != null
+      ? states.find((item) => item.amsTray === input.amsTray)
+      : undefined) ?? states.find((item) => item.amsTray == null);
+
+  if (!printerState) {
+    const slot = input.amsTray != null ? ` (AMS tray ${input.amsTray})` : "";
+    throw new Error(`No filament loaded for printer ${input.printerId}${slot}`);
+  }
+
+  if (material && material !== printerState.material) {
+    throw new Error(
+      `Printer ${input.printerId} reports ${material}, but the loaded reel is ` +
+        `${printerState.material} ${printerState.color} — reload the printer filament`
+    );
+  }
+
+  const stock = store.filamentStock.find(
+    (item) => item.id === printerState.stockId
+  );
+
+  if (!stock) {
+    throw new Error(
+      `Filament stock not found: ${printerState.material} ${printerState.color}`
+    );
+  }
+
+  return stock;
+}
+
+/**
+ * The consume mutation against an already-loaded store. Pure of I/O (the
+ * store object is mutated in place) so it can be unit-tested without Postgres;
+ * `consumeFilament` runs it inside the advisory-locked transaction, which makes
+ * the idempotency check → insert sequence atomic under concurrency.
+ */
+export function applyConsume(store: InventoryStore, input: ConsumeFilamentInput) {
+  const quantityInput = input.quantityG ?? input.grams;
+  const hasGrams = quantityInput != null;
   const hasLength = input.lengthMm != null;
 
   if (!hasGrams && !hasLength) {
     throw new Error("Either quantityG or lengthMm is required");
   }
 
-  // Length is validated up front; grams are derived after the material (and thus
-  // its density) is resolved inside the transaction.
-  const lengthMm = hasLength
-    ? normalizePositiveFloat(input.lengthMm, "lengthMm")
-    : null;
+  const lengthMm =
+    !hasGrams && hasLength
+      ? normalizePositiveFloat(input.lengthMm, "lengthMm")
+      : null;
   const diameterMm =
     input.diameterMm != null
       ? normalizePositiveFloat(input.diameterMm, "diameterMm")
       : DEFAULT_FILAMENT_DIAMETER_MM;
 
-  return updateInventoryStore((store) => {
-    if (input.idempotencyKey) {
-      const existing = store.filamentMovements.find(
-        (item) => item.idempotencyKey === input.idempotencyKey
-      );
+  if (input.idempotencyKey) {
+    const existing = store.filamentMovements.find(
+      (item) => item.idempotencyKey === input.idempotencyKey
+    );
 
-      if (existing) {
-        return {
-          duplicate: true,
-          movement: existing,
-          stock:
-            store.filamentStock.find((item) => item.id === existing.stockId) ||
-            null,
-        };
-      }
+    if (existing) {
+      return {
+        duplicate: true,
+        movement: existing,
+        stock:
+          store.filamentStock.find((item) => item.id === existing.stockId) ||
+          null,
+      };
     }
+  }
 
-    let material = input.material ? normalizeMaterial(input.material) : "";
-    let color = input.color ? normalizeColor(input.color) : "";
+  const stock = resolveConsumeStock(store, input);
 
-    if ((!material || !color) && input.printerId) {
-      const printerState = store.printerFilamentState.find(
-        (item) => item.printerId === input.printerId
-      );
+  // Explicit grams win; otherwise derive them from the extruded length using
+  // the resolved stock's material density.
+  const quantityG =
+    lengthMm != null
+      ? normalizeQuantity(lengthMmToGrams(lengthMm, stock.material, diameterMm))
+      : normalizeQuantity(quantityInput);
 
-      if (!printerState) {
-        throw new Error(`No filament loaded for printer ${input.printerId}`);
-      }
+  const beforeG = stock.stockG;
+  const afterG = beforeG - quantityG;
 
-      material = printerState.material;
-      color = printerState.color;
-    }
+  if (afterG < 0) {
+    throw new Error(
+      `Not enough filament stock: ${stock.material} ${stock.color}. Available: ${beforeG}g, requested: ${quantityG}g`
+    );
+  }
 
-    if (!material || !color) {
-      throw new Error("Material and color are required");
-    }
+  stock.stockG = afterG;
+  stock.updatedAt = nowIso();
 
-    const stock = findStock(store, material, color);
-
-    if (!stock) {
-      throw new Error(`Filament stock not found: ${material} ${color}`);
-    }
-
-    // Explicit quantityG wins; otherwise derive grams from the extruded length
-    // using the resolved material's density.
-    const quantityG =
-      lengthMm != null
-        ? normalizeQuantity(lengthMmToGrams(lengthMm, material, diameterMm))
-        : normalizeQuantity(input.quantityG);
-
-    const beforeG = stock.stockG;
-    const afterG = beforeG - quantityG;
-
-    if (afterG < 0) {
-      throw new Error(
-        `Not enough filament stock: ${material} ${color}. Available: ${beforeG}g, requested: ${quantityG}g`
-      );
-    }
-
-    stock.stockG = afterG;
-    stock.updatedAt = nowIso();
-
-    const movement = addMovement(store, {
-      stockId: stock.id,
-      type: "consume",
-      quantityG: -quantityG,
-      beforeG,
-      afterG,
-      source: input.source || "dashboard",
-      note: input.note || null,
-      printerId: input.printerId || null,
-      printJobId: input.printJobId || null,
-      idempotencyKey: input.idempotencyKey || null,
-    });
-
-    return {
-      duplicate: false,
-      stock: toStockView(stock),
-      movement,
-    };
+  const movement = addMovement(store, {
+    stockId: stock.id,
+    type: "consume",
+    quantityG: -quantityG,
+    beforeG,
+    afterG,
+    source: input.source || "dashboard",
+    note: input.note || null,
+    printerId: input.printerId || null,
+    printJobId: input.printJobId || null,
+    idempotencyKey: input.idempotencyKey || null,
   });
+
+  return {
+    duplicate: false,
+    stock: toStockView(stock),
+    movement,
+  };
+}
+
+export async function consumeFilament(input: ConsumeFilamentInput) {
+  return updateInventoryStore((store) => applyConsume(store, input));
 }
 
 export async function adjustFilament(input: AdjustFilamentInput) {
@@ -497,49 +561,71 @@ export async function adjustFilament(input: AdjustFilamentInput) {
   });
 }
 
-export async function loadPrinterFilament(input: LoadPrinterFilamentInput) {
+function normalizeAmsTray(value: unknown): number | null {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  const tray = Number(value);
+
+  if (!Number.isInteger(tray) || tray < 0) {
+    throw new Error("amsTray must be a non-negative integer");
+  }
+
+  return tray;
+}
+
+/** The load-reel mutation against a loaded store; see {@link applyConsume} on why it is extracted. */
+export function applyLoadPrinterFilament(
+  store: InventoryStore,
+  input: LoadPrinterFilamentInput
+): PrinterFilamentState {
   const printerId = String(input.printerId || "").trim();
 
   if (!printerId) {
     throw new Error("printerId is required");
   }
 
+  const amsTray = normalizeAmsTray(input.amsTray);
   const material = normalizeMaterial(input.material);
   const color = normalizeColor(input.color);
 
-  return updateInventoryStore((store) => {
-    const stock = ensureStock(store, {
-      material,
-      color,
-      colorName: input.colorName,
-    });
-
-    const existing = store.printerFilamentState.find(
-      (item) => item.printerId === printerId
-    );
-
-    if (existing) {
-      existing.stockId = stock.id;
-      existing.material = stock.material;
-      existing.color = stock.color;
-      existing.updatedAt = nowIso();
-
-      return existing;
-    }
-
-    const state: PrinterFilamentState = {
-      id: id("printer_filament"),
-      printerId,
-      stockId: stock.id,
-      material: stock.material,
-      color: stock.color,
-      updatedAt: nowIso(),
-    };
-
-    store.printerFilamentState.push(state);
-
-    return state;
+  const stock = ensureStock(store, {
+    material,
+    color,
+    colorName: input.colorName,
   });
+
+  const existing = store.printerFilamentState.find(
+    (item) => item.printerId === printerId && item.amsTray === amsTray
+  );
+
+  if (existing) {
+    existing.stockId = stock.id;
+    existing.material = stock.material;
+    existing.color = stock.color;
+    existing.updatedAt = nowIso();
+
+    return existing;
+  }
+
+  const state: PrinterFilamentState = {
+    id: id("printer_filament"),
+    printerId,
+    amsTray,
+    stockId: stock.id,
+    material: stock.material,
+    color: stock.color,
+    updatedAt: nowIso(),
+  };
+
+  store.printerFilamentState.push(state);
+
+  return state;
+}
+
+export async function loadPrinterFilament(input: LoadPrinterFilamentInput) {
+  return updateInventoryStore((store) => applyLoadPrinterFilament(store, input));
 }
 
 export async function getInventoryMaterialsSummary() {

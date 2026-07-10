@@ -37,6 +37,12 @@ export type FilamentMovement = {
 export type PrinterFilamentState = {
   id: string;
   printerId: string;
+  /**
+   * AMS slot this reel is loaded into, for multi-slot printers (Bambu AMS).
+   * `null` is the printer-level reel — the only kind single-spool printers have.
+   * At most one row per (printerId, amsTray), including the null slot.
+   */
+  amsTray: number | null;
   stockId: string;
   material: string;
   color: string;
