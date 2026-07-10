@@ -9,6 +9,7 @@ import {
   listFilamentStock,
   listPrinterFilamentState,
   loadPrinterFilament,
+  updateFilamentStock,
 } from "./service";
 
 function getErrorMessage(error: unknown) {
@@ -56,6 +57,15 @@ export default async function inventoryRoutes(app: FastifyInstance) {
   app.post("/filament/adjust", async (req, reply) => {
     try {
       return await adjustFilament(req.body as any);
+    } catch (error) {
+      reply.code(400);
+      return { error: getErrorMessage(error) };
+    }
+  });
+
+  app.post("/filament/update", async (req, reply) => {
+    try {
+      return await updateFilamentStock(req.body as any);
     } catch (error) {
       reply.code(400);
       return { error: getErrorMessage(error) };

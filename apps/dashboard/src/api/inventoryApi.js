@@ -21,6 +21,10 @@ export const inventoryApi = {
     return api.post("/api/inventory/filament/adjust", payload);
   },
 
+  update(payload) {
+    return api.post("/api/inventory/filament/update", payload);
+  },
+
   printerFilament() {
     return api.get("/api/inventory/printer-filament");
   },

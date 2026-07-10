@@ -230,6 +230,58 @@ test("no loaded reel and no explicit stock is an explicit error", () => {
   );
 });
 
+test("updateFilament edits thresholds, colour name and active flag by id", () => {
+  const store = storeWith();
+  const result = svc.applyUpdateFilament(store, {
+    id: "stock_petg_black",
+    colorName: "Вугільний",
+    lowStockG: 800,
+    criticalStockG: 200,
+    enabled: false,
+  });
+
+  const edited = store.filamentStock[0];
+  assert.equal(edited.colorName, "Вугільний");
+  assert.equal(edited.lowStockG, 800);
+  assert.equal(edited.criticalStockG, 200);
+  assert.equal(edited.enabled, false);
+  assert.equal(edited.stockG, 2000, "grams are untouched by an edit");
+  assert.equal(result.stock.status, "ok");
+});
+
+test("updateFilament resolves the target by material+color and recomputes status", () => {
+  const store = storeWith();
+  // Raise the critical threshold above the current stock → status flips.
+  const result = svc.applyUpdateFilament(store, {
+    material: "PETG",
+    color: "black",
+    criticalStockG: 2500,
+    lowStockG: 3000,
+  });
+
+  assert.equal(result.stock.status, "critical");
+});
+
+test("updateFilament rejects a critical threshold above the low threshold", () => {
+  const store = storeWith();
+  assert.throws(
+    () =>
+      svc.applyUpdateFilament(store, {
+        id: "stock_petg_black",
+        criticalStockG: 1500,
+      }),
+    /criticalStockG must not be greater than lowStockG/
+  );
+});
+
+test("updateFilament errors when the target does not exist", () => {
+  const store = storeWith();
+  assert.throws(
+    () => svc.applyUpdateFilament(store, { id: "nope" }),
+    /Filament stock not found/
+  );
+});
+
 test("loadPrinterFilament upserts per (printerId, amsTray)", () => {
   const store = storeWith({
     filamentStock: [

@@ -62,6 +62,18 @@ type AdjustFilamentInput = {
   note?: string;
 };
 
+type UpdateFilamentInput = {
+  /** Identify the stock either by its id or by material+color. */
+  id?: string;
+  material?: string;
+  color?: string;
+  colorName?: string;
+  lowStockG?: number;
+  criticalStockG?: number;
+  /** Toggle whether the position is active (archived positions leave the list). */
+  enabled?: boolean;
+};
+
 type LoadPrinterFilamentInput = {
   printerId: string;
   /** AMS slot to bind the reel to (multi-slot printers); omit for the printer-level reel. */
@@ -559,6 +571,64 @@ export async function adjustFilament(input: AdjustFilamentInput) {
       movement,
     };
   });
+}
+
+/**
+ * Edits an existing stock's descriptive data — colour name, low/critical
+ * thresholds, active flag — without moving any grams. Pure of I/O (see
+ * {@link applyConsume}); `updateFilamentStock` runs it inside the locked
+ * transaction. The target is resolved by id or by material+color.
+ */
+export function applyUpdateFilament(
+  store: InventoryStore,
+  input: UpdateFilamentInput
+) {
+  const stock = input.id
+    ? store.filamentStock.find((item) => item.id === input.id)
+    : input.material && input.color
+      ? findStock(
+          store,
+          normalizeMaterial(input.material),
+          normalizeColor(input.color)
+        )
+      : undefined;
+
+  if (!stock) {
+    throw new Error("Filament stock not found");
+  }
+
+  if (input.colorName != null) {
+    stock.colorName = normalizeColorName(stock.color, input.colorName);
+  }
+
+  if (input.lowStockG != null) {
+    stock.lowStockG = normalizeNonNegative(input.lowStockG, "lowStockG");
+  }
+
+  if (input.criticalStockG != null) {
+    stock.criticalStockG = normalizeNonNegative(
+      input.criticalStockG,
+      "criticalStockG"
+    );
+  }
+
+  if (stock.criticalStockG > stock.lowStockG) {
+    throw new Error(
+      "criticalStockG must not be greater than lowStockG"
+    );
+  }
+
+  if (input.enabled != null) {
+    stock.enabled = Boolean(input.enabled);
+  }
+
+  stock.updatedAt = nowIso();
+
+  return { stock: toStockView(stock) };
+}
+
+export async function updateFilamentStock(input: UpdateFilamentInput) {
+  return updateInventoryStore((store) => applyUpdateFilament(store, input));
 }
 
 function normalizeAmsTray(value: unknown): number | null {
