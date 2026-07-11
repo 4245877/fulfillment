@@ -131,6 +131,14 @@ export const env = {
     "PRINTER_SNAPSHOT_ORCHESTRATOR_URL"
   ),
 
+  // Minimum grams a material×color must hold to count as available in the
+  // read-only shop feed (GET /api/inventory/filament/availability):
+  // `available = stock_g >= FILAMENT_AVAILABILITY_MIN_G`. Deliberately separate
+  // from the low_stock_g / critical_stock_g warehouse warning bands. The bearer
+  // token that guards the feed (FILAMENT_AVAILABILITY_TOKEN) is read live in
+  // core/auth.ts, not here, so it is never cached and never logged.
+  FILAMENT_AVAILABILITY_MIN_G: numberEnv("FILAMENT_AVAILABILITY_MIN_G", 100),
+
   // Appeals (Звернення) source. By default this API IS the appeals store:
   // threads live in a file-backed store (apps/api/data/appeals.json), created by
   // the shop's "Поставити запитання майстру" chat via POST /api/appeals/ingest

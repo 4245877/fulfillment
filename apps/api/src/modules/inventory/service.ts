@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { env } from "../../shared/env";
 import { enqueueFilamentLowStockNotification } from "../notifications/dispatcher";
 import {
   readInventoryStore,
@@ -7,6 +8,10 @@ import {
 } from "./repo";
 
 import type {
+  CanonicalColor,
+  CanonicalMaterial,
+  FilamentAvailabilityItem,
+  FilamentAvailabilityResponse,
   FilamentMovement,
   FilamentMovementSource,
   FilamentStock,
@@ -83,6 +88,32 @@ type LoadPrinterFilamentInput = {
   color: string;
   colorName?: string;
 };
+
+/**
+ * The loaded-reel hint the print-orchestrator sends, resolved to an existing
+ * stock rather than creating one (unlike {@link LoadPrinterFilamentInput}). The
+ * material may carry a brand suffix and the colour is a device hex; both are
+ * translated to a stock position by {@link resolveStockForDevice}.
+ */
+type SyncPrinterFilamentInput = {
+  printerId: string;
+  /** AMS slot (multi-slot printers); omit/null for the printer-level reel. */
+  amsTray?: number | null;
+  material: string;
+  /** Device colour hint — a `#RRGGBB` hex or a named colour; optional. */
+  color?: string;
+  colorName?: string;
+};
+
+export type SyncPrinterFilamentResult =
+  | { resolved: true; state: PrinterFilamentState; stock: FilamentStockView }
+  | {
+      resolved: false;
+      printerId: string;
+      amsTray: number | null;
+      material: string;
+      reason: string;
+    };
 
 const COLOR_NAMES: Record<string, string> = {
   black: "Чорний",
@@ -201,6 +232,145 @@ function lengthMmToGrams(
   const volumeCm3 = Math.PI * radiusCm * radiusCm * lengthCm;
 
   return volumeCm3 * densityForMaterial(material);
+}
+
+// ── Device-hint resolution ─────────────────────────────────────────────────
+//
+// The print-orchestrator reports the filament a printer has *loaded* straight
+// from the device, so a reel can be bound to a printer with no manual dashboard
+// entry (see syncPrinterFilament). Those hints are raw device values — the
+// material may carry a brand suffix ("PLA Basic") and the colour is a hex
+// (`#RRGGBB`), while stock is keyed on a base material and a named colour. These
+// helpers translate a hint to an existing stock position without ever inventing
+// one.
+
+/** Known polymer families, longest-first so "PETG" wins over a bare "PET". */
+const MATERIAL_FAMILIES = [
+  "PETG",
+  "PET",
+  "PLA",
+  "TPU",
+  "ABS",
+  "ASA",
+  "PVA",
+  "HIPS",
+  "PACF",
+  "PAHT",
+  "PA",
+  "PC",
+  "NYLON",
+];
+
+/**
+ * Reduces a raw device material to its stock family: uppercased, with any brand
+ * suffix stripped ("PLA Basic" → "PLA", "PETG-CF" → "PETG"). Falls back to the
+ * cleaned string when nothing matches, so an unknown material still compares
+ * consistently. Used for the device-facing paths only (loaded-reel sync and the
+ * consume material-mismatch guard); the dashboard already sends clean families.
+ */
+export function normalizeDeviceMaterial(value: unknown): string {
+  const raw = String(value || "").trim().toUpperCase();
+  if (!raw) {
+    throw new Error("Material is required");
+  }
+
+  const compact = raw.replace(/[^A-Z0-9]/g, "");
+  for (const family of MATERIAL_FAMILIES) {
+    if (compact.startsWith(family)) {
+      return family;
+    }
+  }
+
+  return raw;
+}
+
+/** Representative RGB for each named stock colour, for nearest-colour matching. */
+const NAMED_COLOR_RGB: Record<string, [number, number, number]> = {
+  black: [0, 0, 0],
+  white: [255, 255, 255],
+  gray: [128, 128, 128],
+  grey: [128, 128, 128],
+  silver: [192, 192, 192],
+  red: [255, 0, 0],
+  blue: [0, 0, 255],
+  green: [0, 128, 0],
+  yellow: [255, 255, 0],
+  orange: [255, 165, 0],
+  purple: [128, 0, 128],
+  pink: [255, 192, 203],
+  brown: [139, 69, 19],
+};
+
+/**
+ * Parses a colour hint to RGB: a `#RRGGBB`/`RRGGBB` hex, or one of the named
+ * stock colours ({@link NAMED_COLOR_RGB}). Returns null for anything else
+ * (transparent/clear, an unknown name, or no colour at all) — the caller then
+ * cannot disambiguate by colour and falls back accordingly.
+ */
+export function parseColorToRgb(value: unknown): [number, number, number] | null {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return null;
+
+  const hex = /^#?([0-9a-f]{6})$/.exec(raw);
+  if (hex) {
+    const int = Number.parseInt(hex[1], 16);
+    return [(int >> 16) & 0xff, (int >> 8) & 0xff, int & 0xff];
+  }
+
+  return NAMED_COLOR_RGB[raw] ?? null;
+}
+
+function colorDistance(a: [number, number, number], b: [number, number, number]): number {
+  return Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2);
+}
+
+/**
+ * Beyond this RGB distance two colours are treated as different, so a loaded
+ * reel is never bound to a clearly-wrong-coloured stock (e.g. a red reel to the
+ * only black stock). ~0..441 possible; a dark grey still resolves to black/grey.
+ */
+const MAX_COLOR_DISTANCE = 160;
+
+/**
+ * Finds the existing enabled stock a loaded reel maps to, or null when there is
+ * no honest match (never creating stock from a device hint):
+ *
+ *  1. No stock of that material → null (nothing to deduct from).
+ *  2. Exactly one stock of the material → that reel, colour-agnostic: with a
+ *     single spool of a material loaded, its colour hint is noise and the grams
+ *     belong to it regardless.
+ *  3. Several colours of the material → the nearest by colour, but only within
+ *     {@link MAX_COLOR_DISTANCE}; an unparseable/absent hint or a colour that
+ *     matches none of them closely stays unresolved rather than guessing wrong.
+ */
+export function resolveStockForDevice(
+  store: InventoryStore,
+  material: string,
+  color: unknown
+): FilamentStock | null {
+  const candidates = store.filamentStock.filter(
+    (item) => item.enabled && item.material === material
+  );
+
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+
+  const target = parseColorToRgb(color);
+  if (!target) return null;
+
+  let best: FilamentStock | null = null;
+  let bestDistance = Infinity;
+  for (const candidate of candidates) {
+    const rgb = parseColorToRgb(candidate.color);
+    if (!rgb) continue;
+    const distance = colorDistance(target, rgb);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = candidate;
+    }
+  }
+
+  return best && bestDistance <= MAX_COLOR_DISTANCE ? best : null;
 }
 
 function statusForGrams(
@@ -466,7 +636,9 @@ function resolveConsumeStock(
   store: InventoryStore,
   input: ConsumeFilamentInput
 ): FilamentStock {
-  const material = input.material ? normalizeMaterial(input.material) : "";
+  // Device hints may carry a brand suffix; normalize to the stock family so the
+  // mismatch guard compares like with like (loaded "PETG" vs a "PETG HF" hint).
+  const material = input.material ? normalizeDeviceMaterial(input.material) : "";
   const color = input.color ? normalizeColor(input.color) : "";
 
   if (material && color) {
@@ -732,27 +904,13 @@ function normalizeAmsTray(value: unknown): number | null {
   return tray;
 }
 
-/** The load-reel mutation against a loaded store; see {@link applyConsume} on why it is extracted. */
-export function applyLoadPrinterFilament(
+/** Upserts the (printerId, amsTray) binding to point at a resolved stock. */
+function upsertPrinterFilamentState(
   store: InventoryStore,
-  input: LoadPrinterFilamentInput
+  printerId: string,
+  amsTray: number | null,
+  stock: FilamentStock
 ): PrinterFilamentState {
-  const printerId = String(input.printerId || "").trim();
-
-  if (!printerId) {
-    throw new Error("printerId is required");
-  }
-
-  const amsTray = normalizeAmsTray(input.amsTray);
-  const material = normalizeMaterial(input.material);
-  const color = normalizeColor(input.color);
-
-  const stock = ensureStock(store, {
-    material,
-    color,
-    colorName: input.colorName,
-  });
-
   const existing = store.printerFilamentState.find(
     (item) => item.printerId === printerId && item.amsTray === amsTray
   );
@@ -781,8 +939,76 @@ export function applyLoadPrinterFilament(
   return state;
 }
 
+/** The load-reel mutation against a loaded store; see {@link applyConsume} on why it is extracted. */
+export function applyLoadPrinterFilament(
+  store: InventoryStore,
+  input: LoadPrinterFilamentInput
+): PrinterFilamentState {
+  const printerId = String(input.printerId || "").trim();
+
+  if (!printerId) {
+    throw new Error("printerId is required");
+  }
+
+  const amsTray = normalizeAmsTray(input.amsTray);
+  const material = normalizeMaterial(input.material);
+  const color = normalizeColor(input.color);
+
+  const stock = ensureStock(store, {
+    material,
+    color,
+    colorName: input.colorName,
+  });
+
+  return upsertPrinterFilamentState(store, printerId, amsTray, stock);
+}
+
 export async function loadPrinterFilament(input: LoadPrinterFilamentInput) {
   return updateInventoryStore((store) => applyLoadPrinterFilament(store, input));
+}
+
+/**
+ * Binds the reel a printer reports as *loaded* to an existing stock, so the
+ * orchestrator's auto-deduction has a target with no manual dashboard entry
+ * (requirement: filament is resolved and bound automatically). Unlike
+ * {@link applyLoadPrinterFilament} this never creates stock: the device hint is
+ * resolved against what is actually on the shelf ({@link resolveStockForDevice}),
+ * and when nothing matches it reports `resolved: false` instead of inventing a
+ * reel — the binding (and any deduction) simply waits until the operator stocks
+ * the material. Idempotent: re-syncing the same slot just refreshes the row.
+ */
+export function applySyncPrinterFilament(
+  store: InventoryStore,
+  input: SyncPrinterFilamentInput
+): SyncPrinterFilamentResult {
+  const printerId = String(input.printerId || "").trim();
+
+  if (!printerId) {
+    throw new Error("printerId is required");
+  }
+
+  const amsTray = normalizeAmsTray(input.amsTray);
+  const material = normalizeDeviceMaterial(input.material);
+
+  const stock = resolveStockForDevice(store, material, input.color);
+
+  if (!stock) {
+    return {
+      resolved: false,
+      printerId,
+      amsTray,
+      material,
+      reason: `No stock matches ${material}${input.color ? ` ${input.color}` : ""}`,
+    };
+  }
+
+  const state = upsertPrinterFilamentState(store, printerId, amsTray, stock);
+
+  return { resolved: true, state, stock: toStockView(stock) };
+}
+
+export async function syncPrinterFilament(input: SyncPrinterFilamentInput) {
+  return updateInventoryStore((store) => applySyncPrinterFilament(store, input));
 }
 
 export async function getInventoryMaterialsSummary() {
@@ -828,4 +1054,178 @@ export async function getInventoryMaterialsSummary() {
     stock,
     low,
   };
+}
+
+// ── Filament availability (read-only shop feed) ────────────────────────────
+//
+// Canonicalization for the online shop's availability endpoint. It maps the
+// free-form values the dashboard/printers stored (`material`, `color`) onto a
+// small fixed vocabulary the shop can switch on. It is intentionally a plain
+// alias table, NOT the RGB nearest-colour matching used for device-reel binding
+// (resolveStockForDevice): the shop must never see Grey, Silver and Transparent
+// collapsed together, so colour is matched by name only.
+
+const CANONICAL_MATERIALS: readonly CanonicalMaterial[] = [
+  "PLA",
+  "PETG",
+  "TPU",
+  "ABS",
+  "ASA",
+];
+
+/** Compacts a raw value for lookup: case-, space-, hyphen-, underscore- and +-insensitive. */
+function compactKey(value: unknown): string {
+  return String(value ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+/**
+ * Maps a stored material onto one of the five canonical families, or null when
+ * it cannot be mapped (kept in the feed as `unmapped`, never invented). Handles
+ * the common PLA variants (PLA+, PLA PLUS, PLA BASIC via the family prefix;
+ * HYPER PLA via the stripped marketing prefix) and brand-suffixed families
+ * (PETG-CF → PETG). Resin and other non-FDM materials stay unmapped by design.
+ */
+export function canonicalizeMaterial(value: unknown): CanonicalMaterial | null {
+  let key = compactKey(value);
+  if (!key) return null;
+
+  // Strip a leading marketing prefix so "HYPER PLA"/"HYPER_PLA" reduce to "PLA".
+  key = key.replace(/^HYPER/, "");
+  if (!key) return null;
+
+  for (const family of CANONICAL_MATERIALS) {
+    if (key === family || key.startsWith(family)) {
+      return family;
+    }
+  }
+
+  return null;
+}
+
+/** Named-colour aliases keyed by {@link compactKey}. Names only — no RGB approximation. */
+const COLOR_ALIASES: Record<string, CanonicalColor> = {
+  black: "Black",
+  white: "White",
+  gray: "Grey",
+  grey: "Grey",
+  yellow: "Yellow",
+  transparent: "Transparent",
+  clear: "Transparent",
+  bronze: "Bronze",
+  orange: "Orange",
+  green: "Green",
+  silver: "Silver",
+  red: "Red",
+  blue: "Blue",
+  purple: "Purple",
+  gold: "Gold",
+  multicolor: "Multicolor",
+  multicolour: "Multicolor",
+};
+
+/**
+ * Maps a stored colour onto the canonical English name, or null when it cannot
+ * be mapped. Silver, Grey and Transparent stay distinct on purpose — the shop
+ * distinguishes them, so no fuzzy/RGB collapsing happens here.
+ */
+export function canonicalizeColor(value: unknown): CanonicalColor | null {
+  const key = compactKey(value);
+  if (!key) return null;
+
+  return COLOR_ALIASES[key.toLowerCase()] ?? null;
+}
+
+/**
+ * Builds the availability feed from an already-loaded store. Pure of I/O (see
+ * {@link applyConsume}) so it is unit-testable without Postgres. Only active
+ * (enabled) positions are considered; each is canonicalized and classified
+ * against `thresholdG` (`available = weight >= thresholdG`). Unmappable rows are
+ * kept but reported `mapped: false` / `available: false` for diagnostics. Never
+ * builds the full material×color matrix — an absent pair means "unavailable".
+ */
+export function buildFilamentAvailability(
+  store: InventoryStore,
+  thresholdG: number
+): FilamentAvailabilityResponse {
+  let updatedAt: string | null = null;
+  let updatedAtMs = -Infinity;
+
+  const items: FilamentAvailabilityItem[] = store.filamentStock
+    .filter((entry) => entry.enabled)
+    .map((entry) => {
+      const material = canonicalizeMaterial(entry.material);
+      const color = canonicalizeColor(entry.color);
+      const mapped = material !== null && color !== null;
+      const weight = Math.max(0, Math.round(entry.stockG));
+
+      let available = false;
+      let status: FilamentAvailabilityItem["status"] = "critical";
+      let reason: FilamentAvailabilityItem["reason"];
+
+      if (!mapped) {
+        reason = "unmapped";
+      } else if (weight <= 0) {
+        reason = "out_of_stock";
+      } else if (weight < thresholdG) {
+        status = "low";
+        reason = "below_threshold";
+      } else {
+        available = true;
+        status = "ok";
+      }
+
+      // Track the freshest position among those actually returned.
+      const ms = Date.parse(entry.updatedAt);
+      if (Number.isFinite(ms) && ms > updatedAtMs) {
+        updatedAtMs = ms;
+        updatedAt = entry.updatedAt;
+      }
+
+      const item: FilamentAvailabilityItem = {
+        stock_id: entry.id,
+        material,
+        color,
+        material_raw: entry.material,
+        color_raw: entry.color,
+        mapped,
+        available,
+        available_weight_g: weight,
+        status,
+      };
+
+      if (reason) {
+        item.reason = reason;
+      }
+
+      return item;
+    })
+    .sort((a, b) => {
+      const materialCompare = (a.material ?? "").localeCompare(b.material ?? "");
+      if (materialCompare !== 0) return materialCompare;
+
+      const colorCompare = (a.color ?? "").localeCompare(b.color ?? "");
+      if (colorCompare !== 0) return colorCompare;
+
+      return a.stock_id.localeCompare(b.stock_id);
+    });
+
+  return {
+    version: 1,
+    updated_at: updatedAt,
+    threshold_g: thresholdG,
+    items,
+  };
+}
+
+/**
+ * Read-only availability feed for the online shop. Reads the shelf once and
+ * classifies it against FILAMENT_AVAILABILITY_MIN_G (default 100 g). Strictly
+ * read-only — no movement, no mutation.
+ */
+export async function getFilamentAvailability(): Promise<FilamentAvailabilityResponse> {
+  const store = await readInventoryStore();
+
+  return buildFilamentAvailability(store, env.FILAMENT_AVAILABILITY_MIN_G);
 }

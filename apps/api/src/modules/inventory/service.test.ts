@@ -360,6 +360,166 @@ test("updateFilament errors when the target does not exist", () => {
   );
 });
 
+test("consume: a branded device material resolves to the stock family", () => {
+  const store = storeWith(); // PETG black
+  loadReel(store, "bambu-a1-combo", "PETG", "black");
+
+  // The device reports "PETG HF"; the loaded reel is plain "PETG" — must match.
+  const result = svc.applyConsume(store, {
+    printerId: "bambu-a1-combo",
+    grams: 40,
+    material: "PETG HF",
+    color: "#101010",
+    source: "printer",
+  });
+
+  assert.equal(result.stock!.color, "black");
+  assert.equal(store.filamentStock[0].stockG, 1960);
+});
+
+test("sync: binds the loaded reel to the single stock of that material (hex hint)", () => {
+  const store = storeWith(); // PETG black
+  const result = svc.applySyncPrinterFilament(store, {
+    printerId: "creality-k2",
+    material: "PETG",
+    color: "#080808", // hex, not a name — must still resolve
+  });
+
+  assert.equal(result.resolved, true);
+  assert.equal(store.printerFilamentState.length, 1);
+  const state = store.printerFilamentState[0];
+  assert.equal(state.printerId, "creality-k2");
+  assert.equal(state.amsTray, null);
+  assert.equal(state.stockId, "stock_petg_black");
+  assert.equal(state.color, "black", "binding records the stock's named colour");
+
+  // The binding now lets a length-only consume deduct with no manual entry.
+  svc.applyConsume(store, { printerId: "creality-k2", grams: 100, source: "printer" });
+  assert.equal(store.filamentStock[0].stockG, 1900);
+});
+
+test("sync: never invents stock — an unmatched material stays unresolved", () => {
+  const store = storeWith(); // only PETG black
+  const result = svc.applySyncPrinterFilament(store, {
+    printerId: "creality-k2",
+    material: "PLA",
+    color: "#FFFFFF",
+  });
+
+  assert.equal(result.resolved, false);
+  assert.equal(store.filamentStock.length, 1, "no phantom PLA stock created");
+  assert.equal(store.printerFilamentState.length, 0, "no binding written");
+});
+
+test("sync: several colours of a material resolve by nearest colour", () => {
+  const store = storeWith({
+    filamentStock: [
+      stock({ id: "stock_pla_black", material: "PLA", color: "black" }),
+      stock({ id: "stock_pla_white", material: "PLA", color: "white" }),
+    ],
+  });
+
+  const dark = svc.applySyncPrinterFilament(store, {
+    printerId: "bambu-a1-combo",
+    amsTray: 0,
+    material: "PLA",
+    color: "#1a1a1a", // near black
+  });
+  const light = svc.applySyncPrinterFilament(store, {
+    printerId: "bambu-a1-combo",
+    amsTray: 1,
+    material: "PLA",
+    color: "#f5f5f5", // near white
+  });
+
+  assert.equal(dark.resolved && dark.stock.id, "stock_pla_black");
+  assert.equal(light.resolved && light.stock.id, "stock_pla_white");
+});
+
+test("sync: an ambiguous colour among several stocks stays unresolved", () => {
+  const store = storeWith({
+    filamentStock: [
+      stock({ id: "stock_pla_black", material: "PLA", color: "black" }),
+      stock({ id: "stock_pla_white", material: "PLA", color: "white" }),
+    ],
+  });
+
+  // Pure red is far from both black and white — do not guess a reel.
+  const result = svc.applySyncPrinterFilament(store, {
+    printerId: "bambu-a1-combo",
+    material: "PLA",
+    color: "#FF0000",
+  });
+
+  assert.equal(result.resolved, false);
+  assert.equal(store.printerFilamentState.length, 0);
+});
+
+test("sync: re-syncing a slot is idempotent and re-points it on a colour change", () => {
+  const store = storeWith({
+    filamentStock: [
+      stock({ id: "stock_pla_black", material: "PLA", color: "black" }),
+      stock({ id: "stock_pla_white", material: "PLA", color: "white" }),
+    ],
+  });
+
+  const first = svc.applySyncPrinterFilament(store, {
+    printerId: "bambu-a1-combo",
+    amsTray: 0,
+    material: "PLA",
+    color: "#000000",
+  });
+  const again = svc.applySyncPrinterFilament(store, {
+    printerId: "bambu-a1-combo",
+    amsTray: 0,
+    material: "PLA",
+    color: "#000000",
+  });
+  assert.equal(store.printerFilamentState.length, 1, "same slot is upserted, not duplicated");
+  assert.equal(first.resolved && again.resolved && first.state.id, again.resolved && again.state.id);
+
+  // Operator swaps the tray to white; the same slot re-points to the white reel.
+  const swapped = svc.applySyncPrinterFilament(store, {
+    printerId: "bambu-a1-combo",
+    amsTray: 0,
+    material: "PLA",
+    color: "#FFFFFF",
+  });
+  assert.equal(store.printerFilamentState.length, 1);
+  assert.equal(swapped.resolved && swapped.stock.id, "stock_pla_white");
+});
+
+test("sync then per-slot consume deducts the right AMS reel automatically", () => {
+  const store = storeWith({
+    filamentStock: [
+      stock({ id: "stock_petg_black" }),
+      stock({ id: "stock_pla_white", material: "PLA", color: "white", stockG: 750 }),
+    ],
+  });
+
+  // The orchestrator syncs each loaded tray from device hints…
+  svc.applySyncPrinterFilament(store, { printerId: "bambu-a1-combo", amsTray: 0, material: "PETG", color: "#111111" });
+  svc.applySyncPrinterFilament(store, { printerId: "bambu-a1-combo", amsTray: 1, material: "PLA", color: "#EEEEEE" });
+
+  // …then a completed multi-colour print deducts each slot with no manual entry.
+  svc.applyConsume(store, { printerId: "bambu-a1-combo", amsTray: 1, grams: 50, material: "PLA", source: "printer" });
+
+  assert.equal(store.filamentStock[1].stockG, 700, "slot 1 (PLA white) deducted");
+  assert.equal(store.filamentStock[0].stockG, 2000, "slot 0 (PETG black) untouched");
+});
+
+test("sync: printerId and material are required", () => {
+  const store = storeWith();
+  assert.throws(
+    () => svc.applySyncPrinterFilament(store, { printerId: "", material: "PETG" }),
+    /printerId is required/
+  );
+  assert.throws(
+    () => svc.applySyncPrinterFilament(store, { printerId: "k2", material: "" }),
+    /Material is required/
+  );
+});
+
 test("loadPrinterFilament upserts per (printerId, amsTray)", () => {
   const store = storeWith({
     filamentStock: [
