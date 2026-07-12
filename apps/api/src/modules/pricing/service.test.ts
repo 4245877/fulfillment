@@ -401,8 +401,16 @@ test("number-format keys survive slashes, tildes, brackets and quotes (issue #3)
 // Atomic write script (issues #1 / #7 / #8). We execute the *real* script the
 // server ships to the remote host, but against a local temp dir and with PATH
 // shims to force cp/chmod/mv failures — no SSH, no production host touched.
-// (Requires GNU coreutils: chmod --reference, ls -t, xargs -r.)
+// Requires GNU coreutils (chmod --reference, ls -t, xargs -r): on busybox
+// (the alpine test containers) these tests are skipped rather than failed —
+// the script's real target is the GNU remote host, which CI-on-GNU covers.
 // ---------------------------------------------------------------------------
+const hasGnuCoreutils = (() => {
+  const probe = spawnSync("sh", ["-c", "chmod --help 2>&1"], { encoding: "utf8" });
+  return `${probe.stdout ?? ""}${probe.stderr ?? ""}`.includes("--reference");
+})();
+const gnuOnly = { skip: hasGnuCoreutils ? false : "requires GNU coreutils (busybox detected)" } as const;
+
 type RunResult = {
   exitCode: number | null;
   stderr: string;
@@ -464,7 +472,7 @@ function runWriteScript(opts: {
   };
 }
 
-test("write script: success replaces the file, keeps .bak + history, preserves mode", () => {
+test("write script: success replaces the file, keeps .bak + history, preserves mode", gnuOnly, () => {
   const r = runWriteScript({ original: "old: 1\n", input: "new: 2\n", fileMode: 0o640 });
 
   assert.equal(r.exitCode, 0, r.stderr);
@@ -475,7 +483,7 @@ test("write script: success replaces the file, keeps .bak + history, preserves m
   assert.equal(r.mode, 0o640);
 });
 
-test("write script: a truncated stream (byte mismatch) aborts without touching the file", () => {
+test("write script: a truncated stream (byte mismatch) aborts without touching the file", gnuOnly, () => {
   const r = runWriteScript({ original: "old: 1\n", input: "new: 2\n", bytes: 999 });
 
   assert.notEqual(r.exitCode, 0);
@@ -484,7 +492,7 @@ test("write script: a truncated stream (byte mismatch) aborts without touching t
   assert.equal(r.tempLeft.length, 0); // temp cleaned by the EXIT trap
 });
 
-test("write script: a failing mandatory cp (.bak) aborts the write (issue #8)", () => {
+test("write script: a failing mandatory cp (.bak) aborts the write (issue #8)", gnuOnly, () => {
   const r = runWriteScript({
     original: "old: 1\n",
     input: "new: 2\n",
@@ -496,7 +504,7 @@ test("write script: a failing mandatory cp (.bak) aborts the write (issue #8)", 
   assert.equal(r.tempLeft.length, 0);
 });
 
-test("write script: a failing chmod aborts the write (issue #1 — no `|| true`)", () => {
+test("write script: a failing chmod aborts the write (issue #1 — no `|| true`)", gnuOnly, () => {
   const r = runWriteScript({
     original: "old: 1\n",
     input: "new: 2\n",
@@ -509,7 +517,7 @@ test("write script: a failing chmod aborts the write (issue #1 — no `|| true`)
   assert.equal(r.tempLeft.length, 0);
 });
 
-test("write script: a failing mv aborts and never reports success", () => {
+test("write script: a failing mv aborts and never reports success", gnuOnly, () => {
   const r = runWriteScript({
     original: "old: 1\n",
     input: "new: 2\n",
@@ -521,7 +529,7 @@ test("write script: a failing mv aborts and never reports success", () => {
   assert.equal(r.tempLeft.length, 0); // trap removed the temp
 });
 
-test("write script: prunes timestamped history to the 10 newest (issue #7)", () => {
+test("write script: prunes timestamped history to the 10 newest (issue #7)", gnuOnly, () => {
   const now = Date.now();
   const preexisting = Array.from({ length: 12 }, (_, i) => ({
     name: `pricing.yml.bak.h${String(i).padStart(2, "0")}`,
@@ -539,7 +547,7 @@ test("write script: prunes timestamped history to the 10 newest (issue #7)", () 
   assert.ok(r.historical.includes("pricing.yml.bak.h11"));
 });
 
-test("write script: two saves in the same second get unique history names (issue #8)", () => {
+test("write script: two saves in the same second get unique history names (issue #8)", gnuOnly, () => {
   const dir = mkdtempSync(path.join(tmpdir(), "pricing-write-"));
   const file = path.join(dir, "pricing.yml");
   writeFileSync(file, "v: 0\n");
@@ -563,7 +571,7 @@ test("write script: two saves in the same second get unique history names (issue
   assert.equal(new Set(historical).size, 2);
 });
 
-test("write script: handles a path with spaces and special characters", () => {
+test("write script: handles a path with spaces and special characters", gnuOnly, () => {
   const r = runWriteScript({
     original: "old: 1\n",
     input: "new: 2\n",

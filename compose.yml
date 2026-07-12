@@ -57,6 +57,31 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      # Liveness only: the API must answer HTTP. Readiness (/ready) and the
+      # printer-orchestrator integration are deliberately NOT part of this
+      # check — an atelier outage must degrade the printers page, not flap
+      # this container.
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO-",
+          "--timeout=3",
+          "http://127.0.0.1:8080/health"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - default
+      # Reaches the atelier print-orchestrator by its compose DNS name
+      # (http://print-orchestrator:3100, see PRINTER_ORCHESTRATOR_URL) without
+      # publishing the orchestrator API on the LAN or pinning a host IP. The
+      # API only *dials* the orchestrator at request time, so atelier being
+      # down never prevents this container from starting.
+      - print-farm
 
   dashboard:
     build:
@@ -66,6 +91,10 @@ services:
         # Bakes the admin token into the SPA so the operator UI can call the
         # admin-gated endpoints. Sourced from ADMIN_TOKEN in the root .env.
         VITE_ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+        # Address of the atelier print-dashboard for the link on the read-only
+        # printers page (e.g. http://192.168.0.139:8090/). Optional: when
+        # empty the link is hidden. Sourced from the root .env.
+        VITE_ATELIER_DASHBOARD_URL: ${ATELIER_DASHBOARD_URL:-}
     container_name: fulfillment-dashboard
     restart: unless-stopped
     ports:
@@ -75,27 +104,22 @@ services:
     depends_on:
       - api
 
-  # Bridges the Creality K2's proprietary WebRTC camera into a JPEG snapshot the
-  # API can fetch at http://go2rtc:1984/api/frame.jpeg?src=k2 (the K2 exposes no
-  # plain MJPEG/snapshot endpoint of its own). Set that URL as the K2's
-  # "URL знімка камери" in the dashboard printer manager.
-  go2rtc:
-    image: alexxit/go2rtc:latest
-    container_name: fulfillment-go2rtc
-    restart: unless-stopped
-    environment:
-      # Replace the IP with your K2's. Stock firmware below v1.1.5.5 serves the
-      # camera's WebRTC signaling on :8000; newer firmware moved it (port 8000
-      # was disabled "for security"). Open http://<server>:1984 to confirm the
-      # `k2` stream connects, and adjust the host/port here if it does not.
-      K2_CAMERA_SOURCE: "webrtc:http://192.168.0.132:8000/call/webrtc_local#format=creality"
-    volumes:
-      - ./infra/go2rtc/go2rtc.yaml:/config/go2rtc.yaml:ro
-    ports:
-      # go2rtc web UI / API — handy for verifying the camera bridge.
-      - "1984:1984"
-
 volumes:
   api_node_modules:
   api_api_node_modules:
   fulfillment_pgdata:
+
+networks:
+  # Shared cross-project bridge between fulfillment and the atelier
+  # print-orchestrator. Deliberately NOT a compose-managed network: the
+  # auto-generated names (atelier_default / fulfillment_default) depend on the
+  # projects' directory names, and neither stack should have to exist before
+  # the other. Create it once (idempotent) before the first `up` of EITHER
+  # stack:
+  #   ./ops/ensure-print-farm-network.sh
+  # If it is missing, compose fails fast with
+  #   network print-farm declared as external, but could not be found
+  # — run the script above and `docker compose up -d` again.
+  print-farm:
+    external: true
+    name: print-farm

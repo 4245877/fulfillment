@@ -21,8 +21,17 @@ async function requestJson(path, options = {}) {
     const text = await res.text();
 
     if (!res.ok) {
+      // The status route reports orchestrator unavailability as JSON
+      // ({ error }); surface that message instead of the raw body slice.
+      let message = "";
+      try {
+        message = JSON.parse(text)?.error || "";
+      } catch {
+        /* not JSON */
+      }
+
       throw new Error(
-        `Запит до API не виконано: ${res.status}. ${text.slice(0, 200)}`
+        message || `Запит до API не виконано: ${res.status}. ${text.slice(0, 200)}`
       );
     }
 
@@ -44,26 +53,8 @@ async function requestJson(path, options = {}) {
   }
 }
 
+// Read-only: printers are configured and controlled in the atelier
+// print-dashboard; fulfillment only mirrors their live statuses.
 export async function fetchPrinterStatuses() {
   return requestJson("/api/printers/status");
-}
-
-export async function fetchPrinterConfigs() {
-  return requestJson("/api/printers/config");
-}
-
-export async function savePrinterConfigs(printers) {
-  return requestJson("/api/printers/config", {
-    method: "POST",
-    body: JSON.stringify({
-      printers: Array.isArray(printers) ? printers : [],
-    }),
-  });
-}
-
-export async function testPrinterConnection(printer) {
-  return requestJson("/api/printers/test", {
-    method: "POST",
-    body: JSON.stringify(printer ?? {}),
-  });
 }

@@ -19,7 +19,10 @@ const DEFAULT_OPS = {
     alerts: [],
   },
 };
-const DEFAULT_PRINTS = { printers: [], jobs: [], stats: {} };
+// `available: null` = not loaded yet; `false` = orchestrator unreachable or
+// not configured (the API says so explicitly). Either way the print tiles
+// must show "—", never a fake zero.
+const DEFAULT_PRINTS = { available: null, printers: [], jobs: [], stats: {} };
 
 const DEFAULT_BACKUP_STATUS = {
   status: "unknown",
@@ -74,6 +77,7 @@ const QUEUE_ROWS = [
 const SERVICE_ROWS = [
   ["API магазину", "shop"],
   ["API фулфілменту", "fulfillment"],
+  ["Оркестратор друку", "orchestrator"],
   ["Мережа принтерів", "printers"],
   ["PostgreSQL", "db"],
   ["Redis", "redis"],
@@ -1067,31 +1071,35 @@ const TopSummary = memo(function TopSummary({ prints, stats, alertsCount }) {
   const logisticsProblems = asNumber(stats.logistics?.problem, 0);
   const problemsCount = alertsCount + orderProblems + logisticsProblems;
 
-  const activeJobs = jobs.filter((job) => {
-    const status = String(job.status || job.state || "").toLowerCase();
-
-    return ["printing", "running", "queued", "paused"].includes(status);
-  });
+  // The prints API reports availability explicitly (available: false when the
+  // orchestrator is down or not configured). Old responses without the flag
+  // and the not-yet-loaded state are treated the same way: no data — show "—",
+  // never a fake 0 that looks like an idle farm.
+  const printsAvailable = prints.available === true;
+  const printsValue = (value) =>
+    printsAvailable ? formatInt(asNumber(value, 0)) : "—";
+  const printsContext = (text) =>
+    printsAvailable ? text : "Оркестратор друку недоступний";
 
   return (
     <div className="kpi-grid">
       <KpiCard
         label="Друкується зараз"
-        value={formatInt(prints.stats?.printing || 0)}
-        context={`Активних завдань: ${formatInt(activeJobs.length)}`}
+        value={printsValue(prints.stats?.printing)}
+        context={printsContext(`Завдань у черзі: ${formatInt(jobs.length)}`)}
         icon="◔"
         variant="success"
       />
       <KpiCard
         label="У черзі"
-        value={formatInt(prints.stats?.queued || 0)}
-        context={`Черга друку: ${formatInt(stats.queues?.prints?.ready || 0)}`}
+        value={printsValue(prints.stats?.queued)}
+        context={printsContext("Черга оркестратора друку")}
         icon="≡"
         variant="warning"
       />
       <KpiCard
-        label="Завершено"
-        value={formatInt(prints.stats?.done || 0)}
+        label="Завершено сьогодні"
+        value={printsValue(prints.stats?.done)}
         context={`Доставлено: ${formatInt(stats.logistics?.delivered || 0)}`}
         icon="✓"
         variant="primary"

@@ -34,11 +34,12 @@ test-results/
 .env.*
 !.env.example
 
-# --- Live customer data (do not commit PII) ---
-# Appeals (Звернення) chat store — customer names/contacts/messages, written at
-# runtime by the appeals module. See apps/api/src/modules/appeals/persistentStore.ts
-apps/api/data/appeals.json
-apps/api/data/appeals.json.tmp
+# --- Live customer data / runtime state (do not commit PII or secrets) ---
+# The whole apps/api/data directory is runtime state written by the API
+# container (appeals chat store with customer PII, inventory, product reports).
+# It also used to hold printers.json with printer hosts and access codes —
+# that config now lives in apps/atelier and must never be committed here again.
+apps/api/data/
 
 # --- Logs ---
 logs/

@@ -193,14 +193,23 @@ function printerEventType(kind: PrinterNotificationKind): NotificationEventType 
   return NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_COMPLETED;
 }
 
+/**
+ * Enqueues a printer transition for Telegram. `dedupeKey` (when given) makes
+ * the enqueue idempotent at the outbox level: the same detected transition —
+ * printer + kind + job + orchestrator status timestamp — inserts exactly one
+ * row even if the monitor observes it twice (overlapping cycles, a re-poll of
+ * the same orchestrator snapshot, a crash between enqueue and baseline save).
+ */
 export async function enqueuePrinterNotification(
   payload: PrinterNotificationPayload,
+  dedupeKey?: string | null,
   trx?: DbLike
 ): Promise<OutboxEvent> {
   return enqueueOutboxEvent(
     {
       eventType: printerEventType(payload.kind),
       payload,
+      dedupeKey: dedupeKey ?? null,
     },
     trx
   );

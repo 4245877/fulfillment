@@ -121,15 +121,29 @@ export const env = {
     "PRINTER_SNAPSHOT_MAX_BYTES",
     3_000_000
   ),
-  // Base URL of the atelier print-orchestrator (e.g. `http://print-orchestrator:3100`
-  // or `http://<host>:3100`). When set, printer snapshots are grabbed through the
-  // orchestrator's camera endpoint with `ensureLight`, so it turns the chamber
-  // light on before capturing at night (the orchestrator owns light control and
-  // the night schedule) — this API has no light control of its own. Empty keeps
-  // the direct device capture; a failed orchestrator call also falls back to it.
-  PRINTER_SNAPSHOT_ORCHESTRATOR_URL: optionalString(
-    "PRINTER_SNAPSHOT_ORCHESTRATOR_URL"
+  // Base URL of the atelier print-orchestrator (e.g. `http://print-orchestrator:3100`),
+  // the ONLY source of printer statuses and camera snapshots for this API — no
+  // direct device connections are made here. Empty means the printer features
+  // (monitoring, health, the dashboard page) report "not configured".
+  // PRINTER_SNAPSHOT_ORCHESTRATOR_URL is honoured as a legacy fallback name.
+  PRINTER_ORCHESTRATOR_URL:
+    optionalString("PRINTER_ORCHESTRATOR_URL") ||
+    optionalString("PRINTER_SNAPSHOT_ORCHESTRATOR_URL"),
+  // Optional bearer token for the orchestrator API (ORCHESTRATOR_API_TOKEN on
+  // the atelier side). Read lazily by the client; never logged.
+  PRINTER_ORCHESTRATOR_API_TOKEN: optionalString(
+    "PRINTER_ORCHESTRATOR_API_TOKEN"
   ),
+  PRINTER_ORCHESTRATOR_TIMEOUT_MS: numberEnv(
+    "PRINTER_ORCHESTRATOR_TIMEOUT_MS",
+    5000
+  ),
+  // A printer status whose orchestrator-side `updatedAt` is older than this is
+  // treated as stale: it is flagged in GET /api/printers/status and the monitor
+  // refuses to derive Telegram events from it (a frozen poll loop must not look
+  // like a print transition). Statuses without updatedAt (older orchestrator
+  // builds) are exempt — their age is unknown, not stale.
+  PRINTER_STATUS_STALE_MS: numberEnv("PRINTER_STATUS_STALE_MS", 120_000),
 
   // Minimum grams a material×color must hold to count as available in the
   // read-only shop feed (GET /api/inventory/filament/availability):

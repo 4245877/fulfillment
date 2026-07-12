@@ -112,10 +112,10 @@ function normalizeLookupKey(value) {
 function getPrinterLookupKeys(printer) {
   // `model` is intentionally excluded: it is a descriptive label, not an
   // identity, and two printers can share a model (or carry a mistyped one),
-  // which would let a live status attach to the wrong config card.
-  return [printer?.id, printer?.name, printer?.host, printer?.ip, printer?.deviceUi]
-    .map(normalizeLookupKey)
-    .filter(Boolean);
+  // which would let a live status attach to the wrong config card. Connection
+  // fields (host/deviceUi) are gone from the orchestrator DTO on purpose —
+  // identity is id/name only.
+  return [printer?.id, printer?.name].map(normalizeLookupKey).filter(Boolean);
 }
 
 function buildConfigMap(items) {
@@ -370,9 +370,10 @@ export default function PrinterMonitoringPanel({
               printer.progressPct ?? printer.progress ?? 0
             );
 
+            // Connection details (protocol/host) are deliberately absent from
+            // the orchestrator DTO — the card describes the machine, not the
+            // network path to it.
             const meta = [
-              printer.protocol,
-              printer.host,
               printer.model,
               printer.nozzle ? `Сопло ${printer.nozzle}` : null,
               printer.material_color || printer.material,
@@ -427,9 +428,12 @@ export default function PrinterMonitoringPanel({
                   />
                 </div>
 
+                {/* The layer counter that used to sit here is gone on purpose:
+                    the orchestrator's telemetry does not expose layers for any
+                    of the connected protocols, and a permanently empty "—" cell
+                    only pretended it did. */}
                 <div className="printer-monitor-details">
                   <span>{Math.round(progress)}%</span>
-                  <span>{printer.printed || "—"}</span>
                   <span>
                     {printer.remainingMinutes != null
                       ? `${formatInt(printer.remainingMinutes)} хв залишилося`
@@ -444,6 +448,7 @@ export default function PrinterMonitoringPanel({
 
                 <div className="printer-monitor-updated">
                   Оновлено: {formatDateTime(printer.updatedAt)}
+                  {printer.stale ? " · дані застарілі" : ""}
                 </div>
 
                 {printer.error ? (

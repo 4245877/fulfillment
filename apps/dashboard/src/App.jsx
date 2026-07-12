@@ -9,7 +9,6 @@ import stateStyles from "./components/SystemState.module.css";
 // whole app (including the heavy Settings/InfraSection) on first load.
 const Board = lazy(() => import("./pages/Board.jsx"));
 const Orders = lazy(() => import("./pages/Orders.jsx"));
-const Print = lazy(() => import("./pages/Print.jsx"));
 const Printers = lazy(() => import("./pages/Printers.jsx"));
 const Inventory = lazy(() => import("./pages/Inventory.jsx"));
 const Shipments = lazy(() => import("./pages/Shipments.jsx"));
@@ -38,7 +37,6 @@ export default function App() {
           <Route path="board" element={<Board />} />
           <Route path="orders" element={<Orders />} />
           <Route path="printers" element={<Printers />} />
-          <Route path="prints/:id" element={<Print />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="shipments" element={<Shipments />} />
           <Route path="appeals" element={<Appeals />} />

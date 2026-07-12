@@ -22,6 +22,11 @@ COPY . .
 ARG VITE_ADMIN_TOKEN=""
 ENV VITE_ADMIN_TOKEN=$VITE_ADMIN_TOKEN
 
+# Link to the atelier print-dashboard shown on the read-only printers page.
+# Deployment-specific (host/port/reverse proxy); when empty the link is hidden.
+ARG VITE_ATELIER_DASHBOARD_URL=""
+ENV VITE_ATELIER_DASHBOARD_URL=$VITE_ATELIER_DASHBOARD_URL
+
 RUN pnpm --filter @drukarnya/fulfillment-dashboard build
 
 FROM nginx:1.27-alpine

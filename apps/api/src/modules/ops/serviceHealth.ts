@@ -1,7 +1,10 @@
 import net from "node:net";
 
 import { checkDbConnection } from "../../infra/db/knex";
-import { readPrintersConfig, getPrinterStatus } from "../printers/routes";
+import {
+  createOrchestratorClientFromEnv,
+  type OrchestratorPrinterStatus,
+} from "../../infra/integrations/orchestrator/client";
 
 // Status vocabulary consumed by the dashboard "Стан сервісів" panel:
 //   up       — healthy
@@ -13,6 +16,8 @@ export type ServiceStatus = "up" | "degraded" | "down" | "unknown";
 export type ServicesHealth = {
   shop: ServiceStatus;
   fulfillment: ServiceStatus;
+  /** The atelier print-orchestrator — the only owner of printer hardware. */
+  orchestrator: ServiceStatus;
   printers: ServiceStatus;
   db: ServiceStatus;
   redis: ServiceStatus;
@@ -20,7 +25,8 @@ export type ServicesHealth = {
 
 const SHOP_TIMEOUT_MS = 3000;
 const REDIS_TIMEOUT_MS = 1500;
-const PRINTERS_TIMEOUT_MS = 4000;
+// Must comfortably cover the orchestrator client's own request timeout.
+const PRINTERS_TIMEOUT_MS = 6000;
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -91,40 +97,61 @@ async function checkRedis(): Promise<ServiceStatus> {
   });
 }
 
-// Aggregate the real printer network into a single service status:
-//   no printers configured -> unknown
-//   all online             -> up
-//   some online            -> degraded
-//   none online            -> down
-async function checkPrinters(): Promise<ServiceStatus> {
-  const printers = (await readPrintersConfig()).filter(
-    (printer) => printer.enabled !== false
-  );
-
+/**
+ * Aggregates the orchestrator-reported printer list into one service status:
+ *   no printers configured -> unknown
+ *   all online             -> up
+ *   some online            -> degraded
+ *   none online            -> down
+ */
+export function summarizePrintersHealth(
+  printers: OrchestratorPrinterStatus[]
+): ServiceStatus {
   if (printers.length === 0) return "unknown";
 
-  const statuses = await Promise.all(
-    printers.map(async (printer) => {
-      try {
-        const status = await getPrinterStatus(printer);
-        return Boolean(status.online && !status.error);
-      } catch {
-        return false;
-      }
-    })
-  );
-
-  const onlineCount = statuses.filter(Boolean).length;
+  const onlineCount = printers.filter(
+    (printer) => printer.online && !printer.error
+  ).length;
 
   if (onlineCount === 0) return "down";
   if (onlineCount < printers.length) return "degraded";
   return "up";
 }
 
+/**
+ * One HTTP request to the atelier orchestrator answers for both rows: its own
+ * availability and the printer network state. No device (Moonraker/MQTT/WS/
+ * camera) is ever probed from here. When the orchestrator cannot be reached
+ * the printers are honestly "unknown" — we have no way to know their state.
+ */
+async function checkOrchestratorAndPrinters(): Promise<{
+  orchestrator: ServiceStatus;
+  printers: ServiceStatus;
+}> {
+  // Single attempt: a health probe must fit its PRINTERS_TIMEOUT_MS budget
+  // and report "down" honestly — the client's default retry would stretch a
+  // connect-timeout outage past the budget and degrade the answer to
+  // "unknown" instead.
+  const client = createOrchestratorClientFromEnv({ retries: 0 });
+  if (!client) {
+    return { orchestrator: "unknown", printers: "unknown" };
+  }
+
+  try {
+    const printers = await client.listPrinterStatuses();
+    return { orchestrator: "up", printers: summarizePrintersHealth(printers) };
+  } catch {
+    return { orchestrator: "down", printers: "unknown" };
+  }
+}
+
 export async function getServicesHealth(): Promise<ServicesHealth> {
-  const [db, printers, shop, redis] = await Promise.all([
+  const [db, farm, shop, redis] = await Promise.all([
     withTimeout(checkDbConnection(), 2000, false),
-    withTimeout(checkPrinters(), PRINTERS_TIMEOUT_MS, "unknown" as ServiceStatus),
+    withTimeout(checkOrchestratorAndPrinters(), PRINTERS_TIMEOUT_MS, {
+      orchestrator: "unknown" as ServiceStatus,
+      printers: "unknown" as ServiceStatus,
+    }),
     checkShop(),
     checkRedis(),
   ]);
@@ -133,7 +160,8 @@ export async function getServicesHealth(): Promise<ServicesHealth> {
     // The fulfillment API is this very process answering the request.
     fulfillment: "up",
     db: db ? "up" : "down",
-    printers,
+    orchestrator: farm.orchestrator,
+    printers: farm.printers,
     shop,
     redis,
   };

@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 
 import printersRoutes from "./modules/printers/routes";
+import printsRoutes from "./modules/prints/routes";
 import inventoryRoutes from "./modules/inventory/routes";
 import backupsRoutes from "./modules/backups/routes";
 import productReportsRoutes from "./modules/productReports/routes";
@@ -10,7 +11,10 @@ import notificationsRoutes from "./modules/notifications/routes";
 import pricingRoutes from "./modules/pricing/routes";
 import appealsRoutes from "./modules/appeals/routes";
 import { registerNotificationOutboxWorker } from "./modules/notifications/dispatcher";
-import { registerPrinterMonitorWorker } from "./modules/printers/monitor";
+import {
+  getPrinterMonitorStats,
+  registerPrinterMonitorWorker,
+} from "./modules/printers/monitor";
 import { getInventoryMaterialsSummary } from "./modules/inventory/service";
 import { getOrdersOverview } from "./modules/orders/service";
 import { checkDbConnection } from "./infra/db/knex";
@@ -70,6 +74,11 @@ app.get("/api/ops/overview", async () => {
     getOrdersOverview(),
   ]);
 
+  // Live diagnostics of the printer-monitor worker: poll cadence, outage
+  // state, per-printer data freshness, dedupe counters. This is the "degraded
+  // integration" signal — the shop itself stays up without the orchestrator.
+  const printerMonitor = getPrinterMonitorStats();
+
   return {
     stats: {
       orders: ordersOverview.statusCounts,
@@ -83,6 +92,7 @@ app.get("/api/ops/overview", async () => {
         webhooks: { backlog: 0, lagMs: 0 },
         notify: { backlog: 0, lagMs: 0 },
       },
+      printerMonitor,
       services,
       indexer: {
         backlog: 0,
@@ -102,14 +112,6 @@ app.get("/api/ops/overview", async () => {
     },
     printers: [],
     jobs: [],
-  };
-});
-
-app.get("/api/prints/overview", async () => {
-  return {
-    printers: [],
-    jobs: [],
-    stats: { printing: 0, queued: 0, done: 0 },
   };
 });
 
@@ -150,6 +152,7 @@ app.get("/api/events/stream", async (req, reply) => {
 });
 
 app.register(printersRoutes, { prefix: "/api/printers" });
+app.register(printsRoutes, { prefix: "/api/prints" });
 app.register(inventoryRoutes, { prefix: "/api/inventory" });
 app.register(backupsRoutes, { prefix: "/api/ops/backup" });
 app.register(productReportsRoutes, { prefix: "/api" });

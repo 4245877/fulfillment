@@ -3,25 +3,27 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "test": "node --import tsx --test src/core/*.test.ts src/infra/integrations/telegram/*.test.ts src/modules/inventory/*.test.ts src/modules/notifications/*.test.ts src/modules/printers/*.test.ts src/modules/pricing/*.test.ts src/modules/backups/*.test.ts",
+    "test": "node --import tsx --test src/core/*.test.ts src/infra/integrations/telegram/*.test.ts src/infra/integrations/orchestrator/*.test.ts src/modules/inventory/*.test.ts src/modules/notifications/*.test.ts src/modules/printers/*.test.ts src/modules/prints/*.test.ts src/modules/ops/*.test.ts src/modules/pricing/*.test.ts src/modules/backups/*.test.ts",
     "dev": "tsx watch src/server.ts",
     "start": "node --import tsx src/server.ts",
     "db:migrate": "tsx src/infra/db/migrate.ts",
-    "db:rollback": "tsx src/infra/db/rollback.ts"
+    "db:rollback": "tsx src/infra/db/rollback.ts",
+    "lint": "eslint src",
+    "lint:ci": "eslint src --max-warnings 0"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
-    "@types/ws": "^8.18.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "eslint": "^9.39.0",
+    "@eslint/js": "^9.39.0",
+    "typescript-eslint": "^8.46.0"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
     "fastify": "^5.6.2",
     "knex": "^3.1.0",
-    "mqtt": "^5.15.1",
     "pg": "^8.16.3",
-    "ws": "^8.21.0",
     "yaml": "^2.6.0"
   }
 }
