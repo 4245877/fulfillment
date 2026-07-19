@@ -79,7 +79,7 @@ function normalizeProgress(raw) {
       status: "idle",
       step: null,
       percent: 0,
-      message: "Резервне копіювання зараз не виконується.",
+      message: "Зараз усе тихо — резервне копіювання не виконується.",
       updatedAt: null,
       runId: null,
       runDir: null,
@@ -104,7 +104,7 @@ function normalizeProgress(raw) {
     status,
     step,
     percent,
-    message: raw.message || "Очікування статусу від сервера.",
+    message: raw.message || "Чекаю на відповідь сервера…",
     updatedAt: raw.updated_at || raw.updatedAt || null,
     runId: raw.run_id || raw.runId || null,
     runDir: raw.run_dir || raw.runDir || null,
@@ -359,7 +359,7 @@ export default function BackupsSection({ cfg, doAction }) {
         status: "error",
         step: "error",
         percent: 100,
-        message: "Не вдалося отримати статус резервного копіювання.",
+        message: "Мені не вдалося дізнатися стан резервного копіювання. Я спробую ще раз.",
         updatedAt: new Date().toISOString(),
       }));
     } finally {
@@ -379,7 +379,7 @@ export default function BackupsSection({ cfg, doAction }) {
       setArchives(normalizeArchiveList(result));
       setListError(null);
     } catch {
-      setListError("Не вдалося завантажити список резервних копій.");
+      setListError("Мені не вдалося завантажити список резервних копій. Спробуйте, будь ласка, трохи згодом.");
     } finally {
       listInFlight.current = false;
     }
@@ -422,7 +422,7 @@ export default function BackupsSection({ cfg, doAction }) {
       status: "running",
       step: "preflight",
       percent: 5,
-      message: "Запуск резервного копіювання.",
+      message: "Починаю резервне копіювання — я подбаю, щоб усе було збережено.",
       updatedAt: new Date().toISOString(),
       runId: null,
       runDir: null,
@@ -447,7 +447,7 @@ export default function BackupsSection({ cfg, doAction }) {
         status: "error",
         step: "error",
         percent: 100,
-        message: "Не вдалося запустити резервне копіювання.",
+        message: "Мені не вдалося запустити резервне копіювання. Перевірте, будь ласка, з'єднання з сервером.",
         updatedAt: new Date().toISOString(),
       }));
     } finally {
@@ -463,7 +463,7 @@ export default function BackupsSection({ cfg, doAction }) {
       status: "running",
       step: "checksum",
       percent: Math.max(prev.percent || 0, 84),
-      message: "Запущено перевірку останньої резервної копії.",
+      message: "Я перевіряю останню резервну копію — це може тривати хвилину.",
       updatedAt: new Date().toISOString(),
     }));
 
@@ -484,7 +484,7 @@ export default function BackupsSection({ cfg, doAction }) {
         status: "error",
         step: "error",
         percent: 100,
-        message: "Не вдалося запустити перевірку останньої резервної копії.",
+        message: "Мені не вдалося запустити перевірку останньої копії. Спробуйте, будь ласка, ще раз.",
         updatedAt: new Date().toISOString(),
       }));
     } finally {

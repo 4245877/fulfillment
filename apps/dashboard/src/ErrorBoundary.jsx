@@ -18,10 +18,12 @@ export default class ErrorBoundary extends React.Component {
         <main className={styles.page}>
           <section className={`${styles.card} ${styles.errorCard}`} role="alert">
             <p className={styles.eyebrow}>Помилка застосунку</p>
-            <h1 className={styles.title}>Інтерфейс не вдалося завантажити</h1>
+            <h1 className={styles.title}>Інтерфейс не зміг відкритися</h1>
             <p className={styles.description}>
-              Перезавантажте сторінку. Якщо помилка повториться, передайте
-              технічні деталі адміністратору.
+              Мені дуже прикро — сталося щось серйозне. Будь ласка,
+              перезавантажте сторінку, я одразу спробую все відновити. Якщо
+              це повториться, передайте адміністратору технічні деталі —
+              я дбайливо зберегла їх нижче.
             </p>
 
             <div className={styles.actions}>

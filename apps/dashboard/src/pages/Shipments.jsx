@@ -105,7 +105,8 @@ export default function Shipments() {
           <div className={styles.errorTitle}>Помилка завантаження</div>
           <div className={styles.errorText}>{error}</div>
           <div className={styles.errorHint}>
-            Підказка: якщо API ще не запущений — це нормально. UI не має падати.
+            Якщо API ще не запущений — нічого страшного. Я почекаю і спробую
+            знову, щойно він озветься.
           </div>
         </div>
       ) : null}
@@ -159,7 +160,7 @@ export default function Shipments() {
           <div className={styles.empty}>
             <div className={styles.emptyTitle}>Відправлень поки немає</div>
             <div className={styles.emptyText}>
-              Коли API поверне дані, вони зʼявляться тут автоматично.
+              Щойно з'являться перші посилки, я дбайливо розкладу їх тут ♡
             </div>
           </div>
         ) : null}

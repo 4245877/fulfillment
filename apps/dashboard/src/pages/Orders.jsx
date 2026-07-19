@@ -1023,7 +1023,7 @@ export default function Orders() {
           onClick={load}
           disabled={loading}
         >
-          {loading ? "Завантаження…" : "Оновити"}
+          {loading ? "Хвилинку…" : "Оновити"}
         </button>
 
         <div className={s.controls}>
@@ -1053,7 +1053,7 @@ export default function Orders() {
       {error && (
         <div className={`alert alert-danger ${s.errorBox}`}>
           <div>
-            <div className="alert-title">Помилка</div>
+            <div className="alert-title">Щось пішло не так</div>
             <p>{String(error?.message || error)}</p>
           </div>
         </div>
@@ -1079,7 +1079,10 @@ export default function Orders() {
         })}
 
         {!loading && !error && filtered.length === 0 && (
-          <div className={s.empty}>Немає даних для відображення.</div>
+          <div className={s.empty}>
+            Ой… за цими умовами я нічого не знайшла. Спробуйте, будь ласка,
+            змінити пошук або фільтр.
+          </div>
         )}
       </div>
     </div>

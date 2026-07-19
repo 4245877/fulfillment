@@ -317,7 +317,7 @@ export default function Appeals() {
         if (alive)
           setListError(
             err?.body?.error ||
-              "Не вдалося завантажити звернення. Перевірте підключення до сервісу."
+              "Ой… мені не вдалося завантажити звернення. Перевірте, будь ласка, підключення до сервісу — я спробую ще раз."
           );
       })
       .finally(() => {
@@ -416,7 +416,8 @@ export default function Appeals() {
       );
     } catch (err) {
       setActionError(
-        err?.body?.error || "Не вдалося надіслати повідомлення. Спробуйте ще раз."
+        err?.body?.error ||
+          "Мені не вдалося надіслати повідомлення. Спробуйте, будь ласка, ще раз — клієнт не має лишитися без відповіді."
       );
       // Full rollback: drop the optimistic message and restore the thread's
       // prior status and lastMessageAt (the send may have advanced new →
@@ -451,7 +452,10 @@ export default function Appeals() {
           thread.id === id ? { ...thread, status: prevStatus } : thread
         )
       );
-      setActionError(err?.body?.error || "Не вдалося змінити статус звернення");
+      setActionError(
+        err?.body?.error ||
+          "Мені не вдалося змінити статус звернення. Спробуйте, будь ласка, ще раз."
+      );
     }
   }
 
@@ -467,7 +471,10 @@ export default function Appeals() {
           <div className={s.listTitleRow}>
             <div>
               <h1 className={s.title}>Звернення</h1>
-              <p className={s.subtitle}>Запитання покупців про ваші вироби</p>
+              <p className={s.subtitle}>
+                Запитання покупців про ваші вироби — подбаймо, щоб ніхто не
+                лишився без відповіді ♡
+              </p>
             </div>
             <button
               type="button"
@@ -522,8 +529,8 @@ export default function Appeals() {
             <div className={s.listEmpty}>
               <p>
                 {threads.length === 0
-                  ? "Поки що немає звернень."
-                  : "Звернень за цими умовами немає."}
+                  ? "Поки що звернень немає — все спокійно ♡"
+                  : "Ой… за цими умовами я нічого не знайшла."}
               </p>
             </div>
           ) : (
@@ -663,8 +670,8 @@ export default function Appeals() {
             </div>
             <h2 className={s.chatEmptyTitle}>Оберіть звернення</h2>
             <p className={s.chatEmptyText}>
-              Виберіть діалог зі списку ліворуч, щоб переглянути запитання клієнта
-              та відповісти на нього.
+              Виберіть діалог зі списку ліворуч — і я покажу запитання клієнта,
+              щоб ви могли відповісти.
             </p>
           </div>
         )}

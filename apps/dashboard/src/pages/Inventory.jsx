@@ -148,7 +148,11 @@ export default function Inventory() {
       setMovements(Array.isArray(movementsResult.items) ? movementsResult.items : []);
       setPrinterFilament(Array.isArray(printerResult.items) ? printerResult.items : []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не вдалося завантажити склад");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Ой… мені не вдалося завантажити склад. Спробуйте, будь ласка, ще раз."
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -259,7 +263,7 @@ export default function Inventory() {
 
     if (form.action === "consume") {
       if (!isPositiveNumber(form.quantityG)) {
-        setError("Вкажи кількість більше 0");
+        setError("Вкажіть, будь ласка, кількість більше 0");
         return;
       }
 
@@ -272,14 +276,14 @@ export default function Inventory() {
             note: base.note,
             source: base.source,
           }),
-        "Філамент списано"
+        "Готово — я списала філамент"
       );
       return;
     }
 
     if (form.action === "add") {
       if (!isPositiveNumber(form.quantityG)) {
-        setError("Вкажи кількість більше 0");
+        setError("Вкажіть, будь ласка, кількість більше 0");
         return;
       }
 
@@ -289,7 +293,7 @@ export default function Inventory() {
             ...base,
             quantityG: Number(form.quantityG),
           }),
-        "Філамент додано"
+        "Готово — я додала філамент до складу ♡"
       );
       return;
     }
@@ -306,14 +310,14 @@ export default function Inventory() {
             ...base,
             actualG: Number(form.actualG),
           }),
-        "Залишок скориговано"
+        "Готово — я скоригувала залишок"
       );
       return;
     }
 
     // edit — descriptive data only, requires an existing position.
     if (!selected) {
-      setError("Оберіть існуючу позицію в таблиці, щоб змінити її дані");
+      setError("Оберіть, будь ласка, позицію в таблиці — тоді я зможу змінити її дані");
       return;
     }
 
@@ -336,7 +340,7 @@ export default function Inventory() {
           criticalStockG: Number(form.criticalStockG),
           enabled: Boolean(form.enabled),
         }),
-      "Дані філаменту оновлено"
+      "Готово — я оновила дані філаменту"
     );
   }
 
@@ -357,7 +361,7 @@ export default function Inventory() {
           color: loadForm.color,
           colorName: getColorName(loadForm.color),
         }),
-      "Філамент на принтері оновлено"
+      "Готово — я оновила філамент на принтері"
     );
   }
 
@@ -375,7 +379,7 @@ export default function Inventory() {
           <div className={styles.eyebrow}>Облік складу</div>
           <h1>Склад філаменту</h1>
           <p>
-            Простий облік залишків за типом і кольором без нумерації кожної
+            Я веду облік залишків за типом і кольором — без нумерації кожної
             котушки.
           </p>
         </div>
@@ -386,7 +390,11 @@ export default function Inventory() {
         </div>
       </header>
 
-      {loading ? <div className={styles.notice}>Завантаження…</div> : null}
+      {loading ? (
+        <div className={styles.notice}>
+          Хвилинку, будь ласка… я перераховую котушки.
+        </div>
+      ) : null}
       {message ? <div className={styles.success}>{message}</div> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
@@ -399,14 +407,14 @@ export default function Inventory() {
               onClick={() => loadData({ silent: true })}
               disabled={busy || refreshing}
             >
-              {refreshing ? "Оновлення…" : "Оновити"}
+              {refreshing ? "Хвилинку…" : "Оновити"}
             </button>
           </div>
 
           {loading ? null : stock.length ? (
             <>
               <p className={styles.tableHint}>
-                Натисни на рядок, щоб підставити дані у форму операції.
+                Натисніть на рядок — і я сама підставлю дані у форму операції.
               </p>
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
@@ -456,7 +464,8 @@ export default function Inventory() {
             </>
           ) : (
             <div className={styles.empty}>
-              Поки немає жодної позиції. Додай першу котушку нижче.
+              Тут поки що порожньо. Додайте першу котушку нижче — і я почну
+              дбайливо вести облік ♡
             </div>
           )}
         </section>
@@ -772,7 +781,10 @@ export default function Inventory() {
             </table>
           </div>
         ) : (
-          <div className={styles.empty}>Історія рухів поки порожня.</div>
+          <div className={styles.empty}>
+            Історія рухів поки порожня — щойно щось зміниться, я все охайно
+            запишу.
+          </div>
         )}
       </section>
     </div>

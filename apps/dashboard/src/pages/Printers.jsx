@@ -81,10 +81,10 @@ function PrintersHero({ updatedAt, loading, hasError }) {
           >
             <span className="wallboard-hero-status-dot" />
             {loading
-              ? "Оновлення даних"
+              ? "Оновлюю дані…"
               : hasError
-                ? "Оркестратор недоступний"
-                : "Моніторинг активний"}
+                ? "Оркестратор недоступний — я продовжую спроби"
+                : "Моніторинг активний, я приглядаю за фермою"}
           </div>
         </div>
       </div>
@@ -122,7 +122,7 @@ export default function Printers() {
           setMonitorError(
             error instanceof Error
               ? error.message
-              : "Не вдалося отримати статус принтерів"
+              : "Мені не вдалося отримати статус принтерів. Я спробую ще раз."
           );
         }
       } finally {
@@ -158,7 +158,7 @@ export default function Printers() {
             ⟳
           </div>
           <div className="alert-strip-text">
-            Завантажую моніторинг 3D-принтерів…
+            Хвилинку, будь ласка… я підключаю моніторинг 3D-принтерів.
           </div>
         </div>
       ) : null}

@@ -117,7 +117,7 @@ export default function ProductReports() {
         setError(
           err instanceof Error
             ? err.message
-            : "Не вдалося завантажити скарги"
+            : "Мені не вдалося завантажити скарги. Спробуйте, будь ласка, ще раз."
         );
       } finally {
         if (!ctrl.signal.aborted) {
@@ -157,7 +157,9 @@ export default function ProductReports() {
       }
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Не вдалося оновити скаргу"
+        err instanceof Error
+          ? err.message
+          : "Мені не вдалося оновити скаргу. Спробуйте, будь ласка, ще раз."
       );
     } finally {
       setActionId("");
@@ -179,7 +181,7 @@ export default function ProductReports() {
 
       if (action === "delete") {
         const ok = window.confirm(
-          "Перемістити скаргу у «Видалені»? Її можна буде відновити."
+          "Перемістити скаргу у «Видалені»? Не хвилюйтеся — за потреби я зможу її відновити."
         );
 
         if (!ok) return;
@@ -189,7 +191,7 @@ export default function ProductReports() {
 
       if (action === "delete-permanently") {
         const ok = window.confirm(
-          "Скаргу буде видалено назавжди. Цю дію не можна скасувати. Продовжити?"
+          "Скаргу буде видалено назавжди — цю дію не можна скасувати. Я зроблю це лише з вашого підтвердження. Продовжити?"
         );
 
         if (!ok) return;
@@ -202,7 +204,9 @@ export default function ProductReports() {
       );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Не вдалося виконати дію"
+        err instanceof Error
+          ? err.message
+          : "Мені не вдалося виконати цю дію. Спробуйте, будь ласка, ще раз."
       );
     } finally {
       setActionId("");
@@ -222,8 +226,9 @@ export default function ProductReports() {
         <div>
           <h1>Скарги на товари</h1>
           <p>
-            Тут можна переглядати активні скарги, переносити завершені звернення
-            в архів, відновлювати їх або видаляти без втрати важливих заявок.
+            Я збираю тут скарги покупців: активні — на видноті, завершені можна
+            перенести в архів, відновити або видалити, не загубивши жодної
+            важливої заявки.
           </p>
         </div>
 
@@ -317,11 +322,11 @@ export default function ProductReports() {
 
       {loading ? (
         <div className="product-reports-page__empty" aria-live="polite">
-          Завантаження…
+          Хвилинку, будь ласка… я збираю скарги.
         </div>
       ) : items.length === 0 ? (
         <div className="product-reports-page__empty" aria-live="polite">
-          Скарг за цими фільтрами немає.
+          За цими фільтрами скарг немає — здається, все гаразд ♡
         </div>
       ) : (
         <div className="product-reports-list" aria-label="Список скарг">

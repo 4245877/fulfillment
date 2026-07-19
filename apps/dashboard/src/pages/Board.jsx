@@ -419,7 +419,7 @@ function StatusTag({ children, tone = "primary" }) {
   return <span className={`tag${toneClass ? ` ${toneClass}` : ""}`}>{children}</span>;
 }
 
-function EmptyState({ title = "Немає даних", desc = "Зараз тут порожньо." }) {
+function EmptyState({ title = "Поки що порожньо", desc = "Тут ще нічого немає, але я приглядаю за цим місцем." }) {
   return (
     <div className="wboard-empty">
       <div className="wboard-empty-icon" aria-hidden="true">
@@ -459,10 +459,10 @@ function HeroHeader({ updatedAt, loading, hasError }) {
 
   const statusTone = hasError ? "danger" : loading ? "warning" : "success";
   const statusText = hasError
-    ? "Є проблеми із синхронізацією"
+    ? "Є проблеми із синхронізацією — я вже розбираюся"
     : loading
-      ? "Оновлення даних"
-      : "Синхронізація активна";
+      ? "Оновлюю дані…"
+      : "Синхронізація активна, все спокійно";
 
   return (
     <header className="wallboard-hero">
@@ -471,7 +471,8 @@ function HeroHeader({ updatedAt, loading, hasError }) {
           <div className="wallboard-hero-greeting">Lite Forest</div>
           <h1>Операційна панель</h1>
           <p className="wallboard-hero-sub">
-            Замовлення, друк, логістика та стан сервісів в одному місці.
+            Замовлення, друк, логістика та стан сервісів — усе зібрано тут,
+            під дбайливим наглядом.
           </p>
         </div>
 
@@ -649,7 +650,7 @@ const SectionMaterials = memo(function SectionMaterials({ materials = {}, loadin
         ) : (
           <EmptyState
             title="Склад пластику порожній"
-            desc="Після першого поповнення залишки зʼявляться тут."
+            desc="Щойно ви поповните запаси, я охайно розкладу тут усі залишки."
           />
         )}
       </div>
@@ -713,7 +714,7 @@ const SectionLogistics = memo(function SectionLogistics({ logistics = {}, loadin
         ) : (
           <EmptyState
             title="Немає даних про перевізників"
-            desc="Статистика за службами доставки зʼявиться після імпорту відправлень."
+            desc="Щойно з'являться перші відправлення, я зберу для вас статистику за службами доставки."
           />
         )}
       </div>
@@ -945,7 +946,7 @@ const SectionIngester = memo(function SectionIngester({ ing = {}, loading = fals
       ) : (
         <EmptyState
           title="Пакетів імпорту поки немає"
-          desc="Останні завантаження CSV і медіа зʼявляться тут після запуску імпортера."
+          desc="Коли імпортер запуститься, я акуратно складу тут останні завантаження CSV і медіа."
         />
       )}
 
@@ -1020,7 +1021,7 @@ const SectionWebhooks = memo(function SectionWebhooks({ wh = {}, loading = false
       ) : (
         <EmptyState
           title="Немає даних по вебхуках"
-          desc="Після першої активності провайдерів тут зʼявиться статистика доставок і помилок."
+          desc="Щойно провайдери озвуться, я вестиму тут статистику доставок і помилок."
         />
       )}
     </Panel>
@@ -1058,7 +1059,7 @@ const SectionAlerts = memo(function SectionAlerts({ alerts = [], loading = false
       ) : (
         <EmptyState
           title="Немає активних оповіщень"
-          desc="Коли система зафіксує подію або проблему, вона зʼявиться тут."
+          desc="Усе спокійно ♡ Якщо щось трапиться, я одразу повідомлю вам тут."
         />
       )}
     </Panel>
@@ -1183,7 +1184,7 @@ export default function Board() {
         setBackupError(
           error instanceof Error
             ? error.message
-            : "Не вдалося отримати статус резервного копіювання"
+            : "Мені не вдалося дізнатися стан резервних копій"
         );
       } finally {
         inFlight = false;
@@ -1301,7 +1302,7 @@ export default function Board() {
           <div className="alert-strip-icon" aria-hidden="true">
             ⟳
           </div>
-          <div className="alert-strip-text">Завантажую зведення операцій та друкарської ферми…</div>
+          <div className="alert-strip-text">Хвилинку, будь ласка… я збираю зведення операцій та друкарської ферми.</div>
         </div>
       ) : null}
 
@@ -1320,7 +1321,8 @@ export default function Board() {
             !
           </div>
           <div className="alert-strip-text">
-            Не вдалося отримати статус резервного копіювання: {backupError}
+            Мені не вдалося дізнатися стан резервних копій: {backupError}. Я
+            продовжую спроби.
           </div>
         </div>
       ) : null}

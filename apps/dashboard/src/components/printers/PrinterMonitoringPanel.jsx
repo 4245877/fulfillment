@@ -279,8 +279,8 @@ function StatusTag({ children, tone = "primary" }) {
 }
 
 function EmptyState({
-  title = "Немає даних",
-  desc = "Зараз тут порожньо.",
+  title = "Поки що порожньо",
+  desc = "Тут ще нічого немає, але я приглядаю за цим місцем.",
 }) {
   return (
     <div className="wboard-empty">
@@ -354,7 +354,7 @@ export default function PrinterMonitoringPanel({
     >
       {monitorError ? (
         <div className="printer-monitor-alert">
-          Помилка моніторингу: {monitorError}
+          Моніторинг тимчасово без зв'язку: {monitorError}. Я продовжую спроби.
         </div>
       ) : null}
 
@@ -467,8 +467,8 @@ export default function PrinterMonitoringPanel({
           }
           desc={
             configs.length && !enabledConfigCount
-              ? "Увімкни принтер у керуванні та збережи налаштування, щоб він зʼявився в моніторингу."
-              : "Список принтерів зʼявиться після першого успішного опитування API."
+              ? "Увімкніть принтер у керуванні та збережіть налаштування — і я одразу візьму його під нагляд."
+              : "Щойно API вперше відповість, я складу тут список принтерів."
           }
         />
       )}

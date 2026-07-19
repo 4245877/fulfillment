@@ -420,7 +420,7 @@ function PricingNode({
     if (childCount > 0) {
       const confirmed = window.confirm(
         `Видалити «${nodeKey}» разом із ${childCount} вкладеними значеннями?\n\n` +
-          "Дію можна скасувати кнопкою «Скасувати останню зміну»."
+          "Не хвилюйтеся: дію можна скасувати кнопкою «Скасувати останню зміну»."
       );
       if (!confirmed) return;
     }
@@ -562,7 +562,9 @@ export default function PricingSection({ showToast }) {
       const result = await api.get("/api/ops/pricing", { timeoutMs: 20000 });
 
       if (!result || result.ok === false) {
-        throw new Error(result?.error || "Не вдалося завантажити pricing.yml");
+        throw new Error(
+          result?.error || "Мені не вдалося завантажити pricing.yml. Спробуйте, будь ласка, ще раз."
+        );
       }
 
       setTree(result.tree);
@@ -662,7 +664,7 @@ export default function PricingSection({ showToast }) {
     if (
       dirty &&
       !window.confirm(
-        "Є незбережені зміни. Перезавантаження їх відкине. Продовжити?"
+        "У вас є незбережені зміни, і перезавантаження їх відкине. Ви точно хочете продовжити?"
       )
     ) {
       return;
@@ -677,7 +679,7 @@ export default function PricingSection({ showToast }) {
       showToast?.(
         {
           kind: "error",
-          text: "Конфігурація не може бути порожньою — залиште хоча б один ключ.",
+          text: "Ой… конфігурація не може бути зовсім порожньою. Залиште, будь ласка, хоча б один ключ.",
         },
         3500
       );
@@ -686,7 +688,10 @@ export default function PricingSection({ showToast }) {
 
     if (hasErrors) {
       showToast?.(
-        { kind: "error", text: "Виправте помилки валідації перед збереженням." },
+        {
+          kind: "error",
+          text: "Перед збереженням виправте, будь ласка, помилки валідації — я не хочу зіпсувати файл.",
+        },
         3500
       );
       return;
@@ -695,9 +700,9 @@ export default function PricingSection({ showToast }) {
     const isOverwrite = overrideHash !== undefined;
     const confirmed = window.confirm(
       isOverwrite
-        ? `Перезаписати версію на сервері вашими змінами?\n\n${meta.path}`
+        ? `Перезаписати версію на сервері вашими змінами?\n\n${meta.path}\n\nЦе замінить те, що зараз на сервері, — будьте, будь ласка, уважні.`
         : `Зберегти зміни у файл pricing.yml на сервері?\n\n${meta.path}\n\n` +
-            "Коментарі та форматування незмінених рядків будуть збережені."
+            "Коментарі та форматування незмінених рядків я дбайливо збережу."
     );
 
     if (!confirmed) return;
@@ -712,7 +717,9 @@ export default function PricingSection({ showToast }) {
       );
 
       if (!result || result.ok === false) {
-        throw new Error(result?.error || "Не вдалося зберегти pricing.yml");
+        throw new Error(
+          result?.error || "Мені не вдалося зберегти pricing.yml. Ваші правки залишилися у формі."
+        );
       }
 
       setTree(result.tree);
@@ -722,7 +729,10 @@ export default function PricingSection({ showToast }) {
       setConflict(null);
       setReadOnlyReason(result.readOnly ? result.readOnlyReason : null);
       resetHistory();
-      showToast?.({ kind: "success", text: "Збережено у pricing.yml ✅" }, 2500);
+      showToast?.(
+        { kind: "success", text: "Готово — я дбайливо зберегла все у pricing.yml ♡" },
+        2500
+      );
     } catch (caught) {
       if (caught?.status === 409) {
         // Version conflict: keep the user's edits, fetch the new server hash so
@@ -738,13 +748,13 @@ export default function PricingSection({ showToast }) {
         showToast?.(
           {
             kind: "error",
-            text: "Файл змінено на сервері. Ваші зміни збережено у формі — оберіть дію нижче.",
+            text: "Файл тим часом змінили на сервері. Не хвилюйтеся — ваші правки я зберегла у формі. Оберіть, будь ласка, дію нижче.",
           },
           5000
         );
       } else {
         showToast?.(
-          { kind: "error", text: `Помилка: ${String(caught?.message || caught)}` },
+          { kind: "error", text: `Не вийшло зберегти: ${String(caught?.message || caught)}` },
           4000
         );
       }
@@ -826,7 +836,7 @@ export default function PricingSection({ showToast }) {
                   onClick={() => {
                     if (
                       window.confirm(
-                        "Відхилити ваші зміни і завантажити версію з сервера?"
+                        "Відхилити ваші зміни і завантажити версію з сервера? Ваші правки буде втрачено."
                       )
                     ) {
                       load();
@@ -846,7 +856,7 @@ export default function PricingSection({ showToast }) {
         hint="✎ — перейменувати ключ; × — видалити значення; «Додати поле» — створити нове (текст, число, так/ні, вкладена група або масив)."
       >
         {loading ? (
-          <div className="text-muted">Завантаження…</div>
+          <div className="text-muted">Хвилинку, будь ласка… я відкриваю pricing.yml.</div>
         ) : error ? (
           <div className={styles.pricingError}>{error}</div>
         ) : tree ? (

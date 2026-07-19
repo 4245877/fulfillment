@@ -23,7 +23,8 @@ export default function Audit() {
           <div className={styles.emptyIcon}>🗂️</div>
           <div className={styles.emptyTitle}>Подій поки немає</div>
           <div className={styles.emptyDescription}>
-            Нові записи з&apos;являться тут автоматично через SSE.
+            Я уважно слухаю систему — щойно щось станеться, запис одразу
+            з&apos;явиться тут.
           </div>
         </div>
       ) : (

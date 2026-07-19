@@ -9,7 +9,8 @@ export default function NotFound() {
         <p className={styles.eyebrow}>Помилка 404</p>
         <h1 className={styles.title}>Сторінку не знайдено</h1>
         <p className={styles.description}>
-          Адреса могла змінитися або сторінка більше не існує.
+          Ой… я всюди подивилася, але такої сторінки тут немає. Можливо,
+          адреса змінилася. Повернімося на дошку — там усе на своїх місцях.
         </p>
         <div className={styles.actions}>
           <Link className="btn btn-primary" to="/">

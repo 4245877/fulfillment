@@ -74,7 +74,10 @@ export function useSettingsConfig() {
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
       } catch {
-        showToast({ kind: "error", text: "Не вдалося зберегти (localStorage)." }, 3000);
+        showToast(
+          { kind: "error", text: "Ой… мені не вдалося зберегти налаштування (localStorage)." },
+          3000
+        );
       }
     }, 350);
 
@@ -106,33 +109,45 @@ export function useSettingsConfig() {
     const parsed = safeParseJSON(text);
 
     if (!parsed) {
-      showToast({ kind: "error", text: "Файл не схожий на JSON." }, 2500);
+      showToast(
+        { kind: "error", text: "Перепрошую, але цей файл не схожий на JSON…" },
+        2500
+      );
       return;
     }
 
     setCfg(mergeDefaults(DEFAULTS, parsed));
-    showToast({ kind: "success", text: "Імпортовано ✅" }, 1500);
+    showToast({ kind: "success", text: "Готово — я все дбайливо імпортувала ♡" }, 1500);
   };
 
   const resetAll = () => {
-    if (!window.confirm("Скинути всі налаштування до значень за замовчуванням?")) {
+    if (
+      !window.confirm(
+        "Скинути всі налаштування до значень за замовчуванням? Я поверну все як було на початку — але ваші поточні зміни зникнуть."
+      )
+    ) {
       return;
     }
 
     setCfg(cloneDeep(DEFAULTS));
-    showToast({ kind: "success", text: "Скинуто ✅" }, 1200);
+    showToast({ kind: "success", text: "Готово — я повернула все до початкових значень." }, 1200);
   };
 
   const doAction = async ({ title, description, url, body }) => {
-    const ok = window.confirm(`${title}\n\n${description || ""}\n\nПідтвердити?`);
+    const ok = window.confirm(
+      `${title}\n\n${description || ""}\n\nЯ виконаю це лише з вашого підтвердження. Продовжити?`
+    );
     if (!ok) return null;
 
     try {
       const result = await postJson(url, body);
-      showToast({ kind: "success", text: `${title}: OK` }, 2500);
+      showToast({ kind: "success", text: `${title}: готово, все пройшло добре ♡` }, 2500);
       return result;
     } catch (e) {
-      showToast({ kind: "error", text: `${title}: ${String(e.message || e)}` }, 3500);
+      showToast(
+        { kind: "error", text: `${title}: не вийшло… ${String(e.message || e)}` },
+        3500
+      );
       throw e;
     }
   };

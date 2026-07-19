@@ -162,7 +162,7 @@ export default function SettingsPage() {
 
   const handleResetClick = () => {
     const confirmed = window.confirm(
-      "Скинути всі локальні налаштування до значень за замовчуванням?"
+      "Скинути всі локальні налаштування до значень за замовчуванням? Я поверну все як було на початку — але ваші поточні зміни зникнуть."
     );
 
     if (confirmed) {
@@ -179,7 +179,8 @@ export default function SettingsPage() {
         <div>
           <h1 className={styles.sidebarTitle}>Центр керування</h1>
           <p className={styles.sidebarSubtitle}>
-            Конфігурація інтерфейсу, сервісів і операцій в одному місці.
+            Інтерфейс, сервіси та операції — я зібрала всі налаштування тут,
+            щоб вам було зручно.
           </p>
         </div>
 
