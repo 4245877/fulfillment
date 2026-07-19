@@ -367,20 +367,21 @@
 }
 
 .movementsTable {
-  min-width: 920px;
+  min-width: 980px;
 }
 
 @media (max-width: 768px) {
   /* The stock table has only four short columns (material, colour, remaining,
      status). Let it fit the viewport instead of forcing a horizontal scroll
      that hides the remaining stock and status off-screen. The wide movements
-     table (seven columns) still scrolls. */
+     table (eight columns) still scrolls inside its own wrapper, so the page
+     body never scrolls sideways on a phone. */
   .table {
     min-width: 0;
   }
 
   .movementsTable {
-    min-width: 720px;
+    min-width: 820px;
   }
 
   .table th,
@@ -431,6 +432,45 @@
   color: var(--neutral-400);
   margin-top: 1px;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Movements: position + details cells ────────────────────── */
+
+/* "архів" marker next to an archived position in the movements table. */
+.archivedTag {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--neutral-600);
+  background: var(--neutral-100, color-mix(in srgb, var(--neutral-400) 25%, var(--surface)));
+  vertical-align: middle;
+}
+
+/* Movement note: readable inline, full text on hover (title). Kept from
+   overflowing a narrow column so the row height stays stable. */
+.noteText {
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Compact print-job reference: a short id in the cell, the full job id in the
+   tooltip — so the table is not littered with long UUIDs. */
+.jobBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: var(--neutral-500, var(--text-muted));
+  font-variant-numeric: tabular-nums;
+  cursor: default;
 }
 
 /* ── Status Badge ───────────────────────────────────────────── */

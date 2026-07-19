@@ -41,7 +41,7 @@ export function requireAdmin(
 
   const token = getHeaderValue(request.headers["x-admin-token"])?.trim();
 
-  if (!token || token !== expectedToken) {
+  if (!token || !safeEqual(token, expectedToken)) {
     reply.code(401);
     return { error: "Unauthorized" };
   }
@@ -64,6 +64,114 @@ function safeEqual(provided: string, expected: string): boolean {
   }
 
   return timingSafeEqual(a, b);
+}
+
+// ── Inter-service auth (apps/atelier → apps/fulfillment) ────────────────────
+//
+// The atelier print-orchestrator drives two inter-service inventory calls:
+// automatic filament consumption (POST /filament/consume) and loaded-reel
+// binding (POST /filament/../printer-filament/sync). They authenticate with a
+// SERVICE token (ATELIER_FULFILLMENT_TOKEN), distinct from the operator's
+// ADMIN_TOKEN, sent in the `x-service-token` header. The service token opens
+// ONLY those two routes (see requireAdminOrService) — never the admin-only
+// mutations — so a leaked service token cannot edit thresholds, archive stock,
+// change order statuses, etc.
+//
+// The token is read live from process.env (never cached at import) and never
+// logged. Comparison is constant-time (safeEqual).
+
+const SERVICE_TOKEN_HEADER = "x-service-token";
+
+function readAdminToken(): string | undefined {
+  return process.env.ADMIN_TOKEN?.trim() || undefined;
+}
+
+function readServiceToken(): string | undefined {
+  return process.env.ATELIER_FULFILLMENT_TOKEN?.trim() || undefined;
+}
+
+/**
+ * Staged-rollout escape hatch. When ATELIER_FULFILLMENT_AUTH_OPTIONAL is on,
+ * the inter-service routes accept a caller with no/invalid service token (so
+ * an older atelier build that does not yet send it keeps syncing/consuming).
+ * OFF by default in every environment; a request that uses it emits a warning.
+ * Turn it off once atelier is deployed with the token.
+ */
+function serviceAuthOptional(): boolean {
+  const raw = process.env.ATELIER_FULFILLMENT_AUTH_OPTIONAL?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
+// Rate-limit the compatibility-mode warning so it flags the misconfiguration
+// without flooding the log on every inter-service call.
+let lastServiceAuthOptionalWarnAt = 0;
+
+function warnServiceAuthOptional(request: FastifyRequest): void {
+  const now = Date.now();
+  if (now - lastServiceAuthOptionalWarnAt < 60_000) {
+    return;
+  }
+  lastServiceAuthOptionalWarnAt = now;
+
+  request.log.warn(
+    {
+      route: request.url,
+      nodeEnv: process.env.NODE_ENV ?? "development",
+    },
+    "ATELIER_FULFILLMENT_AUTH_OPTIONAL is enabled: an inter-service request " +
+      "was accepted WITHOUT a valid service token. This is a temporary " +
+      "staged-rollout mode — disable it once apps/atelier sends " +
+      "x-service-token (ATELIER_FULFILLMENT_TOKEN)."
+  );
+}
+
+/**
+ * Guards a route that both the operator dashboard AND the atelier orchestrator
+ * call (filament consume / loaded-reel sync). Authorises when EITHER a valid
+ * admin token (x-admin-token) OR a valid service token (x-service-token) is
+ * presented; the service token is scoped to these routes only.
+ *
+ * Fail-closed like {@link requireAdmin}: returns null when authorised, else sets
+ * the status on `reply` and returns the error body. Tokens are never logged.
+ *   - neither ADMIN_TOKEN nor ATELIER_FULFILLMENT_TOKEN configured → 503
+ *   - a missing/wrong token → 401
+ *   - ATELIER_FULFILLMENT_AUTH_OPTIONAL on → allowed with a warning
+ */
+export function requireAdminOrService(
+  request: FastifyRequest,
+  reply: FastifyReply
+): AdminDenied | null {
+  const adminToken = readAdminToken();
+  const serviceToken = readServiceToken();
+
+  const providedAdmin = getHeaderValue(request.headers["x-admin-token"])?.trim();
+  if (adminToken && providedAdmin && safeEqual(providedAdmin, adminToken)) {
+    return null;
+  }
+
+  const providedService = getHeaderValue(
+    request.headers[SERVICE_TOKEN_HEADER]
+  )?.trim();
+  if (serviceToken && providedService && safeEqual(providedService, serviceToken)) {
+    return null;
+  }
+
+  if (serviceAuthOptional()) {
+    warnServiceAuthOptional(request);
+    return null;
+  }
+
+  if (!adminToken && !serviceToken) {
+    reply.code(503);
+    return {
+      error:
+        "Service authorization is not configured on the server " +
+        "(ADMIN_TOKEN / ATELIER_FULFILLMENT_TOKEN)",
+    };
+  }
+
+  reply.code(401);
+  return { error: "Unauthorized" };
 }
 
 /**

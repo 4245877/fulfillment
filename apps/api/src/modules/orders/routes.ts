@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 
+import { requireAdmin } from "../../core/auth";
 import { ORDER_STATUSES } from "./types";
 import {
   changeOrderStatus,
@@ -66,8 +67,12 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  // Удобный endpoint именно для смены статуса.
+  // Удобный endpoint именно для смены статуса. Операторская мутация — только
+  // из админ-интерфейса (магазин заказы только создаёт, статусы не меняет).
   app.patch("/:id/status", async (req, reply) => {
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     try {
       const { id } = req.params as { id: string };
       const order = await changeOrderStatus(id, req.body as any);
@@ -85,8 +90,12 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  // Совместимый PATCH, если frontend отправит просто { status }.
+  // Совместимый PATCH, если frontend отправит просто { status }. Тоже
+  // операторская мутация — под админ-гейтом.
   app.patch("/:id", async (req, reply) => {
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     try {
       const { id } = req.params as { id: string };
       const body = req.body as any;

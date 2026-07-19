@@ -3,8 +3,12 @@ import { randomUUID } from "node:crypto";
 import { env } from "../../shared/env";
 import { enqueueFilamentLowStockNotification } from "../notifications/dispatcher";
 import {
-  readInventoryStore,
-  updateInventoryStore,
+  listFilamentMovementViews,
+  listPrinterStateRows,
+  listStockRows,
+  readMaterialsSnapshot,
+  runInventoryMutation,
+  type InventoryMutationScope,
 } from "./repo";
 
 import type {
@@ -14,6 +18,7 @@ import type {
   FilamentAvailabilityResponse,
   FilamentMovement,
   FilamentMovementSource,
+  FilamentMovementView,
   FilamentStock,
   FilamentStockView,
   InventoryStore,
@@ -21,7 +26,7 @@ import type {
   StockStatus,
 } from "./types";
 
-type AddFilamentInput = {
+export type AddFilamentInput = {
   material: string;
   color: string;
   colorName?: string;
@@ -59,7 +64,7 @@ export type ConsumeFilamentInput = {
   idempotencyKey?: string;
 };
 
-type AdjustFilamentInput = {
+export type AdjustFilamentInput = {
   material: string;
   color: string;
   colorName?: string;
@@ -68,7 +73,7 @@ type AdjustFilamentInput = {
   note?: string;
 };
 
-type UpdateFilamentInput = {
+export type UpdateFilamentInput = {
   /** Identify the stock either by its id or by material+color. */
   id?: string;
   material?: string;
@@ -80,7 +85,7 @@ type UpdateFilamentInput = {
   enabled?: boolean;
 };
 
-type LoadPrinterFilamentInput = {
+export type LoadPrinterFilamentInput = {
   printerId: string;
   /** AMS slot to bind the reel to (multi-slot printers); omit for the printer-level reel. */
   amsTray?: number | null;
@@ -95,7 +100,7 @@ type LoadPrinterFilamentInput = {
  * material may carry a brand suffix and the colour is a device hex; both are
  * translated to a stock position by {@link resolveStockForDevice}.
  */
-type SyncPrinterFilamentInput = {
+export type SyncPrinterFilamentInput = {
   printerId: string;
   /** AMS slot (multi-slot printers); omit/null for the printer-level reel. */
   amsTray?: number | null;
@@ -547,11 +552,38 @@ function addMovement(
   return movement;
 }
 
-export async function listFilamentStock(): Promise<FilamentStockView[]> {
-  const store = await readInventoryStore();
+/**
+ * Best-effort material family for building the DB load scope only — returns ""
+ * instead of throwing on empty/invalid input, so scope construction never fails
+ * before the pure logic can raise the real, specific validation error.
+ */
+function scopeMaterial(value: unknown): string {
+  try {
+    return normalizeDeviceMaterial(value);
+  } catch {
+    return "";
+  }
+}
 
-  return store.filamentStock
-    .filter((item) => item.enabled)
+/** Annotates the movement note when an add/adjust brought a position back from the archive. */
+function withReactivationNote(
+  note: string | null | undefined,
+  reactivated: boolean
+): string | null {
+  const base = note ?? null;
+  if (!reactivated) {
+    return base;
+  }
+
+  return base
+    ? `${base} · позицію повернено з архіву`
+    : "позицію повернено з архіву";
+}
+
+export async function listFilamentStock(): Promise<FilamentStockView[]> {
+  const stock = await listStockRows({ enabledOnly: true });
+
+  return stock
     .sort((a, b) => {
       const materialCompare = a.material.localeCompare(b.material);
       if (materialCompare !== 0) return materialCompare;
@@ -561,60 +593,82 @@ export async function listFilamentStock(): Promise<FilamentStockView[]> {
     .map(toStockView);
 }
 
-export async function listFilamentMovements(limit = 100) {
-  const store = await readInventoryStore();
+export async function listFilamentMovements(
+  limit = 100
+): Promise<FilamentMovementView[]> {
+  const requested = Math.trunc(Number(limit));
+  const clamped = Number.isFinite(requested)
+    ? Math.max(1, Math.min(requested, 500))
+    : 100;
 
-  return store.filamentMovements.slice(0, Math.max(1, Math.min(limit, 500)));
+  return listFilamentMovementViews(clamped);
 }
 
 export async function listPrinterFilamentState(): Promise<
   PrinterFilamentState[]
 > {
-  const store = await readInventoryStore();
+  return listPrinterStateRows();
+}
 
-  return [...store.printerFilamentState].sort((a, b) =>
-    a.printerId.localeCompare(b.printerId)
-  );
+/**
+ * The add mutation against an already-loaded store. Pure of I/O (see
+ * {@link applyConsume}). Section 3: adding stock to an ARCHIVED position brings
+ * it back (enabled = true) so the new balance is actually visible — otherwise
+ * the write succeeds but the position stays hidden from listFilamentStock. The
+ * reactivation is recorded explicitly in the movement note.
+ */
+export function applyAddFilament(store: InventoryStore, input: AddFilamentInput) {
+  const material = normalizeMaterial(input.material);
+  const color = normalizeColor(input.color);
+  const quantityG = normalizeQuantity(input.quantityG);
+
+  const stock = ensureStock(store, {
+    material,
+    color,
+    colorName: input.colorName,
+    lowStockG: input.lowStockG,
+    criticalStockG: input.criticalStockG,
+  });
+
+  const reactivated = !stock.enabled;
+  if (reactivated) {
+    stock.enabled = true;
+  }
+
+  const beforeG = stock.stockG;
+  const afterG = beforeG + quantityG;
+
+  stock.stockG = afterG;
+  stock.updatedAt = nowIso();
+
+  const movement = addMovement(store, {
+    stockId: stock.id,
+    type: "add",
+    quantityG,
+    beforeG,
+    afterG,
+    source: input.source || "dashboard",
+    note: withReactivationNote(input.note, reactivated),
+    printerId: null,
+    printJobId: null,
+    idempotencyKey: null,
+  });
+
+  return {
+    stock: toStockView(stock),
+    movement,
+    reactivated,
+  };
 }
 
 export async function addFilament(input: AddFilamentInput) {
   const material = normalizeMaterial(input.material);
   const color = normalizeColor(input.color);
-  const quantityG = normalizeQuantity(input.quantityG);
 
-  return updateInventoryStore((store) => {
-    const stock = ensureStock(store, {
-      material,
-      color,
-      colorName: input.colorName,
-      lowStockG: input.lowStockG,
-      criticalStockG: input.criticalStockG,
-    });
-
-    const beforeG = stock.stockG;
-    const afterG = beforeG + quantityG;
-
-    stock.stockG = afterG;
-    stock.updatedAt = nowIso();
-
-    const movement = addMovement(store, {
-      stockId: stock.id,
-      type: "add",
-      quantityG,
-      beforeG,
-      afterG,
-      source: input.source || "dashboard",
-      note: input.note || null,
-      printerId: null,
-      printJobId: null,
-      idempotencyKey: null,
-    });
-
-    return {
-      stock: toStockView(stock),
-      movement,
-    };
-  });
+  return runInventoryMutation(
+    { stockKeys: [{ material, color }] },
+    (store) => applyAddFilament(store, input)
+  );
 }
 
 /**
@@ -732,6 +786,17 @@ export function applyConsume(store: InventoryStore, input: ConsumeFilamentInput)
 
   const stock = resolveConsumeStock(store, input);
 
+  // Section 3: never drain an ARCHIVED position silently. A manual or
+  // printer-originated consume against a disabled stock is refused explicitly
+  // (it is invisible in the warehouse list, so the operator would not see the
+  // deduction) — restore or refill it first.
+  if (!stock.enabled) {
+    throw new Error(
+      `Filament position ${stock.material} ${stock.colorName} is archived — ` +
+        `restore it before consuming`
+    );
+  }
+
   // Explicit grams win; otherwise derive them from the extruded length using
   // the resolved stock's material density.
   const quantityG =
@@ -773,7 +838,19 @@ export function applyConsume(store: InventoryStore, input: ConsumeFilamentInput)
 }
 
 export async function consumeFilament(input: ConsumeFilamentInput) {
-  return updateInventoryStore(async (store, trx) => {
+  // Narrow load scope: the material's stock rows (explicit material+color path)
+  // and/or the printer's bindings and the stocks they reference (loaded-reel
+  // path), plus the one movement carrying this idempotency key. Never the whole
+  // store, never the whole movement history.
+  const materials = input.material ? [scopeMaterial(input.material)] : [];
+  const scope: InventoryMutationScope = {
+    materials: materials.filter(Boolean),
+    printers: input.printerId ? [String(input.printerId)] : [],
+    includePrinterStateStock: true,
+    idempotencyKey: input.idempotencyKey ?? null,
+  };
+
+  return runInventoryMutation(scope, async (store, trx) => {
     const result = applyConsume(store, input);
 
     // Enqueue on the same transaction as the movement so the alert commits
@@ -793,43 +870,65 @@ export async function consumeFilament(input: ConsumeFilamentInput) {
   });
 }
 
-export async function adjustFilament(input: AdjustFilamentInput) {
+/**
+ * The adjust (set-to-actual) mutation against an already-loaded store. Pure of
+ * I/O (see {@link applyConsume}). Like {@link applyAddFilament}, correcting an
+ * ARCHIVED position brings it back so the corrected balance is visible.
+ */
+export function applyAdjustFilament(
+  store: InventoryStore,
+  input: AdjustFilamentInput
+) {
   const material = normalizeMaterial(input.material);
   const color = normalizeColor(input.color);
   const actualG = normalizeNonNegative(input.actualG, "actualG");
 
-  return updateInventoryStore((store) => {
-    const stock = ensureStock(store, {
-      material,
-      color,
-      colorName: input.colorName,
-    });
-
-    const beforeG = stock.stockG;
-    const afterG = actualG;
-    const deltaG = afterG - beforeG;
-
-    stock.stockG = afterG;
-    stock.updatedAt = nowIso();
-
-    const movement = addMovement(store, {
-      stockId: stock.id,
-      type: "adjust",
-      quantityG: deltaG,
-      beforeG,
-      afterG,
-      source: input.source || "dashboard",
-      note: input.note || null,
-      printerId: null,
-      printJobId: null,
-      idempotencyKey: null,
-    });
-
-    return {
-      stock: toStockView(stock),
-      movement,
-    };
+  const stock = ensureStock(store, {
+    material,
+    color,
+    colorName: input.colorName,
   });
+
+  const reactivated = !stock.enabled;
+  if (reactivated) {
+    stock.enabled = true;
+  }
+
+  const beforeG = stock.stockG;
+  const afterG = actualG;
+  const deltaG = afterG - beforeG;
+
+  stock.stockG = afterG;
+  stock.updatedAt = nowIso();
+
+  const movement = addMovement(store, {
+    stockId: stock.id,
+    type: "adjust",
+    quantityG: deltaG,
+    beforeG,
+    afterG,
+    source: input.source || "dashboard",
+    note: withReactivationNote(input.note, reactivated),
+    printerId: null,
+    printJobId: null,
+    idempotencyKey: null,
+  });
+
+  return {
+    stock: toStockView(stock),
+    movement,
+    reactivated,
+  };
+}
+
+export async function adjustFilament(input: AdjustFilamentInput) {
+  const material = normalizeMaterial(input.material);
+  const color = normalizeColor(input.color);
+
+  return runInventoryMutation(
+    { stockKeys: [{ material, color }] },
+    (store) => applyAdjustFilament(store, input)
+  );
 }
 
 /**
@@ -887,7 +986,20 @@ export function applyUpdateFilament(
 }
 
 export async function updateFilamentStock(input: UpdateFilamentInput) {
-  return updateInventoryStore((store) => applyUpdateFilament(store, input));
+  const scope: InventoryMutationScope = input.id
+    ? { stockIds: [input.id] }
+    : input.material && input.color
+      ? {
+          stockKeys: [
+            {
+              material: normalizeMaterial(input.material),
+              color: normalizeColor(input.color),
+            },
+          ],
+        }
+      : {};
+
+  return runInventoryMutation(scope, (store) => applyUpdateFilament(store, input));
 }
 
 function normalizeAmsTray(value: unknown): number | null {
@@ -964,7 +1076,23 @@ export function applyLoadPrinterFilament(
 }
 
 export async function loadPrinterFilament(input: LoadPrinterFilamentInput) {
-  return updateInventoryStore((store) => applyLoadPrinterFilament(store, input));
+  const printerId = String(input.printerId || "").trim();
+  const scope: InventoryMutationScope = {
+    stockKeys:
+      input.material && input.color
+        ? [
+            {
+              material: normalizeMaterial(input.material),
+              color: normalizeColor(input.color),
+            },
+          ]
+        : [],
+    printers: printerId ? [printerId] : [],
+  };
+
+  return runInventoryMutation(scope, (store) =>
+    applyLoadPrinterFilament(store, input)
+  );
 }
 
 /**
@@ -1008,13 +1136,21 @@ export function applySyncPrinterFilament(
 }
 
 export async function syncPrinterFilament(input: SyncPrinterFilamentInput) {
-  return updateInventoryStore((store) => applySyncPrinterFilament(store, input));
+  const printerId = String(input.printerId || "").trim();
+  const material = scopeMaterial(input.material);
+  const scope: InventoryMutationScope = {
+    materials: material ? [material] : [],
+    printers: printerId ? [printerId] : [],
+  };
+
+  return runInventoryMutation(scope, (store) =>
+    applySyncPrinterFilament(store, input)
+  );
 }
 
 export async function getInventoryMaterialsSummary() {
-  const store = await readInventoryStore();
+  const { stock: activeStock, reelsInUse } = await readMaterialsSnapshot();
 
-  const activeStock = store.filamentStock.filter((item) => item.enabled);
   const totalG = activeStock.reduce((sum, item) => sum + item.stockG, 0);
 
   const stock = activeStock
@@ -1049,7 +1185,7 @@ export async function getInventoryMaterialsSummary() {
   return {
     filamentKg: Math.round(totalG) / 1000,
     resinL: 0,
-    reelsInUse: store.printerFilamentState.length,
+    reelsInUse,
     lowThresholdKg: 1,
     stock,
     low,
@@ -1225,7 +1361,15 @@ export function buildFilamentAvailability(
  * read-only — no movement, no mutation.
  */
 export async function getFilamentAvailability(): Promise<FilamentAvailabilityResponse> {
-  const store = await readInventoryStore();
+  const filamentStock = await listStockRows({ enabledOnly: true });
 
-  return buildFilamentAvailability(store, env.FILAMENT_AVAILABILITY_MIN_G);
+  return buildFilamentAvailability(
+    {
+      version: 1,
+      filamentStock,
+      filamentMovements: [],
+      printerFilamentState: [],
+    },
+    env.FILAMENT_AVAILABILITY_MIN_G
+  );
 }

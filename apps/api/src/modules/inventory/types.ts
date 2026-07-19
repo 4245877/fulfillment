@@ -1,10 +1,23 @@
-export type FilamentMovementType = "add" | "consume" | "adjust";
+// Canonical movement vocabularies — the SINGLE source of truth. These literal
+// sets must stay in sync with:
+//   • the DB CHECK constraints (filament_movements_type_check /
+//     filament_movements_source_check, migration 001_inventory.ts), and
+//   • the dashboard labels (apps/dashboard/src/pages/inventoryVocab.js).
+// The API validation layer (validation.ts) rejects anything outside them before
+// a query runs, so the DB constraint is only a backstop.
+export const FILAMENT_MOVEMENT_TYPES = ["add", "consume", "adjust"] as const;
+
+export type FilamentMovementType = (typeof FILAMENT_MOVEMENT_TYPES)[number];
+
+export const FILAMENT_MOVEMENT_SOURCES = [
+  "dashboard",
+  "telegram",
+  "printer",
+  "system",
+] as const;
 
 export type FilamentMovementSource =
-  | "dashboard"
-  | "telegram"
-  | "printer"
-  | "system";
+  (typeof FILAMENT_MOVEMENT_SOURCES)[number];
 
 export type FilamentStock = {
   id: string;
@@ -32,6 +45,21 @@ export type FilamentMovement = {
   printJobId: string | null;
   idempotencyKey: string | null;
   createdAt: string;
+};
+
+/**
+ * A movement enriched with a snapshot of its stock position (material / colour),
+ * so the dashboard's "Останні рухи" table can show WHICH position moved without
+ * a second lookup — and without breaking when that position was later archived
+ * (enabled = false) or removed (all stock fields null). Denormalised at read
+ * time via a LEFT JOIN in {@link listFilamentMovementViews}; the API keeps the
+ * raw movement fields unchanged and only adds the `stock*` fields.
+ */
+export type FilamentMovementView = FilamentMovement & {
+  stockMaterial: string | null;
+  stockColor: string | null;
+  stockColorName: string | null;
+  stockEnabled: boolean | null;
 };
 
 export type PrinterFilamentState = {

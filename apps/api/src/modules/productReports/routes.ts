@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 
+import { requireAdmin } from "../../core/auth";
 import {
   ProductReportError,
   archiveProductReport,
@@ -101,6 +102,9 @@ export default async function productReportsRoutes(app: FastifyInstance) {
   });
 
   app.patch("/product-reports/:reportId", async (req, reply) => {
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     try {
       const params = req.params as { reportId?: string };
 
@@ -119,6 +123,9 @@ export default async function productReportsRoutes(app: FastifyInstance) {
   });
 
   app.post("/product-reports/:reportId/archive", async (req, reply) => {
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     try {
       const params = req.params as { reportId?: string };
 
@@ -134,6 +141,9 @@ export default async function productReportsRoutes(app: FastifyInstance) {
   });
 
   app.post("/product-reports/:reportId/restore", async (req, reply) => {
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     try {
       const params = req.params as { reportId?: string };
 
@@ -149,6 +159,9 @@ export default async function productReportsRoutes(app: FastifyInstance) {
   });
 
   app.delete("/product-reports/:reportId/permanent", async (req, reply) => {
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     try {
       const params = req.params as { reportId?: string };
 
@@ -166,6 +179,9 @@ export default async function productReportsRoutes(app: FastifyInstance) {
   });
 
   app.delete("/product-reports/:reportId", async (req, reply) => {
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     try {
       const params = req.params as { reportId?: string };
 

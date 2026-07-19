@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 
+import { requireAdmin } from "../../core/auth";
 import {
   getAppeal,
   ingestAppeal,
@@ -120,7 +121,11 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // POST /api/appeals/:id/read — clear the unread counter for the operator.
+  // Operator-only (admin); the shop mini-chat never touches this.
   app.post("/:id/read", async (req, reply) => {
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     const { id } = req.params as { id: string };
     try {
       return { item: await markAppealRead(id) };
@@ -130,8 +135,12 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  // POST /api/appeals/:id/messages { text } — operator reply.
+  // POST /api/appeals/:id/messages { text } — operator reply. Admin-only; the
+  // shop's customer messages arrive via POST /ingest, not here.
   app.post("/:id/messages", async (req, reply) => {
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     const { id } = req.params as { id: string };
     const text = String((req.body as { text?: unknown })?.text || "").trim();
 
@@ -155,8 +164,11 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  // PATCH /api/appeals/:id { status } — change appeal status.
+  // PATCH /api/appeals/:id { status } — change appeal status. Operator-only.
   app.patch("/:id", async (req, reply) => {
+    const denied = requireAdmin(req, reply);
+    if (denied) return denied;
+
     const { id } = req.params as { id: string };
     const status = (req.body as { status?: unknown })?.status;
 

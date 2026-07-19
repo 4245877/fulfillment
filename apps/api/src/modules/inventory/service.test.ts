@@ -6,7 +6,7 @@ import type { FilamentStock, InventoryStore } from "./types";
 /*
  * DB-free tests for the consume/load mutations: applyConsume and
  * applyLoadPrinterFilament run against an in-memory InventoryStore, exactly the
- * object updateInventoryStore hands them inside the transaction. Covered: the
+ * object runInventoryMutation hands them inside the transaction. Covered: the
  * print-orchestrator contract (grams alias, lengthMm, amsTray reel resolution,
  * idempotent redelivery), the unchanged dashboard flows, and the guard rails
  * (insufficient stock, material mismatch, nothing loaded).
@@ -540,4 +540,87 @@ test("loadPrinterFilament upserts per (printerId, amsTray)", () => {
     () => loadReel(store, "bambu-a1-combo", "PLA", "white", -1),
     /amsTray must be a non-negative integer/
   );
+});
+
+// ── Archived positions (section 3) ───────────────────────────────────────────
+
+test("add to an ARCHIVED position reactivates it so the balance is visible", () => {
+  const store = storeWith({ filamentStock: [stock({ enabled: false, stockG: 0 })] });
+
+  const result = svc.applyAddFilament(store, {
+    material: "PETG",
+    color: "black",
+    quantityG: 500,
+  });
+
+  assert.equal(result.reactivated, true);
+  assert.equal(store.filamentStock[0].enabled, true, "position is active again");
+  assert.equal(store.filamentStock[0].stockG, 500);
+  assert.equal(result.stock.enabled, true, "the returned state is the current one");
+  assert.match(result.movement!.note ?? "", /архів/, "reactivation recorded in history");
+});
+
+test("adjust of an ARCHIVED position reactivates it too", () => {
+  const store = storeWith({ filamentStock: [stock({ enabled: false })] });
+
+  const result = svc.applyAdjustFilament(store, {
+    material: "PETG",
+    color: "black",
+    actualG: 1234,
+  });
+
+  assert.equal(result.reactivated, true);
+  assert.equal(store.filamentStock[0].enabled, true);
+  assert.equal(store.filamentStock[0].stockG, 1234);
+});
+
+test("add to an ACTIVE position does not flag reactivation", () => {
+  const store = storeWith();
+
+  const result = svc.applyAddFilament(store, {
+    material: "PETG",
+    color: "black",
+    quantityG: 100,
+  });
+
+  assert.equal(result.reactivated, false);
+  assert.equal(store.filamentStock[0].stockG, 2100);
+  assert.equal(result.movement!.note, null);
+});
+
+test("consuming an ARCHIVED position is refused explicitly, never silent", () => {
+  const store = storeWith({ filamentStock: [stock({ enabled: false })] });
+
+  assert.throws(
+    () =>
+      svc.applyConsume(store, { material: "PETG", color: "black", quantityG: 100 }),
+    /is archived/
+  );
+  assert.equal(store.filamentStock[0].stockG, 2000, "nothing deducted");
+});
+
+// ── Concurrency invariant (section 4, scenario 8) ────────────────────────────
+
+test("serialised consumes never drive the balance below zero", () => {
+  // The production consume path runs under a single advisory xact lock, so
+  // concurrent requests are applied strictly one after another. Modelling that
+  // here: five 30 g consumes against 100 g — three succeed, two overdraw and
+  // throw, and the balance lands on exactly 10 g, never negative.
+  const store = storeWith({ filamentStock: [stock({ stockG: 100 })] });
+
+  let succeeded = 0;
+  let rejected = 0;
+  for (let i = 0; i < 5; i += 1) {
+    try {
+      svc.applyConsume(store, { material: "PETG", color: "black", quantityG: 30 });
+      succeeded += 1;
+    } catch {
+      rejected += 1;
+    }
+  }
+
+  assert.equal(succeeded, 3);
+  assert.equal(rejected, 2);
+  assert.equal(store.filamentStock[0].stockG, 10);
+  assert.ok(store.filamentStock[0].stockG >= 0, "balance is never negative");
 });

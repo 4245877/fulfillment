@@ -1,40 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { inventoryApi } from "../api/inventoryApi.js";
+import { fetchPrinterStatuses } from "../api/printerFarmApi.js";
 import styles from "./Inventory.module.css";
-
-const MATERIALS = ["PLA", "PETG", "TPU", "ABS", "ASA"];
-
-const COLORS = [
-  ["black", "Чорний"],
-  ["white", "Білий"],
-  ["gray", "Сірий"],
-  ["red", "Червоний"],
-  ["blue", "Синій"],
-  ["green", "Зелений"],
-  ["yellow", "Жовтий"],
-  ["transparent", "Прозорий"],
-];
-
-const PRINTERS = [
-  ["ender3-v3-ke", "Ender 3 V3 KE"],
-  ["creality-k2", "Creality K2"],
-  ["bambu-a1-combo", "Bambu Lab A1 Combo"],
-];
-
-const MOVEMENT_TYPES = [
-  ["add", "Додавання"],
-  ["consume", "Списання"],
-  ["adjust", "Коригування"],
-  ["load_printer_filament", "Заміна пластику на принтері"],
-];
-
-const MOVEMENT_SOURCES = [
-  ["dashboard", "Панель керування"],
-  ["api", "API"],
-  ["system", "Система"],
-  ["printer", "Принтер"],
-];
+import {
+  COLORS,
+  MATERIALS,
+  getColorName,
+  getMovementSourceLabel,
+  getMovementTypeLabel,
+} from "./inventoryVocab.js";
+import {
+  buildPrinterNameMap,
+  resolvePositionLabel,
+  resolvePrinterLabel,
+  shortId,
+} from "./inventoryMovements.js";
 
 // The unified operation form drives every action against a stock position.
 const ACTIONS = [
@@ -75,22 +56,6 @@ function getStatusLabel(status) {
   return "Невідомо";
 }
 
-function getColorName(color) {
-  return COLORS.find(([value]) => value === color)?.[1] || color;
-}
-
-function getPrinterName(printerId) {
-  return PRINTERS.find(([value]) => value === printerId)?.[1] || printerId;
-}
-
-function getMovementTypeLabel(type) {
-  return MOVEMENT_TYPES.find(([value]) => value === type)?.[1] || "Невідомо";
-}
-
-function getMovementSourceLabel(source) {
-  return MOVEMENT_SOURCES.find(([value]) => value === source)?.[1] || "Невідомо";
-}
-
 function getStatusClassName(status) {
   // The API reports "ok"; the good badge styling is keyed on "good".
   const key = status === "ok" ? "good" : status;
@@ -113,6 +78,11 @@ export default function Inventory() {
   const [stock, setStock] = useState([]);
   const [movements, setMovements] = useState([]);
   const [printerFilament, setPrinterFilament] = useState([]);
+  // Live printer id → name map, fetched best-effort from the printer-status API
+  // (never hardcoded). Empty when that API is unavailable — the movements table
+  // then falls back to the raw printer id instead of breaking.
+  const [printerNames, setPrinterNames] = useState(() => new Map());
+  const [printerList, setPrinterList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -136,7 +106,7 @@ export default function Inventory() {
   });
 
   const [loadForm, setLoadForm] = useState({
-    printerId: "ender3-v3-ke",
+    printerId: "",
     material: "PLA",
     color: "black",
   });
@@ -166,6 +136,13 @@ export default function Inventory() {
         inventoryApi.movements(50),
         inventoryApi.printerFilament(),
       ]);
+
+      // Best-effort: a printer-status outage must NOT fail the whole page — the
+      // movements table degrades to raw printer ids instead of crashing.
+      const statusPayload = await fetchPrinterStatuses().catch(() => null);
+      const nameMap = buildPrinterNameMap(statusPayload);
+      setPrinterNames(nameMap);
+      setPrinterList([...nameMap].map(([id, name]) => ({ id, name })));
 
       setStock(Array.isArray(stockResult.items) ? stockResult.items : []);
       setMovements(Array.isArray(movementsResult.items) ? movementsResult.items : []);
@@ -363,6 +340,27 @@ export default function Inventory() {
     );
   }
 
+  function submitLoadPrinter(event) {
+    event.preventDefault();
+
+    const printerId = String(loadForm.printerId || "").trim();
+    if (!printerId) {
+      setError("Оберіть або вкажіть принтер");
+      return;
+    }
+
+    runAction(
+      () =>
+        inventoryApi.loadPrinterFilament({
+          printerId,
+          material: loadForm.material,
+          color: loadForm.color,
+          colorName: getColorName(loadForm.color),
+        }),
+      "Філамент на принтері оновлено"
+    );
+  }
+
   const submitLabel = {
     consume: "Списати",
     add: "Додати",
@@ -468,14 +466,17 @@ export default function Inventory() {
 
           {loading ? null : printerFilament.length ? (
             <div className={styles.cards}>
-              {printerFilament.map((item) => (
-                <div key={item.id} className={styles.smallCard}>
-                  <strong>{getPrinterName(item.printerId)}</strong>
-                  <span>
-                    {item.material} {item.colorName || getColorName(item.color)}
-                  </span>
-                </div>
-              ))}
+              {printerFilament.map((item) => {
+                const printer = resolvePrinterLabel(item.printerId, printerNames);
+                return (
+                  <div key={item.id} className={styles.smallCard}>
+                    <strong title={printer.title || undefined}>{printer.text}</strong>
+                    <span>
+                      {item.material} {item.colorName || getColorName(item.color)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className={styles.empty}>
@@ -635,34 +636,31 @@ export default function Inventory() {
           </button>
         </form>
 
-        <form
-          className={styles.form}
-          onSubmit={(event) => {
-            event.preventDefault();
-
-            runAction(
-              () =>
-                inventoryApi.loadPrinterFilament({
-                  ...loadForm,
-                  colorName: getColorName(loadForm.color),
-                }),
-              "Філамент на принтері оновлено"
-            );
-          }}
-        >
+        <form className={styles.form} onSubmit={submitLoadPrinter}>
           <h2>Філамент на принтері</h2>
 
           <Field label="Принтер">
-            <select
-              value={loadForm.printerId}
-              onChange={(event) => updateForm(setLoadForm, "printerId", event.target.value)}
-            >
-              {PRINTERS.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            {printerList.length ? (
+              <select
+                value={loadForm.printerId}
+                onChange={(event) => updateForm(setLoadForm, "printerId", event.target.value)}
+              >
+                <option value="">— оберіть принтер —</option>
+                {printerList.map((printer) => (
+                  <option key={printer.id} value={printer.id}>
+                    {printer.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              // Printer-status API unavailable: keep the form usable with a
+              // free-text id instead of an empty, unselectable dropdown.
+              <input
+                value={loadForm.printerId}
+                onChange={(event) => updateForm(setLoadForm, "printerId", event.target.value)}
+                placeholder="Ідентифікатор принтера"
+              />
+            )}
           </Field>
 
           <Field label="Матеріал">
@@ -707,26 +705,69 @@ export default function Inventory() {
                 <tr>
                   <th>Час</th>
                   <th>Тип</th>
+                  <th>Принтер</th>
+                  <th>Позиція</th>
                   <th>Кількість</th>
-                  <th>Було</th>
-                  <th>Стало</th>
+                  <th>Було → Стало</th>
                   <th>Джерело</th>
-                  <th>Примітка</th>
+                  <th>Деталі</th>
                 </tr>
               </thead>
 
               <tbody>
-                {movements.map((item) => (
-                  <tr key={item.id}>
-                    <td>{formatDate(item.createdAt)}</td>
-                    <td>{getMovementTypeLabel(item.type)}</td>
-                    <td>{formatGram(item.quantityG)}</td>
-                    <td>{formatGram(item.beforeG)}</td>
-                    <td>{formatGram(item.afterG)}</td>
-                    <td>{getMovementSourceLabel(item.source)}</td>
-                    <td>{item.note || "—"}</td>
-                  </tr>
-                ))}
+                {movements.map((item) => {
+                  const printer = resolvePrinterLabel(item.printerId, printerNames);
+                  const position = resolvePositionLabel(item);
+
+                  return (
+                    <tr key={item.id}>
+                      <td>{formatDate(item.createdAt)}</td>
+                      <td>{getMovementTypeLabel(item.type)}</td>
+                      <td>
+                        <span
+                          className={printer.unknown ? styles.muted : undefined}
+                          title={printer.title || undefined}
+                        >
+                          {printer.text}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={position.unknown ? styles.muted : undefined}
+                          title={position.title || undefined}
+                        >
+                          {position.text}
+                        </span>
+                        {position.archived ? (
+                          <span className={styles.archivedTag}>архів</span>
+                        ) : null}
+                      </td>
+                      <td>{formatGram(item.quantityG)}</td>
+                      <td className={styles.muted}>
+                        {formatGram(item.beforeG)} → {formatGram(item.afterG)}
+                      </td>
+                      <td>{getMovementSourceLabel(item.source)}</td>
+                      <td>
+                        {item.note ? (
+                          <div className={styles.noteText} title={item.note}>
+                            {item.note}
+                          </div>
+                        ) : null}
+                        {item.printJobId ? (
+                          <div
+                            className={styles.jobBadge}
+                            title={`Завдання друку: ${item.printJobId}`}
+                          >
+                            🖨 {shortId(item.printJobId)}
+                          </div>
+                        ) : null}
+                        {!item.note && !item.printJobId ? (
+                          <span className={styles.muted}>—</span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
