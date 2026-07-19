@@ -624,3 +624,207 @@ test("serialised consumes never drive the balance below zero", () => {
   assert.equal(store.filamentStock[0].stockG, 10);
   assert.ok(store.filamentStock[0].stockG >= 0, "balance is never negative");
 });
+
+// ── Micro-consumption guard (movements of 0 g must not exist) ───────────────
+
+test("a positive quantity that rounds to 0 g is refused — no movement, key unused", () => {
+  const store = storeWith();
+  loadReel(store, "creality-k2", "PETG", "black");
+
+  assert.throws(
+    () =>
+      svc.applyConsume(store, {
+        printerId: "creality-k2",
+        grams: 0.3,
+        source: "printer",
+        idempotencyKey: "k2:run-micro",
+      }),
+    /below the minimum unit/
+  );
+  assert.equal(store.filamentMovements.length, 0, "no 0 g movement is recorded");
+  assert.equal(store.filamentStock[0].stockG, 2000, "stock untouched");
+
+  // The idempotency key was NOT consumed: the real deduction can still use it.
+  const real = svc.applyConsume(store, {
+    printerId: "creality-k2",
+    grams: 5,
+    source: "printer",
+    idempotencyKey: "k2:run-micro",
+  });
+  assert.equal(real.duplicate, false, "the key is free for the real deduction");
+  assert.equal(store.filamentStock[0].stockG, 1995);
+});
+
+test("a tiny lengthMm that converts below 1 g is refused the same way", () => {
+  const store = storeWith();
+  loadReel(store, "creality-k2", "PETG", "black");
+
+  assert.throws(
+    () =>
+      svc.applyConsume(store, {
+        printerId: "creality-k2",
+        lengthMm: 10, // ≈ 0.03 g of PETG
+        source: "printer",
+        idempotencyKey: "k2:run-micro-len",
+      }),
+    /below the minimum unit/
+  );
+  assert.equal(store.filamentMovements.length, 0);
+});
+
+// ── Sync diagnostics: changed / matchedBy / colorMismatch / previousStock ───
+
+test("sync reports changed=true on a first bind and changed=false on a re-sync", () => {
+  const store = storeWith(); // single PETG black
+  const first = svc.applySyncPrinterFilament(store, {
+    printerId: "creality-k2",
+    material: "PETG",
+    color: "#080808",
+  });
+  assert.ok(first.resolved);
+  assert.equal(first.resolved && first.changed, true, "a new binding is a change");
+  assert.equal(first.resolved && first.previousStock, null, "nothing was bound before");
+
+  const again = svc.applySyncPrinterFilament(store, {
+    printerId: "creality-k2",
+    material: "PETG",
+    color: "#080808",
+  });
+  assert.equal(again.resolved && again.changed, false, "an idempotent re-sync is not a change");
+});
+
+test("sync names the previous stock when the binding re-points", () => {
+  const store = storeWith({
+    filamentStock: [
+      stock({ id: "stock_pla_black", material: "PLA", color: "black" }),
+      stock({ id: "stock_pla_white", material: "PLA", color: "white", colorName: "Білий" }),
+    ],
+  });
+
+  svc.applySyncPrinterFilament(store, {
+    printerId: "bambu-a1-combo",
+    amsTray: 0,
+    material: "PLA",
+    color: "#000000",
+  });
+  const swapped = svc.applySyncPrinterFilament(store, {
+    printerId: "bambu-a1-combo",
+    amsTray: 0,
+    material: "PLA",
+    color: "#FFFFFF",
+  });
+
+  assert.ok(swapped.resolved);
+  assert.equal(swapped.resolved && swapped.changed, true);
+  assert.equal(swapped.resolved && swapped.previousStock?.id, "stock_pla_black");
+  assert.equal(swapped.resolved && swapped.previousStock?.material, "PLA");
+  assert.equal(swapped.resolved && swapped.previousStock?.color, "black");
+});
+
+test("a colour that contradicts the ONLY stock of the material is flagged, not silent", () => {
+  const store = storeWith({
+    filamentStock: [stock({ id: "stock_pla_black", material: "PLA", color: "black" })],
+  });
+
+  // A red reel against the only (black) PLA: still bound — existing work must
+  // not stop — but the mismatch is reported for the operator.
+  const result = svc.applySyncPrinterFilament(store, {
+    printerId: "bambu-a1-combo",
+    amsTray: 2,
+    material: "PLA",
+    color: "#FF0000",
+  });
+
+  assert.ok(result.resolved, "the material-only match still binds");
+  assert.equal(result.resolved && result.matchedBy, "material-only");
+  assert.equal(result.resolved && result.colorMismatch, true, "the contradiction is visible");
+});
+
+test("a close colour on a single-stock material is NOT a mismatch", () => {
+  const store = storeWith(); // PETG black
+  const result = svc.applySyncPrinterFilament(store, {
+    printerId: "creality-k2",
+    material: "PETG",
+    color: "#101010", // dark grey ≈ black
+  });
+  assert.ok(result.resolved);
+  assert.equal(result.resolved && result.colorMismatch, false);
+});
+
+test("an absent/unparseable colour hint is never reported as a mismatch", () => {
+  const store = storeWith();
+  const noHint = svc.applySyncPrinterFilament(store, { printerId: "k2", material: "PETG" });
+  assert.equal(noHint.resolved && noHint.colorMismatch, false, "no hint → no evidence");
+
+  const weird = svc.applySyncPrinterFilament(store, {
+    printerId: "k2",
+    material: "PETG",
+    color: "galaxy-sparkle",
+  });
+  assert.equal(weird.resolved && weird.colorMismatch, false, "unparseable → no evidence");
+});
+
+test("deviceColorMismatch: provable contradiction only", () => {
+  assert.equal(svc.deviceColorMismatch("black", "#FF0000"), true, "red vs black");
+  assert.equal(svc.deviceColorMismatch("black", "#101010"), false, "near black");
+  assert.equal(svc.deviceColorMismatch("black", undefined), false, "no hint");
+  assert.equal(svc.deviceColorMismatch("hyper-space", "#FF0000"), false, "unparseable stock colour");
+});
+
+// ── The full recovery scenario (section 2 of the brief) ─────────────────────
+
+test("unresolved sync → stock added → re-sync binds → consume deducts exactly once", () => {
+  const store = storeWith({ filamentStock: [] }); // the reel is not on the shelf yet
+
+  // 1–3. The loaded reel matches nothing: resolved:false, no binding.
+  const miss = svc.applySyncPrinterFilament(store, {
+    printerId: "creality-k2",
+    material: "PLA",
+    color: "#FF0000",
+  });
+  assert.equal(miss.resolved, false);
+  assert.equal(store.printerFilamentState.length, 0);
+
+  // A completion deduction at this point is rejected (no binding to target).
+  assert.throws(
+    () =>
+      svc.applyConsume(store, {
+        printerId: "creality-k2",
+        lengthMm: 5000,
+        source: "printer",
+        idempotencyKey: "k2:run-lost",
+      }),
+    /No filament loaded/
+  );
+
+  // 4. The operator stocks the material.
+  svc.applyAddFilament(store, { material: "PLA", color: "red", quantityG: 1000 });
+
+  // 5–6. The delayed re-sync (same payload — idempotent) now binds.
+  const hit = svc.applySyncPrinterFilament(store, {
+    printerId: "creality-k2",
+    material: "PLA",
+    color: "#FF0000",
+  });
+  assert.ok(hit.resolved, "the retry after the operator restocks resolves");
+
+  // 7–8. The deduction goes through exactly once; a redelivery is a no-op.
+  const first = svc.applyConsume(store, {
+    printerId: "creality-k2",
+    grams: 100,
+    source: "printer",
+    idempotencyKey: "k2:run-9",
+  });
+  assert.equal(first.duplicate, false);
+  const balanceAfter = store.filamentStock[0].stockG;
+  assert.equal(balanceAfter, 900, "the stock dropped exactly once");
+
+  const redelivered = svc.applyConsume(store, {
+    printerId: "creality-k2",
+    grams: 100,
+    source: "printer",
+    idempotencyKey: "k2:run-9",
+  });
+  assert.equal(redelivered.duplicate, true);
+  assert.equal(store.filamentStock[0].stockG, balanceAfter, "no double deduction");
+});

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { env } from "../../shared/env";
+import { publishEvent } from "../../core/events";
 import { enqueueFilamentLowStockNotification } from "../notifications/dispatcher";
 import {
   listFilamentMovementViews,
@@ -98,7 +99,7 @@ export type LoadPrinterFilamentInput = {
  * The loaded-reel hint the print-orchestrator sends, resolved to an existing
  * stock rather than creating one (unlike {@link LoadPrinterFilamentInput}). The
  * material may carry a brand suffix and the colour is a device hex; both are
- * translated to a stock position by {@link resolveStockForDevice}.
+ * translated to a stock position by {@link resolveStockForDeviceMatch}.
  */
 export type SyncPrinterFilamentInput = {
   printerId: string;
@@ -111,7 +112,24 @@ export type SyncPrinterFilamentInput = {
 };
 
 export type SyncPrinterFilamentResult =
-  | { resolved: true; state: PrinterFilamentState; stock: FilamentStockView }
+  | {
+      resolved: true;
+      state: PrinterFilamentState;
+      stock: FilamentStockView;
+      /** True when the binding actually moved to a different stock (vs an idempotent re-sync). */
+      changed: boolean;
+      /** How the stock was chosen (see {@link resolveStockForDeviceMatch}). */
+      matchedBy: "material-color" | "material-only";
+      /** True when the reel's reported colour provably differs from the bound stock's. */
+      colorMismatch: boolean;
+      /** The stock the slot was bound to before this sync, when it changed; else null. */
+      previousStock: {
+        id: string;
+        material: string;
+        color: string;
+        colorName: string | null;
+      } | null;
+    }
   | {
       resolved: false;
       printerId: string;
@@ -179,7 +197,17 @@ function normalizeQuantity(value: unknown, field = "quantityG"): number {
     throw new Error(`${field} must be a positive number`);
   }
 
-  return Math.round(quantity);
+  const rounded = Math.round(quantity);
+
+  // Stock is tracked in whole grams. A positive value that rounds to zero must
+  // NOT silently become a 0 g movement (it would still consume the idempotency
+  // key); the caller accumulates such micro-amounts and re-sends them once they
+  // reach a whole gram (see apps/atelier FilamentConsumption).
+  if (rounded === 0) {
+    throw new Error(`${field} is below the minimum unit of 1 g`);
+  }
+
+  return rounded;
 }
 
 function normalizeNonNegative(value: unknown, field: string): number {
@@ -336,29 +364,46 @@ function colorDistance(a: [number, number, number], b: [number, number, number])
  */
 const MAX_COLOR_DISTANCE = 160;
 
+/** How a device reel hint was matched to a stock position (see resolveStockForDeviceMatch). */
+export type DeviceStockMatch = {
+  stock: FilamentStock;
+  /**
+   * `material-color` — the colour hint participated in the choice (nearest
+   * within {@link MAX_COLOR_DISTANCE} among several candidates).
+   * `material-only` — the single stock of the material was taken regardless of
+   * colour; the hint may contradict it (see {@link deviceColorMismatch}).
+   */
+  matchedBy: "material-color" | "material-only";
+};
+
 /**
  * Finds the existing enabled stock a loaded reel maps to, or null when there is
  * no honest match (never creating stock from a device hint):
  *
  *  1. No stock of that material → null (nothing to deduct from).
- *  2. Exactly one stock of the material → that reel, colour-agnostic: with a
- *     single spool of a material loaded, its colour hint is noise and the grams
- *     belong to it regardless.
- *  3. Several colours of the material → the nearest by colour, but only within
- *     {@link MAX_COLOR_DISTANCE}; an unparseable/absent hint or a colour that
- *     matches none of them closely stays unresolved rather than guessing wrong.
+ *  2. Exactly one stock of the material → that reel, colour-agnostic
+ *     (`material-only`): with a single spool of a material loaded, the grams
+ *     belong to it regardless of the colour hint. When the hint PROVABLY
+ *     contradicts the stock's colour, the sync layer reports it as a
+ *     colour-mismatch warning instead of matching silently.
+ *  3. Several colours of the material → the nearest by colour
+ *     (`material-color`), but only within {@link MAX_COLOR_DISTANCE}; an
+ *     unparseable/absent hint or a colour that matches none of them closely
+ *     stays unresolved rather than guessing wrong.
  */
-export function resolveStockForDevice(
+export function resolveStockForDeviceMatch(
   store: InventoryStore,
   material: string,
   color: unknown
-): FilamentStock | null {
+): DeviceStockMatch | null {
   const candidates = store.filamentStock.filter(
     (item) => item.enabled && item.material === material
   );
 
   if (candidates.length === 0) return null;
-  if (candidates.length === 1) return candidates[0];
+  if (candidates.length === 1) {
+    return { stock: candidates[0], matchedBy: "material-only" };
+  }
 
   const target = parseColorToRgb(color);
   if (!target) return null;
@@ -375,7 +420,22 @@ export function resolveStockForDevice(
     }
   }
 
-  return best && bestDistance <= MAX_COLOR_DISTANCE ? best : null;
+  return best && bestDistance <= MAX_COLOR_DISTANCE
+    ? { stock: best, matchedBy: "material-color" }
+    : null;
+}
+
+/**
+ * Whether a device colour hint PROVABLY contradicts the chosen stock's colour:
+ * both sides parse to RGB and sit farther apart than {@link MAX_COLOR_DISTANCE}
+ * (e.g. a red reel bound to the only black PLA). An absent/unparseable side is
+ * never a mismatch — we only warn on evidence, not on missing data.
+ */
+export function deviceColorMismatch(stockColor: unknown, hintColor: unknown): boolean {
+  const stockRgb = parseColorToRgb(stockColor);
+  const hintRgb = parseColorToRgb(hintColor);
+  if (!stockRgb || !hintRgb) return false;
+  return colorDistance(stockRgb, hintRgb) > MAX_COLOR_DISTANCE;
 }
 
 function statusForGrams(
@@ -1100,7 +1160,7 @@ export async function loadPrinterFilament(input: LoadPrinterFilamentInput) {
  * orchestrator's auto-deduction has a target with no manual dashboard entry
  * (requirement: filament is resolved and bound automatically). Unlike
  * {@link applyLoadPrinterFilament} this never creates stock: the device hint is
- * resolved against what is actually on the shelf ({@link resolveStockForDevice}),
+ * resolved against what is actually on the shelf ({@link resolveStockForDeviceMatch}),
  * and when nothing matches it reports `resolved: false` instead of inventing a
  * reel — the binding (and any deduction) simply waits until the operator stocks
  * the material. Idempotent: re-syncing the same slot just refreshes the row.
@@ -1118,9 +1178,9 @@ export function applySyncPrinterFilament(
   const amsTray = normalizeAmsTray(input.amsTray);
   const material = normalizeDeviceMaterial(input.material);
 
-  const stock = resolveStockForDevice(store, material, input.color);
+  const match = resolveStockForDeviceMatch(store, material, input.color);
 
-  if (!stock) {
+  if (!match) {
     return {
       resolved: false,
       printerId,
@@ -1130,10 +1190,55 @@ export function applySyncPrinterFilament(
     };
   }
 
+  const { stock, matchedBy } = match;
+
+  // Snapshot the previous binding BEFORE the upsert (which mutates the state
+  // row in place) so an actual reel change can be reported exactly once — an
+  // idempotent re-sync of the same slot to the same stock is `changed: false`
+  // and produces no operational event.
+  const existing = store.printerFilamentState.find(
+    (item) => item.printerId === printerId && item.amsTray === amsTray
+  );
+  const previousBinding = existing
+    ? { stockId: existing.stockId, material: existing.material, color: existing.color }
+    : null;
+  const changed = !previousBinding || previousBinding.stockId !== stock.id;
+  const previous =
+    previousBinding && previousBinding.stockId !== stock.id
+      ? store.filamentStock.find((item) => item.id === previousBinding.stockId)
+      : undefined;
+
   const state = upsertPrinterFilamentState(store, printerId, amsTray, stock);
 
-  return { resolved: true, state, stock: toStockView(stock) };
+  return {
+    resolved: true,
+    state,
+    stock: toStockView(stock),
+    changed,
+    matchedBy,
+    colorMismatch:
+      matchedBy === "material-only" && deviceColorMismatch(stock.color, input.color),
+    previousStock:
+      changed && previousBinding
+        ? {
+            id: previousBinding.stockId,
+            material: previous?.material ?? previousBinding.material,
+            color: previous?.color ?? previousBinding.color,
+            colorName: previous?.colorName ?? null,
+          }
+        : null,
+  };
 }
+
+/**
+ * Dedup anchor for the colour-mismatch operational event: per (printer, slot),
+ * the signature of the last warned combination (device material+colour hint ×
+ * chosen stock). Re-syncs of the same combination (poll retries, atelier
+ * restarts) warn once; a reel change, a different stock or a resolved mismatch
+ * resets it. In-memory by design — after an API restart the warning may repeat
+ * once, which is acceptable for an operator notice.
+ */
+const colorMismatchWarned = new Map<string, string>();
 
 export async function syncPrinterFilament(input: SyncPrinterFilamentInput) {
   const printerId = String(input.printerId || "").trim();
@@ -1141,11 +1246,61 @@ export async function syncPrinterFilament(input: SyncPrinterFilamentInput) {
   const scope: InventoryMutationScope = {
     materials: material ? [material] : [],
     printers: printerId ? [printerId] : [],
+    // Load the stocks referenced by the printer's existing bindings too, so a
+    // reel CHANGE can name the previous position in the operational event.
+    includePrinterStateStock: true,
   };
 
-  return runInventoryMutation(scope, (store) =>
+  const result = await runInventoryMutation(scope, (store) =>
     applySyncPrinterFilament(store, input)
   );
+
+  // Operational events (after the transaction committed — never for a rolled-back
+  // change). The SSE bus is the dashboard's live operational feed.
+  if (result.resolved) {
+    const slotKey = `${result.state.printerId}:${result.state.amsTray ?? "main"}`;
+
+    if (result.changed) {
+      publishEvent({
+        domain: "inventory",
+        type: "printer_filament_changed",
+        payload: {
+          printerId: result.state.printerId,
+          amsTray: result.state.amsTray,
+          stockId: result.stock.id,
+          material: result.stock.material,
+          color: result.stock.color,
+          colorName: result.stock.colorName,
+          previous: result.previousStock,
+        },
+      });
+    }
+
+    if (result.colorMismatch) {
+      const warnSig = `${material}|${String(input.color ?? "")}|${result.stock.id}`;
+      if (colorMismatchWarned.get(slotKey) !== warnSig) {
+        colorMismatchWarned.set(slotKey, warnSig);
+        publishEvent({
+          domain: "inventory",
+          type: "printer_filament_color_mismatch",
+          payload: {
+            printerId: result.state.printerId,
+            amsTray: result.state.amsTray,
+            material,
+            deviceColor: input.color ?? null,
+            stockId: result.stock.id,
+            stockColor: result.stock.color,
+            stockColorName: result.stock.colorName,
+            matchedBy: "material-only",
+          },
+        });
+      }
+    } else {
+      colorMismatchWarned.delete(slotKey);
+    }
+  }
+
+  return result;
 }
 
 export async function getInventoryMaterialsSummary() {
@@ -1198,7 +1353,7 @@ export async function getInventoryMaterialsSummary() {
 // free-form values the dashboard/printers stored (`material`, `color`) onto a
 // small fixed vocabulary the shop can switch on. It is intentionally a plain
 // alias table, NOT the RGB nearest-colour matching used for device-reel binding
-// (resolveStockForDevice): the shop must never see Grey, Silver and Transparent
+// (resolveStockForDeviceMatch): the shop must never see Grey, Silver and Transparent
 // collapsed together, so colour is matched by name only.
 
 const CANONICAL_MATERIALS: readonly CanonicalMaterial[] = [
