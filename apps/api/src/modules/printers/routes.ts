@@ -34,7 +34,7 @@ export default async function printersRoutes(
     if (!client) {
       return reply.code(503).send({
         error:
-          "Оркестратор друку не налаштований (PRINTER_ORCHESTRATOR_URL)",
+          "Оркестратор печати не настроен (PRINTER_ORCHESTRATOR_URL)",
         printers: [],
       });
     }
@@ -55,7 +55,7 @@ export default async function printersRoutes(
       const message =
         error instanceof OrchestratorError
           ? error.message
-          : "Невідома помилка оркестратора друку";
+          : "Неизвестная ошибка оркестратора печати";
 
       request.log.warn(
         {
@@ -66,7 +66,7 @@ export default async function printersRoutes(
       );
 
       return reply.code(502).send({
-        error: `Оркестратор друку недоступний: ${message}`,
+        error: `Оркестратор печати недоступен: ${message}`,
         printers: [],
       });
     }

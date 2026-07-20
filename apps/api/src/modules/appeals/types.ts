@@ -1,8 +1,8 @@
-// Appeals (Звернення) — customer ⇄ operator product-question chat.
+// Appeals (Обращения) — customer ⇄ operator product-question chat.
 //
-// A buyer raises a question from the shop's "Поставити запитання майстру"
+// A buyer raises a question from the shop's "Задать вопрос мастеру"
 // button; the operator answers and works the thread from the dashboard
-// "Звернення" page. Text-only messages by design (stage 1 — no attachments).
+// "Обращения" page. Text-only messages by design (stage 1 — no attachments).
 
 export type AppealStatus = "new" | "in_progress" | "closed";
 

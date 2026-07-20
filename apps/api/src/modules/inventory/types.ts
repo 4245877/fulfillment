@@ -49,7 +49,7 @@ export type FilamentMovement = {
 
 /**
  * A movement enriched with a snapshot of its stock position (material / colour),
- * so the dashboard's "Останні рухи" table can show WHICH position moved without
+ * so the dashboard's "Последние движения" table can show WHICH position moved without
  * a second lookup — and without breaking when that position was later archived
  * (enabled = false) or removed (all stock fields null). Denormalised at read
  * time via a LEFT JOIN in {@link listFilamentMovementViews}; the API keeps the

@@ -6,34 +6,34 @@ import styles from "../../Settings.module.css";
 export default function UiSection({ cfg, patch }) {
   return (
     <Card
-      title="1) Загальне (UI/Wallboard)"
-      sub="SSE/опитування, перемикачі розділів, пороги підсвічування, локаль/час/валюта"
+      title="1) Общее (UI/Wallboard)"
+      sub="SSE/опрос, переключатели разделов, пороги подсветки, локаль/время/валюта"
     >
       <FieldRow
-        label="SSE (події, які надсилає сервер)"
-        hint="Якщо ввімкнено, Board може отримувати оновлення без опитування."
+        label="SSE (события, которые отправляет сервер)"
+        hint="Если включено, Board может получать обновления без опроса."
       >
         <div className={styles.inputGroup}>
           <Toggle
             value={cfg.ui.sseEnabled}
             onChange={(v) => patch("ui.sseEnabled", v)}
-            label="Увімкнути SSE"
+            label="Включить SSE"
           />
 
           <div>
             <div className={styles.inputLabel}>
-              Теми (orders, prints, shipments, ops)
+              Темы (orders, prints, shipments, ops)
             </div>
             <ChipsEditor
               value={cfg.ui.sseTopics}
               onChange={(arr) => patch("ui.sseTopics", arr)}
-              placeholder="Наприклад: orders"
+              placeholder="Например: orders"
             />
           </div>
 
           <div className={styles.inputGrid2}>
             <div>
-              <div className={styles.inputLabel}>Ліміт подій/с</div>
+              <div className={styles.inputLabel}>Лимит событий/с</div>
               <NumberInput
                 value={cfg.ui.sseEventsPerSecLimit}
                 min={1}
@@ -42,7 +42,7 @@ export default function UiSection({ cfg, patch }) {
               />
             </div>
             <div>
-              <div className={styles.inputLabel}>Усунення дублікатів (мс)</div>
+              <div className={styles.inputLabel}>Устранение дубликатов (мс)</div>
               <NumberInput
                 value={cfg.ui.sseDedupWindowMs}
                 min={0}
@@ -56,17 +56,17 @@ export default function UiSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Опитування (polling)"
-        hint="Резервний режим, якщо SSE недоступний."
+        label="Опрос (polling)"
+        hint="Резервный режим, если SSE недоступен."
       >
         <div className={styles.inputGroup}>
           <Toggle
             value={cfg.ui.pollingEnabled}
             onChange={(v) => patch("ui.pollingEnabled", v)}
-            label="Увімкнути polling"
+            label="Включить polling"
           />
           <div className={styles.max320}>
-            <div className={styles.inputLabel}>Інтервал (мс)</div>
+            <div className={styles.inputLabel}>Интервал (мс)</div>
             <NumberInput
               value={cfg.ui.pollingIntervalMs}
               min={1000}
@@ -79,8 +79,8 @@ export default function UiSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Board: показувати розділи"
-        hint="Перемикачі функцій для головної дошки (Board)."
+        label="Board: показывать разделы"
+        hint="Переключатели функций для главной доски (Board)."
       >
         <div className={styles.inputGroup}>
           {Object.entries(cfg.ui.boardSections).map(([k, v]) => (
@@ -95,15 +95,15 @@ export default function UiSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Пороги підсвічування (попередження/небезпека)"
-        hint="Використовуються для KPI, lag, backlog і низьких запасів."
+        label="Пороги подсветки (предупреждение/опасность)"
+        hint="Используются для KPI, lag, backlog и низких запасов."
       >
         <div className={styles.inputGroup}>
           <div className={styles.nestedCard}>
-            <div className={styles.nestedCardTitle}>Затримка черг (lag), мс</div>
+            <div className={styles.nestedCardTitle}>Задержка очередей (lag), мс</div>
             <div className={styles.inputGrid2}>
               <div>
-                <div className={styles.inputLabel}>Попередження</div>
+                <div className={styles.inputLabel}>Предупреждение</div>
                 <NumberInput
                   value={cfg.ui.thresholds.queueLagWarnMs}
                   min={0}
@@ -113,7 +113,7 @@ export default function UiSection({ cfg, patch }) {
                 />
               </div>
               <div>
-                <div className={styles.inputLabel}>Небезпека</div>
+                <div className={styles.inputLabel}>Опасность</div>
                 <NumberInput
                   value={cfg.ui.thresholds.queueLagDangerMs}
                   min={0}
@@ -126,10 +126,10 @@ export default function UiSection({ cfg, patch }) {
           </div>
 
           <div className={styles.nestedCard}>
-            <div className={styles.nestedCardTitle}>Відставання (Indexer/Ingester)</div>
+            <div className={styles.nestedCardTitle}>Отставание (Indexer/Ingester)</div>
             <div className={styles.inputGrid2}>
               <div>
-                <div className={styles.inputLabel}>Indexer: попередження</div>
+                <div className={styles.inputLabel}>Indexer: предупреждение</div>
                 <NumberInput
                   value={cfg.ui.thresholds.indexerBacklogWarn}
                   min={0}
@@ -139,7 +139,7 @@ export default function UiSection({ cfg, patch }) {
                 />
               </div>
               <div>
-                <div className={styles.inputLabel}>Indexer: небезпека</div>
+                <div className={styles.inputLabel}>Indexer: опасность</div>
                 <NumberInput
                   value={cfg.ui.thresholds.indexerBacklogDanger}
                   min={0}
@@ -149,7 +149,7 @@ export default function UiSection({ cfg, patch }) {
                 />
               </div>
               <div>
-                <div className={styles.inputLabel}>Ingester: попередження</div>
+                <div className={styles.inputLabel}>Ingester: предупреждение</div>
                 <NumberInput
                   value={cfg.ui.thresholds.ingesterBacklogWarn}
                   min={0}
@@ -159,7 +159,7 @@ export default function UiSection({ cfg, patch }) {
                 />
               </div>
               <div>
-                <div className={styles.inputLabel}>Ingester: небезпека</div>
+                <div className={styles.inputLabel}>Ingester: опасность</div>
                 <NumberInput
                   value={cfg.ui.thresholds.ingesterBacklogDanger}
                   min={0}
@@ -172,10 +172,10 @@ export default function UiSection({ cfg, patch }) {
           </div>
 
           <div className={styles.nestedCard}>
-            <div className={styles.nestedCardTitle}>Низький запас матеріалів</div>
+            <div className={styles.nestedCardTitle}>Низкий запас материалов</div>
             <div className={styles.inputGrid2}>
               <div>
-                <div className={styles.inputLabel}>Філамент: попередження (кг)</div>
+                <div className={styles.inputLabel}>Филамент: предупреждение (кг)</div>
                 <NumberInput
                   value={cfg.ui.thresholds.lowFilamentWarnKg}
                   min={0}
@@ -185,7 +185,7 @@ export default function UiSection({ cfg, patch }) {
                 />
               </div>
               <div>
-                <div className={styles.inputLabel}>Смола: попередження (л)</div>
+                <div className={styles.inputLabel}>Смола: предупреждение (л)</div>
                 <NumberInput
                   value={cfg.ui.thresholds.lowResinWarnL}
                   min={0}
@@ -200,12 +200,12 @@ export default function UiSection({ cfg, patch }) {
       </FieldRow>
 
       <FieldRow
-        label="Локаль: часовий пояс/час/валюта"
-        hint="Форматування часу на Board і грошових значень у таблицях."
+        label="Локаль: часовой пояс/время/валюта"
+        hint="Форматирование времени на Board и денежных значений в таблицах."
       >
         <div className={`${styles.inputGroup} ${styles.max520}`}>
           <div>
-            <div className={styles.inputLabel}>Часовий пояс</div>
+            <div className={styles.inputLabel}>Часовой пояс</div>
             <TextInput
               value={cfg.ui.locale.timezone}
               onChange={(v) => patch("ui.locale.timezone", v)}
@@ -215,7 +215,7 @@ export default function UiSection({ cfg, patch }) {
 
           <div className={styles.inputGrid2}>
             <div>
-              <div className={styles.inputLabel}>Формат часу</div>
+              <div className={styles.inputLabel}>Формат времени</div>
               <Select
                 value={cfg.ui.locale.timeFormat}
                 onChange={(v) => patch("ui.locale.timeFormat", v)}

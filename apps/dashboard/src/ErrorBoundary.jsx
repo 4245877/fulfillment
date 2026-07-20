@@ -17,13 +17,13 @@ export default class ErrorBoundary extends React.Component {
       return (
         <main className={styles.page}>
           <section className={`${styles.card} ${styles.errorCard}`} role="alert">
-            <p className={styles.eyebrow}>Помилка застосунку</p>
-            <h1 className={styles.title}>Інтерфейс не зміг відкритися</h1>
+            <p className={styles.eyebrow}>Ошибка приложения</p>
+            <h1 className={styles.title}>Интерфейс не смог открыться</h1>
             <p className={styles.description}>
-              Мені дуже прикро — сталося щось серйозне. Будь ласка,
-              перезавантажте сторінку, я одразу спробую все відновити. Якщо
-              це повториться, передайте адміністратору технічні деталі —
-              я дбайливо зберегла їх нижче.
+              Мне очень жаль — произошло что-то серьёзное. Пожалуйста,
+              перезагрузите страницу, я сразу постараюсь всё восстановить. Если
+              это повторится, передайте администратору технические детали —
+              я бережно сохранила их ниже.
             </p>
 
             <div className={styles.actions}>
@@ -32,15 +32,15 @@ export default class ErrorBoundary extends React.Component {
                 type="button"
                 onClick={() => window.location.reload()}
               >
-                Перезавантажити
+                Перезагрузить
               </button>
               <a className="btn btn-secondary" href="/">
-                На головну
+                На главную
               </a>
             </div>
 
             <details className={styles.details}>
-              <summary>Технічні деталі</summary>
+              <summary>Технические детали</summary>
               <pre>{String(this.state.error?.stack || this.state.error)}</pre>
             </details>
           </section>

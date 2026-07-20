@@ -49,7 +49,7 @@ test("renders printer error with name and escaped description", () => {
     photo: null,
   } as any);
 
-  assert.equal(html.includes("❌ Помилка принтера"), true);
+  assert.equal(html.includes("❌ Ошибка принтера"), true);
   assert.equal(html.includes("Creality K2"), true);
   assert.equal(html.includes("vase.gcode"), true);
   assert.equal(html.includes("Servo &lt;fault&gt; &amp; stall"), true);
@@ -72,7 +72,7 @@ test("renders filament runout with the reason description", () => {
     } as any
   );
 
-  assert.equal(html.includes("🧵 Закінчився філамент"), true);
+  assert.equal(html.includes("🧵 Закончился филамент"), true);
   assert.equal(html.includes("Filament runout"), true);
 });
 
@@ -92,9 +92,9 @@ test("renders a cancelled print without an error line", () => {
     } as any
   );
 
-  assert.equal(html.includes("🚫 Друк скасовано"), true);
+  assert.equal(html.includes("🚫 Печать отменена"), true);
   assert.equal(html.includes("99%"), true);
-  assert.equal(html.includes("Опис"), false);
+  assert.equal(html.includes("Описание"), false);
 });
 
 test("renders a low-stock filament alert naming the material and remaining kg", () => {
@@ -104,8 +104,8 @@ test("renders a low-stock filament alert naming the material and remaining kg", 
       stockId: "stock_1",
       material: "PETG",
       color: "black",
-      colorName: "Чорний",
-      label: "PETG Чорний",
+      colorName: "Чёрный",
+      label: "PETG Чёрный",
       status: "low",
       stockG: 800,
       stockKg: 0.8,
@@ -117,8 +117,8 @@ test("renders a low-stock filament alert naming the material and remaining kg", 
     } as any
   );
 
-  assert.equal(html.includes("⚠️ Філамент закінчується"), true);
-  assert.equal(html.includes("PETG Чорний"), true);
+  assert.equal(html.includes("⚠️ Филамент заканчивается"), true);
+  assert.equal(html.includes("PETG Чёрный"), true);
   assert.equal(html.includes("0.80 кг (800 г)"), true);
 });
 
@@ -129,8 +129,8 @@ test("renders a critical filament alert with the critical title and threshold", 
       stockId: "stock_1",
       material: "PETG",
       color: "black",
-      colorName: "Чорний",
-      label: "PETG Чорний",
+      colorName: "Чёрный",
+      label: "PETG Чёрный",
       status: "critical",
       stockG: 200,
       stockKg: 0.2,
@@ -142,7 +142,7 @@ test("renders a critical filament alert with the critical title and threshold", 
     } as any
   );
 
-  assert.equal(html.includes("🛑 Критичний запас філаменту"), true);
+  assert.equal(html.includes("🛑 Критический запас филамента"), true);
   assert.equal(html.includes("0.30 кг (300 г)"), true);
 });
 
@@ -162,7 +162,7 @@ test("clamps an oversized critical error within the Telegram message limit", () 
   );
 
   assert.equal(html.length <= TELEGRAM_MESSAGE_LIMIT, true);
-  assert.equal(html.includes("Критична помилка API"), true);
+  assert.equal(html.includes("Критическая ошибка API"), true);
 });
 
 test("renders print completion without an error line", () => {
@@ -181,7 +181,7 @@ test("renders print completion without an error line", () => {
     } as any
   );
 
-  assert.equal(html.includes("✅ Друк завершено"), true);
+  assert.equal(html.includes("✅ Печать завершена"), true);
   assert.equal(html.includes("100%"), true);
-  assert.equal(html.includes("Опис"), false);
+  assert.equal(html.includes("Описание"), false);
 });

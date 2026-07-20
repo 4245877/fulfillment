@@ -71,16 +71,16 @@ async function call<T>(
         throw new UpstreamError(json.error, res.status);
       }
       if (json) {
-        throw new UpstreamError(`Сервіс звернень повернув ${res.status}`, res.status);
+        throw new UpstreamError(`Сервис обращений вернул ${res.status}`, res.status);
       }
-      throw new UpstreamError("Сервіс звернень недоступний", 503);
+      throw new UpstreamError("Сервис обращений недоступен", 503);
     }
 
     return json as T;
   } catch (error) {
     if (error instanceof UpstreamError) throw error;
     // Network failure / timeout — never leak the raw transport error.
-    throw new UpstreamError("Сервіс звернень недоступний");
+    throw new UpstreamError("Сервис обращений недоступен");
   } finally {
     clearTimeout(timer);
   }

@@ -26,7 +26,7 @@ export function cloneDeep(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-// Клонувати лише вздовж шляху (дешево для великих конфігів)
+// Клонировать только вдоль пути (дёшево для больших конфигов)
 export function setByPath(obj, path, value) {
   const parts = String(path).split(".").filter(Boolean);
   if (!parts.length) return obj;

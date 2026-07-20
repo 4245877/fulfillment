@@ -32,7 +32,7 @@ health-пробы ходят без ретрая.
   Telegram notifications into the outbox. Snapshots come from
   `GET /api/printers/:id/camera.jpg?ensureLight=1` (the orchestrator turns the
   chamber light on for night captures).
-- `Стан сервісів` on the Board probes the orchestrator once and derives both
+- `Состояние сервисов` on the Board probes the orchestrator once and derives both
   the `orchestrator` and `printers` rows from that single request;
   `/api/ops/overview` additionally exposes `stats.printerMonitor` (poll
   cadence, cycle duration, consecutive failures, outage flag, per-printer data

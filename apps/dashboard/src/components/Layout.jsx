@@ -33,7 +33,7 @@ export default function Layout() {
         type="button"
         className={s.menuButton}
         onClick={() => setMenuOpen(true)}
-        aria-label="Відкрити меню"
+        aria-label="Открыть меню"
         aria-controls="dashboard-sidebar"
         aria-expanded={menuOpen}
       >
@@ -47,7 +47,7 @@ export default function Layout() {
           type="button"
           className={s.backdrop}
           onClick={() => setMenuOpen(false)}
-          aria-label="Закрити меню"
+          aria-label="Закрыть меню"
         />
       )}
 
@@ -72,7 +72,7 @@ export default function Layout() {
             type="button"
             className={s.closeButton}
             onClick={() => setMenuOpen(false)}
-            aria-label="Закрити меню"
+            aria-label="Закрыть меню"
           >
             ×
           </button>
@@ -83,7 +83,7 @@ export default function Layout() {
         <div className={s.sidebarFooter}>
           <span className={s.securityDot} aria-hidden="true" />
           <span>
-            <strong>Захищений контур</strong>
+            <strong>Защищённый контур</strong>
             <small>RBAC · 2FA · Audit</small>
           </span>
         </div>

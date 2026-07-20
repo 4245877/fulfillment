@@ -4,22 +4,22 @@ import s from "./Nav.module.css";
 
 const NAV_GROUPS = [
   {
-    label: "Операції",
+    label: "Операции",
     items: [
-      { to: "/", end: true, label: "Дошка", icon: "board" },
-      { to: "/orders", label: "Замовлення", icon: "orders" },
-      { to: "/printers", label: "3D-принтери", icon: "printers" },
-      { to: "/inventory", label: "Матеріали", icon: "inventory" },
-      { to: "/shipments", label: "Відправлення", icon: "shipments" },
-      { to: "/appeals", label: "Звернення", icon: "appeals" },
-      { to: "/product-reports", label: "Скарги", icon: "reports" },
+      { to: "/", end: true, label: "Доска", icon: "board" },
+      { to: "/orders", label: "Заказы", icon: "orders" },
+      { to: "/printers", label: "3D-принтеры", icon: "printers" },
+      { to: "/inventory", label: "Материалы", icon: "inventory" },
+      { to: "/shipments", label: "Отправления", icon: "shipments" },
+      { to: "/appeals", label: "Обращения", icon: "appeals" },
+      { to: "/product-reports", label: "Жалобы", icon: "reports" },
     ],
   },
   {
     label: "Система",
     items: [
-      { to: "/audit", label: "Журнал подій", icon: "audit" },
-      { to: "/settings", label: "Налаштування", icon: "settings" },
+      { to: "/audit", label: "Журнал событий", icon: "audit" },
+      { to: "/settings", label: "Настройки", icon: "settings" },
     ],
   },
 ];
@@ -104,7 +104,7 @@ export default function Nav({ onNavigate }) {
   const cls = ({ isActive }) => (isActive ? `${s.link} ${s.active}` : s.link);
 
   return (
-    <nav className={s.nav} aria-label="Основна навігація">
+    <nav className={s.nav} aria-label="Основная навигация">
       {NAV_GROUPS.map((group) => (
         <div className={s.group} key={group.label}>
           <div className={s.groupLabel}>{group.label}</div>

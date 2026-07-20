@@ -26,18 +26,18 @@ const ORDER_STATUSES = [
 ];
 
 const ORDER_STATUS_LABELS = {
-  New: "Нове",
-  Accepted: "Прийнято",
-  PrePrintCheck: "Перевірка перед друком",
-  Queued: "У черзі",
-  Printing: "Друкується",
-  PostProcess: "Постобробка",
-  Packaging: "Пакування",
-  Shipment: "Відправлення",
-  Pickup: "Самовивіз",
+  New: "Новый",
+  Accepted: "Принят",
+  PrePrintCheck: "Проверка перед печатью",
+  Queued: "В очереди",
+  Printing: "Печатается",
+  PostProcess: "Постобработка",
+  Packaging: "Упаковка",
+  Shipment: "Отправление",
+  Pickup: "Самовывоз",
   Delivered: "Доставлено",
-  Issued: "Видано",
-  Cancelled: "Скасовано",
+  Issued: "Выдано",
+  Cancelled: "Отменён",
   Problem: "Проблема",
 };
 
@@ -70,7 +70,7 @@ function formatMoney(value, currency = "UAH") {
 
   if (!Number.isFinite(n)) return "—";
 
-  return `${new Intl.NumberFormat("uk-UA").format(n)} ${
+  return `${new Intl.NumberFormat("ru-RU").format(n)} ${
     currency === "UAH" ? "грн" : currency
   }`;
 }
@@ -82,7 +82,7 @@ function formatDate(value) {
 
   if (Number.isNaN(d.getTime())) return String(value);
 
-  return d.toLocaleString("uk-UA", {
+  return d.toLocaleString("ru-RU", {
     dateStyle: "short",
     timeStyle: "short",
   });
@@ -176,7 +176,7 @@ function sourceLabel(url) {
 
     return host;
   } catch {
-    return "Джерело моделі";
+    return "Источник модели";
   }
 }
 
@@ -187,7 +187,7 @@ function objectOrEmpty(value) {
 }
 
 const COMPANY_NAME_RE =
-  /\b(тов|тзов|фоп|пп|пат|приватне підприємство|компанія|llc|ltd)\b/i;
+  /\b(тов|тзов|фоп|пп|пат|приватне підприємство|компанія|частное предприятие|компания|ооо|ип|llc|ltd)\b/i;
 
 function cleanText(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -212,8 +212,8 @@ function sameText(a, b) {
 
 function cleanLocation(value) {
   const cleaned = cleanText(value)
-    .replace(/,\s*місто\s*,/gi, ", ")
-    .replace(/\bмісто\s+/gi, "");
+    .replace(/,\s*(місто|город)\s*,/gi, ", ")
+    .replace(/\b(місто|город)\s+/gi, "");
 
   return cleanText(cleaned).replace(/\s+,/g, ",").replace(/,\s+/g, ", ");
 }
@@ -247,20 +247,20 @@ function formatDeliveryService(value) {
   if (
     key.includes("nova_post") ||
     key.includes("novaposhta") ||
-    raw.toLowerCase().includes("нова пошта")
+    /нова пошта|новая почта/.test(raw.toLowerCase())
   ) {
-    return "Нова пошта";
+    return "Новая почта";
   }
 
-  if (key.includes("ukrposhta") || raw.toLowerCase().includes("укрпошта")) {
-    return "Укрпошта";
+  if (key.includes("ukrposhta") || /укрпошта|укрпочта/.test(raw.toLowerCase())) {
+    return "Укрпочта";
   }
 
   return raw;
 }
 
 function looksLikePickupPoint(value) {
-  return /відділен|поштомат|postomat|warehouse|branch|office|№\s*\d+/i.test(
+  return /відділен|отделен|поштомат|почтомат|postomat|warehouse|branch|office|№\s*\d+/i.test(
     cleanText(value)
   );
 }
@@ -269,21 +269,21 @@ function formatDeliveryMethod(method, carrier, warehouse) {
   const raw = cleanText(method);
   const key = keyText(raw);
 
-  if (key === "nova_post" || carrier === "Нова пошта") {
-    return warehouse ? "Відділення / поштомат" : "Нова пошта";
+  if (key === "nova_post" || carrier === "Новая почта") {
+    return warehouse ? "Отделение / почтомат" : "Новая почта";
   }
 
   const labels = {
-    pickup: "Самовивіз",
-    courier: "Кур’єр",
+    pickup: "Самовывоз",
+    courier: "Курьер",
     delivery: "Доставка",
-    ukrposhta: "Укрпошта",
+    ukrposhta: "Укрпочта",
   };
 
   return labels[key] ?? raw;
 }
 
-function PersonNameRows({ value, fallbackLabel = "ПІБ" }) {
+function PersonNameRows({ value, fallbackLabel = "ФИО" }) {
   const person = splitPersonName(value);
 
   if (!person.fullName) return null;
@@ -294,9 +294,9 @@ function PersonNameRows({ value, fallbackLabel = "ПІБ" }) {
 
   return (
     <>
-      <InfoRow label="Прізвище" value={person.lastName} />
-      <InfoRow label="Ім’я" value={person.firstName} />
-      <InfoRow label="По батькові" value={person.middleName} />
+      <InfoRow label="Фамилия" value={person.lastName} />
+      <InfoRow label="Имя" value={person.firstName} />
+      <InfoRow label="Отчество" value={person.middleName} />
     </>
   );
 }
@@ -421,7 +421,7 @@ function pickDelivery(order) {
       ""
   );
 
-  const isNovaPost = carrier === "Нова пошта" || keyText(rawMethod) === "nova_post";
+  const isNovaPost = carrier === "Новая почта" || keyText(rawMethod) === "nova_post";
 
   const warehouse =
     rawWarehouse || (isNovaPost && looksLikePickupPoint(line) ? line : "");
@@ -530,7 +530,7 @@ function pickPayment(order) {
     statusRaw.includes("full") ||
     statusRaw.includes("paid") ||
     statusRaw.includes("complete") ||
-    statusRaw.includes("повн") ||
+    statusRaw.includes("повн") || statusRaw.includes("полн") ||
     (Number.isFinite(paid) &&
       Number.isFinite(total) &&
       total > 0 &&
@@ -538,7 +538,7 @@ function pickPayment(order) {
 
   return {
     kind: isPartial ? "partial" : isFull ? "full" : "unknown",
-    label: isPartial ? "Часткова" : isFull ? "Повна" : "Не вказано",
+    label: isPartial ? "Частичная" : isFull ? "Полная" : "Не указано",
     paidAmount,
   };
 }
@@ -615,11 +615,11 @@ const OrderCard = memo(function OrderCard({
           </div>
 
           {shopId && shopId !== id ? (
-            <div className={s.subLine}>ID магазину: {shopId}</div>
+            <div className={s.subLine}>ID магазина: {shopId}</div>
           ) : null}
 
           <div className={s.subLine}>
-            Сума:{" "}
+            Сумма:{" "}
             <strong>
               {formatMoney(order?.total_uah ?? order?.total, order?.currency)}
             </strong>
@@ -628,7 +628,7 @@ const OrderCard = memo(function OrderCard({
 
         <div className={s.sideBlock}>
           <div className={`text-muted ${s.customerInfo}`}>
-            {customerSummary || "Клієнт не вказаний"}
+            {customerSummary || "Клиент не указан"}
           </div>
 
           <label className={s.statusEditor}>
@@ -647,13 +647,13 @@ const OrderCard = memo(function OrderCard({
             </select>
           </label>
 
-          {saving ? <div className={s.savingText}>Збереження…</div> : null}
+          {saving ? <div className={s.savingText}>Сохранение…</div> : null}
         </div>
       </div>
 
       <div className={s.orderInfoGrid}>
         <div className={s.infoCard}>
-          <div className={s.infoTitle}>Клієнт</div>
+          <div className={s.infoTitle}>Клиент</div>
 
           <PersonNameRows value={customer.name} />
           <InfoRow
@@ -668,7 +668,7 @@ const OrderCard = memo(function OrderCard({
           />
 
           {!customer.name && !customer.phone && !customer.email ? (
-            <div className={s.emptyInfo}>Дані клієнта не вказані</div>
+            <div className={s.emptyInfo}>Данные клиента не указаны</div>
           ) : null}
         </div>
 
@@ -678,12 +678,12 @@ const OrderCard = memo(function OrderCard({
           {hasDeliveryData(delivery) ? (
             <>
               {delivery.recipient ? (
-                <div className={s.infoSubTitle}>Отримувач</div>
+                <div className={s.infoSubTitle}>Получатель</div>
               ) : null}
 
               <PersonNameRows
                 value={delivery.recipient}
-                fallbackLabel="Отримувач"
+                fallbackLabel="Получатель"
               />
 
               <InfoRow
@@ -695,19 +695,19 @@ const OrderCard = memo(function OrderCard({
               <div className={s.infoSubTitle}>Доставка</div>
 
               <InfoRow label="Служба" value={delivery.carrier} />
-              <InfoRow label="Спосіб" value={delivery.method} />
-              <InfoRow label="Місто" value={delivery.city} />
+              <InfoRow label="Способ" value={delivery.method} />
+              <InfoRow label="Город" value={delivery.city} />
               <InfoRow label="Область" value={delivery.region} />
 
-              <InfoRow label="Відділення" value={delivery.warehouse} />
-              <InfoRow label="Адреса" value={delivery.address} />
+              <InfoRow label="Отделение" value={delivery.warehouse} />
+              <InfoRow label="Адрес" value={delivery.address} />
 
-              <InfoRow label="Індекс" value={delivery.postalCode} />
+              <InfoRow label="Индекс" value={delivery.postalCode} />
               <InfoRow label="ТТН" value={delivery.tracking} />
-              <InfoRow label="Коментар" value={delivery.comment} />
+              <InfoRow label="Комментарий" value={delivery.comment} />
             </>
           ) : (
-            <div className={s.emptyInfo}>Дані доставки не вказані</div>
+            <div className={s.emptyInfo}>Данные доставки не указаны</div>
           )}
         </div>
 
@@ -735,7 +735,7 @@ const OrderCard = memo(function OrderCard({
         </div>
 
         <div className={s.infoCard}>
-          <div className={s.infoTitle}>Файли замовлення</div>
+          <div className={s.infoTitle}>Файлы заказа</div>
 
           {orderSource ? (
             <a
@@ -744,10 +744,10 @@ const OrderCard = memo(function OrderCard({
               target="_blank"
               rel="noreferrer"
             >
-              Джерело моделі: {sourceLabel(orderSource)}
+              Источник модели: {sourceLabel(orderSource)}
             </a>
           ) : (
-            <div className={s.emptyInfo}>Джерело моделі не вказано</div>
+            <div className={s.emptyInfo}>Источник модели не указан</div>
           )}
 
           {orderFiles.length > 0 ? (
@@ -761,13 +761,13 @@ const OrderCard = memo(function OrderCard({
                   rel="noreferrer"
                   download={file.filename || undefined}
                 >
-                  Завантажити {fileTitle(file, fileIdx)}
+                  Скачать {fileTitle(file, fileIdx)}
                 </a>
               ))}
             </div>
           ) : (
             <div className={s.noFiles}>
-              STL/3MF файли замовлення не прикріплені
+              STL/3MF файлы заказа не прикреплены
             </div>
           )}
         </div>
@@ -801,16 +801,16 @@ const OrderCard = memo(function OrderCard({
                   </div>
 
                   <div className={s.itemMeta}>
-                    <span>Кількість: {item.qty ?? item.quantity ?? 1}</span>
+                    <span>Количество: {item.qty ?? item.quantity ?? 1}</span>
 
                     {item.sku ? <span>SKU: {item.sku}</span> : null}
 
                     {item.price != null ? (
-                      <span>Ціна: {formatMoney(item.price, order?.currency)}</span>
+                      <span>Цена: {formatMoney(item.price, order?.currency)}</span>
                     ) : null}
 
                     {item.total != null ? (
-                      <span>Разом: {formatMoney(item.total, order?.currency)}</span>
+                      <span>Итого: {formatMoney(item.total, order?.currency)}</span>
                     ) : null}
                   </div>
 
@@ -822,13 +822,13 @@ const OrderCard = memo(function OrderCard({
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Джерело моделі: {sourceLabel(sourceUrl)}
+                        Источник модели: {sourceLabel(sourceUrl)}
                       </a>
                     </div>
                   ) : null}
 
                   <div className={s.filesBlock}>
-                    <div className={s.filesTitle}>Файли моделі</div>
+                    <div className={s.filesTitle}>Файлы модели</div>
 
                     {files.length > 0 ? (
                       <div className={s.filesList}>
@@ -841,13 +841,13 @@ const OrderCard = memo(function OrderCard({
                             rel="noreferrer"
                             download={file.filename || undefined}
                           >
-                            Завантажити {fileTitle(file, fileIdx)}
+                            Скачать {fileTitle(file, fileIdx)}
                           </a>
                         ))}
                       </div>
                     ) : (
                       <div className={s.noFiles}>
-                        STL/3MF файли не прикріплені
+                        STL/3MF файлы не прикреплены
                       </div>
                     )}
                   </div>
@@ -863,7 +863,7 @@ const OrderCard = memo(function OrderCard({
         onToggle={(e) => setShowRaw(e.currentTarget.open)}
       >
         <summary className={`text-muted ${s.detailsSummary}`}>
-          Службові дані
+          Служебные данные
         </summary>
         {showRaw ? (
           <pre className={s.pre}>{JSON.stringify(order, null, 2)}</pre>
@@ -917,7 +917,7 @@ export default function Orders() {
 
   useEffect(() => {
     load();
-    // Перший раз завантажуємо всі замовлення. Фільтрація нижче локальна.
+    // Первый раз загружаем все заказы. Фильтрация ниже локальная.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1015,7 +1015,7 @@ export default function Orders() {
   return (
     <div>
       <div className={s.topRow}>
-        <h2 className={s.title}>Замовлення</h2>
+        <h2 className={s.title}>Заказы</h2>
 
         <button
           type="button"
@@ -1023,7 +1023,7 @@ export default function Orders() {
           onClick={load}
           disabled={loading}
         >
-          {loading ? "Хвилинку…" : "Оновити"}
+          {loading ? "Минутку…" : "Обновить"}
         </button>
 
         <div className={s.controls}>
@@ -1031,19 +1031,19 @@ export default function Orders() {
             className={`input ${s.search}`}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Пошук за ID, статусом або клієнтом…"
-            aria-label="Пошук замовлень"
+            placeholder="Поиск по ID, статусу или клиенту…"
+            aria-label="Поиск заказов"
           />
 
           <select
             className={`select ${s.statusSelect}`}
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            aria-label="Фільтр за статусом"
+            aria-label="Фильтр по статусу"
           >
             {statuses.map((x) => (
               <option key={x} value={x}>
-                {x === "all" ? "усі статуси" : orderStatusLabel(x)}
+                {x === "all" ? "все статусы" : orderStatusLabel(x)}
               </option>
             ))}
           </select>
@@ -1053,7 +1053,7 @@ export default function Orders() {
       {error && (
         <div className={`alert alert-danger ${s.errorBox}`}>
           <div>
-            <div className="alert-title">Щось пішло не так</div>
+            <div className="alert-title">Что-то пошло не так</div>
             <p>{String(error?.message || error)}</p>
           </div>
         </div>
@@ -1080,8 +1080,8 @@ export default function Orders() {
 
         {!loading && !error && filtered.length === 0 && (
           <div className={s.empty}>
-            Ой… за цими умовами я нічого не знайшла. Спробуйте, будь ласка,
-            змінити пошук або фільтр.
+            Ой… по этим условиям я ничего не нашла. Попробуйте, пожалуйста,
+            изменить поиск или фильтр.
           </div>
         )}
       </div>

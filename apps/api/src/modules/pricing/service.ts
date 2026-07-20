@@ -219,20 +219,20 @@ export function detectAnchors(doc: Document): string | null {
 
   visit(doc, {
     Alias() {
-      problem = "псевдоніми (*alias)";
+      problem = "псевдонимы (*alias)";
       return visit.BREAK;
     },
     Pair(_, pair) {
       const key = pair.key as { value?: unknown } | null;
       if (key && key.value === "<<") {
-        problem = "ключі злиття (<<)";
+        problem = "ключи слияния (<<)";
         return visit.BREAK;
       }
       return undefined;
     },
     Node(_, node) {
       if ((node as { anchor?: string }).anchor) {
-        problem = "якорі (&anchor)";
+        problem = "якоря (&anchor)";
         return visit.BREAK;
       }
       return undefined;
@@ -562,7 +562,7 @@ export async function readPricing(): Promise<PricingFile> {
     formats,
     readOnly: anchorProblem != null,
     readOnlyReason: anchorProblem
-      ? `Файл використовує YAML ${anchorProblem}; редактор не може зберегти його без втрат. Редагуйте файл вручну.`
+      ? `Файл использует YAML ${anchorProblem}; редактор не может сохранить его без потерь. Редактируйте файл вручную.`
       : null,
   };
 }

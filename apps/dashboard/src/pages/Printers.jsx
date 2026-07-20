@@ -25,7 +25,7 @@ function formatHeaderTime(value) {
     return String(value);
   }
 
-  return date.toLocaleTimeString("uk-UA", {
+  return date.toLocaleTimeString("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -41,7 +41,7 @@ function formatHeroDate(value) {
     return String(value);
   }
 
-  return date.toLocaleDateString("uk-UA", {
+  return date.toLocaleDateString("ru-RU", {
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -54,16 +54,16 @@ function PrintersHero({ updatedAt, loading, hasError }) {
       <div className="wallboard-hero-inner">
         <div>
           <div className="wallboard-hero-greeting">Lite Forest</div>
-          <h1>3D-принтери</h1>
+          <h1>3D-принтеры</h1>
           <p className="wallboard-hero-sub">
-            Стан друкарської ферми (тільки перегляд). Дані надходять з
-            оркестратора друку; керування принтерами та камерами — у{" "}
+            Состояние печатной фермы (только просмотр). Данные поступают из
+            оркестратора печати; управление принтерами и камерами — в{" "}
             {ATELIER_DASHBOARD_URL ? (
               <a href={ATELIER_DASHBOARD_URL} target="_blank" rel="noreferrer">
-                дашборді ферми
+                дашборде фермы
               </a>
             ) : (
-              "дашборді ферми"
+              "дашборде фермы"
             )}
             .
           </p>
@@ -81,10 +81,10 @@ function PrintersHero({ updatedAt, loading, hasError }) {
           >
             <span className="wallboard-hero-status-dot" />
             {loading
-              ? "Оновлюю дані…"
+              ? "Обновляю данные…"
               : hasError
-                ? "Оркестратор недоступний — я продовжую спроби"
-                : "Моніторинг активний, я приглядаю за фермою"}
+                ? "Оркестратор недоступен — я продолжаю попытки"
+                : "Мониторинг активен, я приглядываю за фермой"}
           </div>
         </div>
       </div>
@@ -122,7 +122,7 @@ export default function Printers() {
           setMonitorError(
             error instanceof Error
               ? error.message
-              : "Мені не вдалося отримати статус принтерів. Я спробую ще раз."
+              : "Мне не удалось получить статус принтеров. Я попробую ещё раз."
           );
         }
       } finally {
@@ -158,7 +158,7 @@ export default function Printers() {
             ⟳
           </div>
           <div className="alert-strip-text">
-            Хвилинку, будь ласка… я підключаю моніторинг 3D-принтерів.
+            Минутку, пожалуйста… я подключаю мониторинг 3D-принтеров.
           </div>
         </div>
       ) : null}

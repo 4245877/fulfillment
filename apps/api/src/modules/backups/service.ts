@@ -120,7 +120,7 @@ function idleProgress() {
     step: null,
     stage: null,
     percent: 0,
-    message: "Резервне копіювання зараз не виконується.",
+    message: "Резервное копирование сейчас не выполняется.",
     updatedAt: null,
     runId: null,
     runDir: null,
@@ -158,7 +158,7 @@ function normalizeStatus(raw: BackupStatusRaw | null) {
     // `stage` kept for backwards compatibility; mirrors the canonical step.
     stage: step,
     percent,
-    message: raw.message || "Очікування статусу від сервера.",
+    message: raw.message || "Ожидание статуса от сервера.",
     updatedAt: raw.updated_at || null,
     runId: raw.run_id || null,
     runDir: raw.run_dir || null,
@@ -183,7 +183,7 @@ export async function getBackupStatus() {
   try {
     raw = JSON.parse(text) as BackupStatusRaw;
   } catch {
-    throw exposeError(502, "Не вдалося розібрати backup-status.json із сервера.");
+    throw exposeError(502, "Не удалось разобрать backup-status.json с сервера.");
   }
 
   return {
@@ -215,26 +215,26 @@ export async function runBackupNow() {
     if (code === 10) {
       throw exposeError(
         422,
-        "Скрипт резервного копіювання недоступний або не є виконуваним на сервері магазину."
+        "Скрипт резервного копирования недоступен или не является исполняемым на сервере магазина."
       );
     }
     if (code === 11) {
       throw exposeError(
         422,
-        "Не вдалося перейти до каталогу проєкту на сервері магазину."
+        "Не удалось перейти в каталог проекта на сервере магазина."
       );
     }
     if (code === 12) {
       throw exposeError(
         502,
-        "Скрипт резервного копіювання завершився одразу після запуску. Перевірте журнал на сервері."
+        "Скрипт резервного копирования завершился сразу после запуска. Проверьте журнал на сервере."
       );
     }
     throw error;
   }
 
   if (!/started pid=/.test(stdout)) {
-    throw exposeError(502, "Не вдалося підтвердити запуск резервного копіювання.");
+    throw exposeError(502, "Не удалось подтвердить запуск резервного копирования.");
   }
 
   return {
@@ -245,7 +245,7 @@ export async function runBackupNow() {
       step: "preflight",
       stage: "preflight",
       percent: 5,
-      message: "Резервне копіювання запущено.",
+      message: "Резервное копирование запущено.",
       updatedAt: new Date().toISOString(),
       runId: null,
       runDir: null,
@@ -268,7 +268,7 @@ export async function testRestoreLatest() {
     if (code === 2) {
       throw exposeError(
         422,
-        "Скрипт перевірки резервної копії недоступний на сервері магазину."
+        "Скрипт проверки резервной копии недоступен на сервере магазина."
       );
     }
     throw error;
@@ -282,7 +282,7 @@ export async function testRestoreLatest() {
       step: "done",
       stage: "done",
       percent: 100,
-      message: "Перевірку останньої резервної копії успішно завершено.",
+      message: "Проверка последней резервной копии успешно завершена.",
       updatedAt: new Date().toISOString(),
     },
     output: stdout.slice(-4000),

@@ -8,10 +8,10 @@ import {
 } from "./types";
 
 export const TELEGRAM_TOPIC_LABELS: Record<NotificationTopicKey, string> = {
-  orders: "Замовлення",
-  productReports: "Скарги на товари",
-  prints: "Повідомлення друку",
-  criticalErrors: "Критичні помилки",
+  orders: "Заказы",
+  productReports: "Жалобы на товары",
+  prints: "Сообщения печати",
+  criticalErrors: "Критические ошибки",
 };
 
 export function isNotificationTopicKey(value: unknown): value is NotificationTopicKey {

@@ -436,7 +436,7 @@
 
 /* ── Movements: position + details cells ────────────────────── */
 
-/* "архів" marker next to an archived position in the movements table. */
+/* "архив" marker next to an archived position in the movements table. */
 .archivedTag {
   display: inline-block;
   margin-left: 0.4rem;

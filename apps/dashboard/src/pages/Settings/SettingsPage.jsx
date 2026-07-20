@@ -15,29 +15,29 @@ const OBSERVER_THRESHOLDS = [0, 0.1, 0.25, 0.5, 0.75, 1];
 const SECTIONS = [
   {
     id: "ui",
-    navTitle: "Загальне",
+    navTitle: "Общее",
     render: ({ cfg, patch }) => <UiSection cfg={cfg} patch={patch} />,
   },
   {
     id: "backups",
-    navTitle: "Резервні копії",
+    navTitle: "Резервные копии",
     render: ({ cfg, patch, doAction }) => (
       <BackupsSection cfg={cfg} patch={patch} doAction={doAction} />
     ),
   },
   {
     id: "pricing",
-    navTitle: "Ціноутворення",
+    navTitle: "Ценообразование",
     render: ({ showToast }) => <PricingSection showToast={showToast} />,
   },
   {
     id: "infra",
-    navTitle: "Інфраструктура",
+    navTitle: "Инфраструктура",
     render: ({ cfg, patch }) => <InfraSection cfg={cfg} patch={patch} />,
   },
   {
     id: "security",
-    navTitle: "Безпека",
+    navTitle: "Безопасность",
     render: ({ cfg, patch }) => <SecuritySection cfg={cfg} patch={patch} />,
   },
 ];
@@ -162,7 +162,7 @@ export default function SettingsPage() {
 
   const handleResetClick = () => {
     const confirmed = window.confirm(
-      "Скинути всі локальні налаштування до значень за замовчуванням? Я поверну все як було на початку — але ваші поточні зміни зникнуть."
+      "Сбросить все локальные настройки к значениям по умолчанию? Я верну всё как было в начале — но ваши текущие изменения исчезнут."
     );
 
     if (confirmed) {
@@ -175,27 +175,27 @@ export default function SettingsPage() {
       className={styles.container}
       style={{ "--section-offset": `${SECTION_OFFSET_PX}px` }}
     >
-      <aside className={styles.sidebar} aria-label="Панель навігації та дій">
+      <aside className={styles.sidebar} aria-label="Панель навигации и действий">
         <div>
-          <h1 className={styles.sidebarTitle}>Центр керування</h1>
+          <h1 className={styles.sidebarTitle}>Центр управления</h1>
           <p className={styles.sidebarSubtitle}>
-            Інтерфейс, сервіси та операції — я зібрала всі налаштування тут,
-            щоб вам було зручно.
+            Интерфейс, сервисы и операции — я собрала все настройки здесь,
+            чтобы вам было удобно.
           </p>
         </div>
 
         <div className={styles.sidebarActions}>
           <button className="btn btn-secondary" type="button" onClick={exportJson}>
-            Експорт JSON
+            Экспорт JSON
           </button>
 
           <button
             className="btn btn-secondary"
             type="button"
             onClick={handleImportClick}
-            aria-label="Імпорт налаштувань з JSON"
+            aria-label="Импорт настроек из JSON"
           >
-            Імпорт JSON
+            Импорт JSON
           </button>
 
           <input
@@ -208,13 +208,13 @@ export default function SettingsPage() {
           />
 
           <button className="btn btn-danger" type="button" onClick={handleResetClick}>
-            Скинути
+            Сбросить
           </button>
         </div>
 
         <hr className={styles.sidebarDivider} />
 
-        <nav className={styles.navMenu} aria-label="Розділи налаштувань">
+        <nav className={styles.navMenu} aria-label="Разделы настроек">
           {SECTIONS.map((section, index) => {
             const isActive = activeSection === section.id;
 
@@ -257,19 +257,19 @@ export default function SettingsPage() {
       <main className={styles.content}>
         <header className={styles.pageIntro}>
           <div>
-            <div className={styles.pageEyebrow}>Адміністрування</div>
-            <h2 className={styles.pageTitle}>Налаштування системи</h2>
+            <div className={styles.pageEyebrow}>Администрирование</div>
+            <h2 className={styles.pageTitle}>Настройки системы</h2>
             <p className={styles.pageDescription}>
-              Керуйте інтерфейсом, інфраструктурою, інтеграціями та правилами
-              безпеки з єдиного робочого простору.
+              Управляйте интерфейсом, инфраструктурой, интеграциями и правилами
+              безопасности из единого рабочего пространства.
             </p>
           </div>
 
           <div className={styles.localStatus}>
             <span aria-hidden="true" />
             {activeSection === "pricing"
-              ? "Зберігається на сервері"
-              : "Локальні зміни"}
+              ? "Сохраняется на сервере"
+              : "Локальные изменения"}
           </div>
         </header>
 
@@ -284,10 +284,10 @@ export default function SettingsPage() {
         ))}
 
         <p className={styles.footerNote}>
-          Примітка: більшість налаштувань зберігаються локально в браузері —
-          синхронізація з сервером і застосування до Board/Ops буде додана
-          пізніше. Виняток — розділ «Ціноутворення», який зберігається
-          безпосередньо у файл pricing.yml на сервері.
+          Примечание: большинство настроек сохраняются локально в браузере —
+          синхронизация с сервером и применение к Board/Ops будут добавлены
+          позже. Исключение — раздел «Ценообразование», который сохраняется
+          непосредственно в файл pricing.yml на сервере.
         </p>
       </main>
     </div>

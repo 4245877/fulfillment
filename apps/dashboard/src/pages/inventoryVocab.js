@@ -9,28 +9,28 @@
 export const MATERIALS = ["PLA", "PETG", "TPU", "ABS", "ASA"];
 
 export const COLORS = [
-  ["black", "Чорний"],
-  ["white", "Білий"],
-  ["gray", "Сірий"],
-  ["red", "Червоний"],
-  ["blue", "Синій"],
-  ["green", "Зелений"],
-  ["yellow", "Жовтий"],
-  ["transparent", "Прозорий"],
+  ["black", "Чёрный"],
+  ["white", "Белый"],
+  ["gray", "Серый"],
+  ["red", "Красный"],
+  ["blue", "Синий"],
+  ["green", "Зелёный"],
+  ["yellow", "Жёлтый"],
+  ["transparent", "Прозрачный"],
 ];
 
 // Must match FILAMENT_MOVEMENT_TYPES in the API. (`load_printer_filament` was
 // never a real movement type — the DB only stores add/consume/adjust — so it is
 // gone.)
 export const MOVEMENT_TYPES = [
-  ["add", "Додавання"],
-  ["consume", "Списання"],
-  ["adjust", "Коригування"],
+  ["add", "Добавление"],
+  ["consume", "Списание"],
+  ["adjust", "Корректировка"],
 ];
 
 // Must match FILAMENT_MOVEMENT_SOURCES in the API.
 export const MOVEMENT_SOURCES = [
-  ["dashboard", "Панель керування"],
+  ["dashboard", "Панель управления"],
   ["telegram", "Telegram"],
   ["printer", "Принтер"],
   ["system", "Система"],
@@ -41,9 +41,9 @@ export function getColorName(color) {
 }
 
 export function getMovementTypeLabel(type) {
-  return MOVEMENT_TYPES.find(([value]) => value === type)?.[1] || "Невідомо";
+  return MOVEMENT_TYPES.find(([value]) => value === type)?.[1] || "Неизвестно";
 }
 
 export function getMovementSourceLabel(source) {
-  return MOVEMENT_SOURCES.find(([value]) => value === source)?.[1] || "Невідомо";
+  return MOVEMENT_SOURCES.find(([value]) => value === source)?.[1] || "Неизвестно";
 }

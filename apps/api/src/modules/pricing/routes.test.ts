@@ -35,10 +35,10 @@ test("classifyError hides internal (500) and upstream (502) details", () => {
   // never the raw error text (which may carry remote stderr / command fragments).
   const upstream = classifyError(
     new Error("ssh write exited with code 255: Permission denied (publickey)"),
-    "Не вдалося зберегти pricing.yml на сервері."
+    "Не удалось сохранить pricing.yml на сервере."
   );
   assert.equal(upstream.status, 502);
-  assert.equal(upstream.text, "Не вдалося зберегти pricing.yml на сервері.");
+  assert.equal(upstream.text, "Не удалось сохранить pricing.yml на сервере.");
   assert.doesNotMatch(upstream.text, /ssh|publickey|255/i);
 });
 

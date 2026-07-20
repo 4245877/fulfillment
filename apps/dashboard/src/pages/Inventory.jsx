@@ -19,22 +19,22 @@ import {
 
 // The unified operation form drives every action against a stock position.
 const ACTIONS = [
-  ["consume", "Списати"],
-  ["add", "Додати"],
-  ["adjust", "Коригувати"],
-  ["edit", "Змінити дані"],
+  ["consume", "Списать"],
+  ["add", "Добавить"],
+  ["adjust", "Скорректировать"],
+  ["edit", "Изменить данные"],
 ];
 
 function formatGram(value) {
   const num = Number(value || 0);
 
-  return `${num.toLocaleString("uk-UA")} г`;
+  return `${num.toLocaleString("ru-RU")} г`;
 }
 
 function formatKg(value) {
   const num = Number(value || 0) / 1000;
 
-  return `${num.toLocaleString("uk-UA", {
+  return `${num.toLocaleString("ru-RU", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} кг`;
@@ -45,15 +45,15 @@ function formatDate(value) {
 
   if (Number.isNaN(date.getTime())) return "—";
 
-  return date.toLocaleString("uk-UA");
+  return date.toLocaleString("ru-RU");
 }
 
 function getStatusLabel(status) {
-  if (status === "critical") return "Критичний";
-  if (status === "low") return "Низький";
-  if (status === "ok" || status === "good") return "Достатньо";
+  if (status === "critical") return "Критический";
+  if (status === "low") return "Низкий";
+  if (status === "ok" || status === "good") return "Достаточно";
 
-  return "Невідомо";
+  return "Неизвестно";
 }
 
 function getStatusClassName(status) {
@@ -96,7 +96,7 @@ export default function Inventory() {
     action: "consume",
     material: "PLA",
     color: "black",
-    colorName: "Чорний",
+    colorName: "Чёрный",
     quantityG: 1000,
     actualG: 0,
     lowStockG: 1000,
@@ -151,7 +151,7 @@ export default function Inventory() {
       setError(
         err instanceof Error
           ? err.message
-          : "Ой… мені не вдалося завантажити склад. Спробуйте, будь ласка, ще раз."
+          : "Ой… мне не удалось загрузить склад. Попробуйте, пожалуйста, ещё раз."
       );
     } finally {
       setLoading(false);
@@ -183,7 +183,7 @@ export default function Inventory() {
       setMessage(successText);
       await loadData({ silent: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Дія не виконана");
+      setError(err instanceof Error ? err.message : "Действие не выполнено");
     } finally {
       setBusy(false);
     }
@@ -263,7 +263,7 @@ export default function Inventory() {
 
     if (form.action === "consume") {
       if (!isPositiveNumber(form.quantityG)) {
-        setError("Вкажіть, будь ласка, кількість більше 0");
+        setError("Укажите, пожалуйста, количество больше 0");
         return;
       }
 
@@ -276,14 +276,14 @@ export default function Inventory() {
             note: base.note,
             source: base.source,
           }),
-        "Готово — я списала філамент"
+        "Готово — я списала филамент"
       );
       return;
     }
 
     if (form.action === "add") {
       if (!isPositiveNumber(form.quantityG)) {
-        setError("Вкажіть, будь ласка, кількість більше 0");
+        setError("Укажите, пожалуйста, количество больше 0");
         return;
       }
 
@@ -293,14 +293,14 @@ export default function Inventory() {
             ...base,
             quantityG: Number(form.quantityG),
           }),
-        "Готово — я додала філамент до складу ♡"
+        "Готово — я добавила филамент на склад ♡"
       );
       return;
     }
 
     if (form.action === "adjust") {
       if (!isNonNegativeNumber(form.actualG)) {
-        setError("Вкажи фактичний залишок 0 або більше");
+        setError("Укажите фактический остаток 0 или больше");
         return;
       }
 
@@ -310,24 +310,24 @@ export default function Inventory() {
             ...base,
             actualG: Number(form.actualG),
           }),
-        "Готово — я скоригувала залишок"
+        "Готово — я скорректировала остаток"
       );
       return;
     }
 
     // edit — descriptive data only, requires an existing position.
     if (!selected) {
-      setError("Оберіть, будь ласка, позицію в таблиці — тоді я зможу змінити її дані");
+      setError("Выберите, пожалуйста, позицию в таблице — тогда я смогу изменить её данные");
       return;
     }
 
     if (!isNonNegativeNumber(form.lowStockG) || !isNonNegativeNumber(form.criticalStockG)) {
-      setError("Пороги мають бути 0 або більше");
+      setError("Пороги должны быть 0 или больше");
       return;
     }
 
     if (Number(form.criticalStockG) > Number(form.lowStockG)) {
-      setError("Критичний поріг не може бути більшим за низький");
+      setError("Критический порог не может быть больше низкого");
       return;
     }
 
@@ -340,7 +340,7 @@ export default function Inventory() {
           criticalStockG: Number(form.criticalStockG),
           enabled: Boolean(form.enabled),
         }),
-      "Готово — я оновила дані філаменту"
+      "Готово — я обновила данные филамента"
     );
   }
 
@@ -349,7 +349,7 @@ export default function Inventory() {
 
     const printerId = String(loadForm.printerId || "").trim();
     if (!printerId) {
-      setError("Оберіть або вкажіть принтер");
+      setError("Выберите или укажите принтер");
       return;
     }
 
@@ -361,38 +361,38 @@ export default function Inventory() {
           color: loadForm.color,
           colorName: getColorName(loadForm.color),
         }),
-      "Готово — я оновила філамент на принтері"
+      "Готово — я обновила филамент на принтере"
     );
   }
 
   const submitLabel = {
-    consume: "Списати",
-    add: "Додати",
-    adjust: "Встановити залишок",
-    edit: "Зберегти зміни",
+    consume: "Списать",
+    add: "Добавить",
+    adjust: "Установить остаток",
+    edit: "Сохранить изменения",
   }[form.action];
 
   return (
     <div className={styles.page}>
       <header className={styles.hero}>
         <div>
-          <div className={styles.eyebrow}>Облік складу</div>
-          <h1>Склад філаменту</h1>
+          <div className={styles.eyebrow}>Учёт склада</div>
+          <h1>Склад филамента</h1>
           <p>
-            Я веду облік залишків за типом і кольором — без нумерації кожної
-            котушки.
+            Я веду учёт остатков по типу и цвету — без нумерации каждой
+            катушки.
           </p>
         </div>
 
         <div className={styles.totalCard}>
-          <span>Усього філаменту</span>
+          <span>Всего филамента</span>
           <strong>{formatKg(totalG)}</strong>
         </div>
       </header>
 
       {loading ? (
         <div className={styles.notice}>
-          Хвилинку, будь ласка… я перераховую котушки.
+          Минутку, пожалуйста… я пересчитываю катушки.
         </div>
       ) : null}
       {message ? <div className={styles.success}>{message}</div> : null}
@@ -401,28 +401,28 @@ export default function Inventory() {
       <div className={styles.grid}>
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
-            <h2>Залишки</h2>
+            <h2>Остатки</h2>
             <button
               type="button"
               onClick={() => loadData({ silent: true })}
               disabled={busy || refreshing}
             >
-              {refreshing ? "Хвилинку…" : "Оновити"}
+              {refreshing ? "Минутку…" : "Обновить"}
             </button>
           </div>
 
           {loading ? null : stock.length ? (
             <>
               <p className={styles.tableHint}>
-                Натисніть на рядок — і я сама підставлю дані у форму операції.
+                Нажмите на строку — и я сама подставлю данные в форму операции.
               </p>
               <div className={styles.tableWrap}>
                 <table className={styles.table}>
                   <thead>
                     <tr>
-                      <th>Матеріал</th>
-                      <th>Колір</th>
-                      <th>Залишок</th>
+                      <th>Материал</th>
+                      <th>Цвет</th>
+                      <th>Остаток</th>
                       <th>Статус</th>
                     </tr>
                   </thead>
@@ -464,14 +464,14 @@ export default function Inventory() {
             </>
           ) : (
             <div className={styles.empty}>
-              Тут поки що порожньо. Додайте першу котушку нижче — і я почну
-              дбайливо вести облік ♡
+              Здесь пока что пусто. Добавьте первую катушку ниже — и я начну
+              бережно вести учёт ♡
             </div>
           )}
         </section>
 
         <section className={styles.panel}>
-          <h2>Філамент на принтерах</h2>
+          <h2>Филамент на принтерах</h2>
 
           {loading ? null : printerFilament.length ? (
             <div className={styles.cards}>
@@ -489,7 +489,7 @@ export default function Inventory() {
             </div>
           ) : (
             <div className={styles.empty}>
-              Ще не вказано, який пластик стоїть на принтерах.
+              Ещё не указано, какой пластик стоит на принтерах.
             </div>
           )}
         </section>
@@ -502,7 +502,7 @@ export default function Inventory() {
           onSubmit={submitOperation}
         >
           <div className={styles.opHeader}>
-            <h2>Операція з філаментом</h2>
+            <h2>Операция с филаментом</h2>
             {selected ? (
               <span className={styles.selectedChip}>
                 {selected.material} {selected.colorName || getColorName(selected.color)}
@@ -510,7 +510,7 @@ export default function Inventory() {
                 {formatKg(selected.stockG)}
               </span>
             ) : (
-              <span className={styles.newChip}>Нова позиція</span>
+              <span className={styles.newChip}>Новая позиция</span>
             )}
           </div>
 
@@ -532,7 +532,7 @@ export default function Inventory() {
           </div>
 
           <div className={styles.opFields}>
-            <Field label="Матеріал">
+            <Field label="Материал">
               <select
                 value={form.material}
                 onChange={(event) => applyTarget(event.target.value, form.color)}
@@ -546,7 +546,7 @@ export default function Inventory() {
               </select>
             </Field>
 
-            <Field label="Колір">
+            <Field label="Цвет">
               <select
                 value={form.color}
                 onChange={(event) => applyTarget(form.material, event.target.value)}
@@ -563,12 +563,12 @@ export default function Inventory() {
 
           {form.action === "edit" && !selected ? (
             <p className={styles.tableHint}>
-              Оберіть існуючу позицію в таблиці, щоб редагувати її дані.
+              Выберите существующую позицию в таблице, чтобы редактировать её данные.
             </p>
           ) : null}
 
           {form.action === "consume" || form.action === "add" ? (
-            <Field label="Кількість, г">
+            <Field label="Количество, г">
               <input
                 type="number"
                 min="1"
@@ -579,7 +579,7 @@ export default function Inventory() {
           ) : null}
 
           {form.action === "adjust" ? (
-            <Field label="Фактичний залишок, г">
+            <Field label="Фактический остаток, г">
               <input
                 type="number"
                 min="0"
@@ -591,16 +591,16 @@ export default function Inventory() {
 
           {form.action === "edit" ? (
             <>
-              <Field label="Назва кольору">
+              <Field label="Название цвета">
                 <input
                   value={form.colorName}
                   onChange={(event) => updateForm(setForm, "colorName", event.target.value)}
-                  placeholder="Наприклад: Вугільний"
+                  placeholder="Например: Угольный"
                 />
               </Field>
 
               <div className={styles.opFields}>
-                <Field label="Низький поріг, г">
+                <Field label="Низкий порог, г">
                   <input
                     type="number"
                     min="0"
@@ -609,7 +609,7 @@ export default function Inventory() {
                   />
                 </Field>
 
-                <Field label="Критичний поріг, г">
+                <Field label="Критический порог, г">
                   <input
                     type="number"
                     min="0"
@@ -627,15 +627,15 @@ export default function Inventory() {
                   checked={form.enabled}
                   onChange={(event) => updateForm(setForm, "enabled", event.target.checked)}
                 />
-                <span>Активна позиція (показувати на складі)</span>
+                <span>Активная позиция (показывать на складе)</span>
               </label>
             </>
           ) : (
-            <Field label="Примітка">
+            <Field label="Примечание">
               <input
                 value={form.note}
                 onChange={(event) => updateForm(setForm, "note", event.target.value)}
-                placeholder="Наприклад: нова котушка"
+                placeholder="Например: новая катушка"
               />
             </Field>
           )}
@@ -646,7 +646,7 @@ export default function Inventory() {
         </form>
 
         <form className={styles.form} onSubmit={submitLoadPrinter}>
-          <h2>Філамент на принтері</h2>
+          <h2>Филамент на принтере</h2>
 
           <Field label="Принтер">
             {printerList.length ? (
@@ -654,7 +654,7 @@ export default function Inventory() {
                 value={loadForm.printerId}
                 onChange={(event) => updateForm(setLoadForm, "printerId", event.target.value)}
               >
-                <option value="">— оберіть принтер —</option>
+                <option value="">— выберите принтер —</option>
                 {printerList.map((printer) => (
                   <option key={printer.id} value={printer.id}>
                     {printer.name}
@@ -667,12 +667,12 @@ export default function Inventory() {
               <input
                 value={loadForm.printerId}
                 onChange={(event) => updateForm(setLoadForm, "printerId", event.target.value)}
-                placeholder="Ідентифікатор принтера"
+                placeholder="Идентификатор принтера"
               />
             )}
           </Field>
 
-          <Field label="Матеріал">
+          <Field label="Материал">
             <select
               value={loadForm.material}
               onChange={(event) => updateForm(setLoadForm, "material", event.target.value)}
@@ -685,7 +685,7 @@ export default function Inventory() {
             </select>
           </Field>
 
-          <Field label="Колір">
+          <Field label="Цвет">
             <select
               value={loadForm.color}
               onChange={(event) => updateForm(setLoadForm, "color", event.target.value)}
@@ -699,27 +699,27 @@ export default function Inventory() {
           </Field>
 
           <button type="submit" disabled={busy}>
-            Зберегти
+            Сохранить
           </button>
         </form>
       </div>
 
       <section className={styles.panel}>
-        <h2>Останні рухи</h2>
+        <h2>Последние движения</h2>
 
         {loading ? null : movements.length ? (
           <div className={styles.tableWrap}>
             <table className={`${styles.table} ${styles.movementsTable}`}>
               <thead>
                 <tr>
-                  <th>Час</th>
+                  <th>Время</th>
                   <th>Тип</th>
                   <th>Принтер</th>
-                  <th>Позиція</th>
-                  <th>Кількість</th>
-                  <th>Було → Стало</th>
-                  <th>Джерело</th>
-                  <th>Деталі</th>
+                  <th>Позиция</th>
+                  <th>Количество</th>
+                  <th>Было → Стало</th>
+                  <th>Источник</th>
+                  <th>Детали</th>
                 </tr>
               </thead>
 
@@ -748,7 +748,7 @@ export default function Inventory() {
                           {position.text}
                         </span>
                         {position.archived ? (
-                          <span className={styles.archivedTag}>архів</span>
+                          <span className={styles.archivedTag}>архив</span>
                         ) : null}
                       </td>
                       <td>{formatGram(item.quantityG)}</td>
@@ -765,7 +765,7 @@ export default function Inventory() {
                         {item.printJobId ? (
                           <div
                             className={styles.jobBadge}
-                            title={`Завдання друку: ${item.printJobId}`}
+                            title={`Задание печати: ${item.printJobId}`}
                           >
                             🖨 {shortId(item.printJobId)}
                           </div>
@@ -782,8 +782,8 @@ export default function Inventory() {
           </div>
         ) : (
           <div className={styles.empty}>
-            Історія рухів поки порожня — щойно щось зміниться, я все охайно
-            запишу.
+            История движений пока пуста — как только что-то изменится, я всё
+            аккуратно запишу.
           </div>
         )}
       </section>

@@ -35,7 +35,7 @@ function stock(over: Partial<FilamentStock> = {}): FilamentStock {
     id: "stock_petg_black",
     material: "PETG",
     color: "black",
-    colorName: "Чорний",
+    colorName: "Чёрный",
     stockG: 2000,
     lowStockG: 1000,
     criticalStockG: 300,
@@ -151,7 +151,7 @@ test("amsTray resolves the per-slot reel; other slots and printers are untouched
     id: "stock_pla_white",
     material: "PLA",
     color: "white",
-    colorName: "Білий",
+    colorName: "Белый",
     stockG: 750,
   });
   const store = storeWith({ filamentStock: [petgBlack, plaWhite] });
@@ -240,7 +240,7 @@ test("a consume crossing the low threshold raises a low-stock alert", () => {
 
   assert.ok(result.lowStockAlert, "alert raised on the downward crossing");
   assert.equal(result.lowStockAlert!.status, "low");
-  assert.equal(result.lowStockAlert!.label, "PETG Чорний");
+  assert.equal(result.lowStockAlert!.label, "PETG Чёрный");
   assert.equal(result.lowStockAlert!.stockG, 800);
   assert.equal(result.lowStockAlert!.thresholdG, 1000);
 });
@@ -312,14 +312,14 @@ test("updateFilament edits thresholds, colour name and active flag by id", () =>
   const store = storeWith();
   const result = svc.applyUpdateFilament(store, {
     id: "stock_petg_black",
-    colorName: "Вугільний",
+    colorName: "Угольный",
     lowStockG: 800,
     criticalStockG: 200,
     enabled: false,
   });
 
   const edited = store.filamentStock[0];
-  assert.equal(edited.colorName, "Вугільний");
+  assert.equal(edited.colorName, "Угольный");
   assert.equal(edited.lowStockG, 800);
   assert.equal(edited.criticalStockG, 200);
   assert.equal(edited.enabled, false);
@@ -557,7 +557,7 @@ test("add to an ARCHIVED position reactivates it so the balance is visible", () 
   assert.equal(store.filamentStock[0].enabled, true, "position is active again");
   assert.equal(store.filamentStock[0].stockG, 500);
   assert.equal(result.stock.enabled, true, "the returned state is the current one");
-  assert.match(result.movement!.note ?? "", /архів/, "reactivation recorded in history");
+  assert.match(result.movement!.note ?? "", /архив/, "reactivation recorded in history");
 });
 
 test("adjust of an ARCHIVED position reactivates it too", () => {
@@ -697,7 +697,7 @@ test("sync names the previous stock when the binding re-points", () => {
   const store = storeWith({
     filamentStock: [
       stock({ id: "stock_pla_black", material: "PLA", color: "black" }),
-      stock({ id: "stock_pla_white", material: "PLA", color: "white", colorName: "Білий" }),
+      stock({ id: "stock_pla_white", material: "PLA", color: "white", colorName: "Белый" }),
     ],
   });
 

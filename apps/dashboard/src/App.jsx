@@ -22,7 +22,7 @@ function PageFallback() {
     <main className={stateStyles.page} aria-live="polite" aria-busy="true">
       <section className={`${stateStyles.card} ${stateStyles.compactCard}`}>
         <span className={stateStyles.spinner} aria-hidden="true" />
-        <p className={stateStyles.statusText}>Хвилинку, будь ласка… я вже несу сторінку.</p>
+        <p className={stateStyles.statusText}>Минутку, пожалуйста… я уже несу страницу.</p>
       </section>
     </main>
   );

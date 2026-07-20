@@ -29,7 +29,7 @@ function classifyError(
     return { status: statusCode, text: message };
   }
   if (statusCode === 500) {
-    return { status: 500, text: "Внутрішня помилка резервного копіювання." };
+    return { status: 500, text: "Внутренняя ошибка резервного копирования." };
   }
   return { status: 502, text: fallbackText };
 }
@@ -46,7 +46,7 @@ const backupsRoutes: FastifyPluginAsync = async (app) => {
       app.log.error({ err: error }, "failed to read backup status");
       const { status, text } = classifyError(
         error,
-        "Не вдалося отримати статус резервного копіювання із сервера."
+        "Не удалось получить статус резервного копирования с сервера."
       );
       reply.code(status);
       return { ok: false, error: text };
@@ -65,7 +65,7 @@ const backupsRoutes: FastifyPluginAsync = async (app) => {
       app.log.error({ err: error }, "failed to start backup");
       const { status, text } = classifyError(
         error,
-        "Не вдалося запустити резервне копіювання на сервері магазину."
+        "Не удалось запустить резервное копирование на сервере магазина."
       );
       reply.code(status);
       return { ok: false, error: text };
@@ -84,7 +84,7 @@ const backupsRoutes: FastifyPluginAsync = async (app) => {
       app.log.error({ err: error }, "failed to test-restore latest backup");
       const { status, text } = classifyError(
         error,
-        "Не вдалося перевірити останню резервну копію."
+        "Не удалось проверить последнюю резервную копию."
       );
       reply.code(status);
       return { ok: false, error: text };
@@ -98,7 +98,7 @@ const backupsRoutes: FastifyPluginAsync = async (app) => {
       app.log.error({ err: error }, "failed to list backups");
       const { status, text } = classifyError(
         error,
-        "Не вдалося завантажити список резервних копій."
+        "Не удалось загрузить список резервных копий."
       );
       reply.code(status);
       return { ok: false, error: text };

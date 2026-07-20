@@ -189,12 +189,12 @@ export function isNonNegativeKey(key) {
 
 export function validateScalar(key, value) {
   if (typeof value !== "number") return null;
-  if (!Number.isFinite(value)) return "Очікується число";
+  if (!Number.isFinite(value)) return "Ожидается число";
   if (isFractionKey(key) && (value < 0 || value > 1)) {
-    return "Має бути частка від 0 до 1";
+    return "Должно быть долей от 0 до 1";
   }
   if (isNonNegativeKey(key) && value < 0) {
-    return "Не може бути від’ємним";
+    return "Не может быть отрицательным";
   }
   return null;
 }
@@ -218,9 +218,9 @@ export function collectErrors(node, path, out) {
 export const TYPE_OPTIONS = [
   { value: "string", label: "Текст" },
   { value: "number", label: "Число" },
-  { value: "boolean", label: "Так / Ні" },
-  { value: "group", label: "Група" },
-  { value: "array", label: "Масив" },
+  { value: "boolean", label: "Да / Нет" },
+  { value: "group", label: "Группа" },
+  { value: "array", label: "Массив" },
 ];
 
 export function initialValueForType(type, rawValue) {

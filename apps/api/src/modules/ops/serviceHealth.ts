@@ -6,7 +6,7 @@ import {
   type OrchestratorPrinterStatus,
 } from "../../infra/integrations/orchestrator/client";
 
-// Status vocabulary consumed by the dashboard "Стан сервісів" panel:
+// Status vocabulary consumed by the dashboard "Состояние сервисов" panel:
 //   up       — healthy
 //   degraded — partially available (some sub-units down)
 //   down     — unreachable / failing

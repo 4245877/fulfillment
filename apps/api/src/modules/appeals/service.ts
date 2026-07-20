@@ -1,5 +1,5 @@
 // Appeals service — picks the data source for every operation and normalises
-// what comes back to the shapes the dashboard "Звернення" page expects.
+// what comes back to the shapes the dashboard "Обращения" page expects.
 //
 // Three explicit modes, resolved per call:
 //
@@ -10,7 +10,7 @@
 //                 serve the in-memory demo store (./store.ts). Dev only.
 //   3. local    — default: this API is the appeals store. Threads live in a
 //                 file-backed store (./persistentStore.ts): the shop's
-//                 "Поставити запитання майстру" chat creates them via
+//                 "Задать вопрос мастеру" chat creates them via
 //                 ingestAppeal(), and operators read/answer them here. Starts
 //                 empty (no seed data), so an empty inbox is real, not fake.
 //
@@ -27,7 +27,7 @@ import { env } from "../../shared/env";
 
 export class AppealsServiceUnavailableError extends Error {
   statusCode = 503;
-  constructor(message = "Сервіс звернень недоступний") {
+  constructor(message = "Сервис обращений недоступен") {
     super(message);
     this.name = "AppealsServiceUnavailableError";
   }
@@ -158,7 +158,7 @@ export async function setAppealStatus(
   }
 }
 
-// Customer question from the shop's "Поставити запитання майстру" chat. Creates
+// Customer question from the shop's "Задать вопрос мастеру" chat. Creates
 // or appends to a thread. In upstream mode it forwards to the external service;
 // otherwise it writes to the local (or, in dev, mock) store.
 export async function ingestAppeal(

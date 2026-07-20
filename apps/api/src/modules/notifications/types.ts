@@ -106,7 +106,7 @@ export type FilamentLowStockNotificationPayload = {
   material: string;
   color: string;
   colorName: string;
-  /** Human label, e.g. "PETG Чорний". */
+  /** Human label, e.g. "PETG Чёрный". */
   label: string;
   /** The band it dropped into — the one that fired this alert. */
   status: "low" | "critical";

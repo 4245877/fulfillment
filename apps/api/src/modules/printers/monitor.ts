@@ -46,7 +46,7 @@ const CANCEL_RE = /cancel|abort|stop/i;
 // match, otherwise a routine M600 colour change ("Filament change") would be
 // mislabelled as a runout.
 const FILAMENT_RUNOUT_RE =
-  /runout|run\s*out|out of filament|закінч.*філ|нема.*філ/i;
+  /runout|run\s*out|out of filament|закінч.*філ|нема.*філ|законч.*фил|нет.*фил/i;
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -374,7 +374,7 @@ async function trackOrchestratorAvailability(
       );
       await enqueueCritical({
         message:
-          "Оркестратор друку недоступний — моніторинг принтерів не отримує статуси.",
+          "Оркестратор печати недоступен — мониторинг принтеров не получает статусы.",
         name: "PrinterOrchestratorUnavailable",
         occurredAt: new Date().toISOString(),
       });
@@ -396,7 +396,7 @@ async function trackOrchestratorAvailability(
     );
     await enqueueCritical({
       message:
-        "Оркестратор друку знову доступний — моніторинг принтерів відновлено.",
+        "Оркестратор печати снова доступен — мониторинг принтеров восстановлен.",
       name: "PrinterOrchestratorRecovered",
       occurredAt: new Date().toISOString(),
     });

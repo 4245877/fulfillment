@@ -153,9 +153,9 @@ export const env = {
   // core/auth.ts, not here, so it is never cached and never logged.
   FILAMENT_AVAILABILITY_MIN_G: numberEnv("FILAMENT_AVAILABILITY_MIN_G", 100),
 
-  // Appeals (Звернення) source. By default this API IS the appeals store:
+  // Appeals (Обращения) source. By default this API IS the appeals store:
   // threads live in a file-backed store (apps/api/data/appeals.json), created by
-  // the shop's "Поставити запитання майстру" chat via POST /api/appeals/ingest
+  // the shop's "Задать вопрос мастеру" chat via POST /api/appeals/ingest
   // and answered by operators from the dashboard. Set APPEALS_SERVICE_URL only
   // to instead proxy to a separate external appeals service.
   APPEALS_SERVICE_URL: optionalString("APPEALS_SERVICE_URL"),

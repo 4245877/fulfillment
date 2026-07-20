@@ -11,7 +11,7 @@ function getStatusClass(status) {
     value.includes("completed") ||
     value.includes("done") ||
     value.includes("достав") ||
-    value.includes("викон")
+    value.includes("викон") || value.includes("выполн")
   ) {
     return styles.statusSuccess;
   }
@@ -20,8 +20,8 @@ function getStatusClass(status) {
     value.includes("error") ||
     value.includes("failed") ||
     value.includes("cancel") ||
-    value.includes("помил") ||
-    value.includes("скас")
+    value.includes("помил") || value.includes("ошиб") ||
+    value.includes("скас") || value.includes("отмен")
   ) {
     return styles.statusDanger;
   }
@@ -30,7 +30,7 @@ function getStatusClass(status) {
     value.includes("pending") ||
     value.includes("queued") ||
     value.includes("waiting") ||
-    value.includes("очіку")
+    value.includes("очіку") || value.includes("ожид")
   ) {
     return styles.statusWarning;
   }
@@ -39,8 +39,8 @@ function getStatusClass(status) {
     value.includes("ship") ||
     value.includes("transit") ||
     value.includes("sent") ||
-    value.includes("дороз") ||
-    value.includes("відправ")
+    value.includes("дороз") || value.includes("в пути") ||
+    value.includes("відправ") || value.includes("отправ")
   ) {
     return styles.statusInfo;
   }
@@ -92,21 +92,21 @@ export default function Shipments() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.headerText}>
-          <div className={styles.eyebrow}>Логістика</div>
-          <h2 className={styles.title}>Відправлення</h2>
+          <div className={styles.eyebrow}>Логистика</div>
+          <h2 className={styles.title}>Отправления</h2>
           <p className={styles.subtitle}>
-            Останні відправлення, перевізники, номери ТТН та напрямки доставки.
+            Последние отправления, перевозчики, номера ТТН и направления доставки.
           </p>
         </div>
       </header>
 
       {error ? (
         <div className={styles.error}>
-          <div className={styles.errorTitle}>Помилка завантаження</div>
+          <div className={styles.errorTitle}>Ошибка загрузки</div>
           <div className={styles.errorText}>{error}</div>
           <div className={styles.errorHint}>
-            Якщо API ще не запущений — нічого страшного. Я почекаю і спробую
-            знову, щойно він озветься.
+            Если API ещё не запущен — ничего страшного. Я подожду и попробую
+            снова, как только он отзовётся.
           </div>
         </div>
       ) : null}
@@ -135,7 +135,7 @@ export default function Shipments() {
 
             <div className={styles.meta}>
               <span className={styles.metaItem}>
-                <span className={styles.metaLabel}>Перевізник:</span>
+                <span className={styles.metaLabel}>Перевозчик:</span>
                 <span className={styles.metaValue}>{s.carrier || "—"}</span>
               </span>
 
@@ -148,7 +148,7 @@ export default function Shipments() {
             </div>
 
             <div className={styles.destination}>
-              <span className={styles.destinationLabel}>Куди</span>
+              <span className={styles.destinationLabel}>Куда</span>
               <span className={styles.destinationValue}>
                 {s.destination || s.pickup_point || "—"}
               </span>
@@ -158,9 +158,9 @@ export default function Shipments() {
 
         {!error && Array.isArray(rows) && rows.length === 0 ? (
           <div className={styles.empty}>
-            <div className={styles.emptyTitle}>Відправлень поки немає</div>
+            <div className={styles.emptyTitle}>Отправлений пока нет</div>
             <div className={styles.emptyText}>
-              Щойно з'являться перші посилки, я дбайливо розкладу їх тут ♡
+              Как только появятся первые посылки, я бережно разложу их здесь ♡
             </div>
           </div>
         ) : null}

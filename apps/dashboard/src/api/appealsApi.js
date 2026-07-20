@@ -1,4 +1,4 @@
-// Appeals (Звернення) — customer ⇄ operator chat data layer.
+// Appeals (Обращения) — customer ⇄ operator chat data layer.
 //
 // This is a thin client over the fulfillment API's /api/appeals routes (served
 // same-origin and proxied by nginx → api:8080, like every other dashboard
@@ -8,7 +8,7 @@
 // server-side, so neither the address (192.168.0.139) nor the data source is
 // hardcoded here. See apps/api/src/modules/appeals/* for the backend.
 //
-// The shop's "Поставити запитання майстру" mini-chat creates threads on the
+// The shop's "Задать вопрос мастеру" mini-chat creates threads on the
 // shop side; this layer only reads/answers them, so it stays compatible with
 // that flow.
 //

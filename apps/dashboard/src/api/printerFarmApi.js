@@ -31,7 +31,7 @@ async function requestJson(path, options = {}) {
       }
 
       throw new Error(
-        message || `Запит до API не виконано: ${res.status}. ${text.slice(0, 200)}`
+        message || `Запрос к API не выполнен: ${res.status}. ${text.slice(0, 200)}`
       );
     }
 
@@ -40,11 +40,11 @@ async function requestJson(path, options = {}) {
     try {
       return JSON.parse(text);
     } catch {
-      throw new Error(`API повернув не JSON: ${text.slice(0, 160)}`);
+      throw new Error(`API вернул не JSON: ${text.slice(0, 160)}`);
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("Запит до API перевищив час очікування");
+      throw new Error("Запрос к API превысил время ожидания");
     }
 
     throw error;

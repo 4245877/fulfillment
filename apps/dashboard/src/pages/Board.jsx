@@ -27,7 +27,7 @@ const DEFAULT_PRINTS = { available: null, printers: [], jobs: [], stats: {} };
 const DEFAULT_BACKUP_STATUS = {
   status: "unknown",
   step: null,
-  message: "Статус резервного копіювання ще не завантажено",
+  message: "Статус резервного копирования ещё не загружен",
   run_id: null,
   run_dir: null,
   log_file: null,
@@ -39,46 +39,46 @@ const LAG_WARNING_MS = 5000;
 const LAG_DANGER_MS = 60000;
 
 const ORDER_STAGES = [
-  { key: "New", label: "Нові", icon: "+", variant: "info" },
-  { key: "Accepted", label: "Прийнято", icon: "✓", variant: "primary" },
+  { key: "New", label: "Новые", icon: "+", variant: "info" },
+  { key: "Accepted", label: "Принято", icon: "✓", variant: "primary" },
   {
     key: "PrePrintCheck",
-    label: "Перевірка перед друком",
+    label: "Проверка перед печатью",
     icon: "◌",
     variant: "primary",
   },
-  { key: "Queued", label: "У черзі", icon: "≡", variant: "warning" },
-  { key: "Printing", label: "Друкується", icon: "◔", variant: "success" },
-  { key: "PostProcess", label: "Постобробка", icon: "◌", variant: "primary" },
-  { key: "Packaging", label: "Пакування", icon: "□", variant: "primary" },
-  { key: "Shipment", label: "Відправлення", icon: "→", variant: "primary" },
-  { key: "Pickup", label: "Самовивіз", icon: "⌂", variant: "info" },
+  { key: "Queued", label: "В очереди", icon: "≡", variant: "warning" },
+  { key: "Printing", label: "Печатается", icon: "◔", variant: "success" },
+  { key: "PostProcess", label: "Постобработка", icon: "◌", variant: "primary" },
+  { key: "Packaging", label: "Упаковка", icon: "□", variant: "primary" },
+  { key: "Shipment", label: "Отправление", icon: "→", variant: "primary" },
+  { key: "Pickup", label: "Самовывоз", icon: "⌂", variant: "info" },
   { key: "Delivered", label: "Доставлено", icon: "✓", variant: "success" },
-  { key: "Issued", label: "Видано", icon: "✓", variant: "success" },
+  { key: "Issued", label: "Выдано", icon: "✓", variant: "success" },
   { key: "Problem", label: "Проблема", icon: "!", variant: "danger" },
-  { key: "Cancelled", label: "Скасовано", icon: "×", variant: "info" },
+  { key: "Cancelled", label: "Отменено", icon: "×", variant: "info" },
 ];
 
 const LOGISTICS_STATUSES = [
-  ["new", "Нові"],
-  ["inTransit", "У дорозі"],
+  ["new", "Новые"],
+  ["inTransit", "В пути"],
   ["delivered", "Доставлено"],
-  ["problem", "Проблемні"],
+  ["problem", "Проблемные"],
 ];
 
 const QUEUE_ROWS = [
-  { key: "prints", label: "Друк", readyKey: "ready", runningKey: "running" },
-  { key: "imports", label: "Імпорт", readyKey: "backlog", runningKey: null },
-  { key: "media", label: "Медіа", readyKey: "backlog", runningKey: null },
+  { key: "prints", label: "Печать", readyKey: "ready", runningKey: "running" },
+  { key: "imports", label: "Импорт", readyKey: "backlog", runningKey: null },
+  { key: "media", label: "Медиа", readyKey: "backlog", runningKey: null },
   { key: "webhooks", label: "Вебхуки", readyKey: "backlog", runningKey: null },
-  { key: "notify", label: "Сповіщення", readyKey: "backlog", runningKey: null },
+  { key: "notify", label: "Уведомления", readyKey: "backlog", runningKey: null },
 ];
 
 const SERVICE_ROWS = [
-  ["API магазину", "shop"],
-  ["API фулфілменту", "fulfillment"],
-  ["Оркестратор друку", "orchestrator"],
-  ["Мережа принтерів", "printers"],
+  ["API магазина", "shop"],
+  ["API фулфилмента", "fulfillment"],
+  ["Оркестратор печати", "orchestrator"],
+  ["Сеть принтеров", "printers"],
   ["PostgreSQL", "db"],
   ["Redis", "redis"],
 ];
@@ -179,11 +179,11 @@ function normalizeBackupStatus(value, fallback = DEFAULT_BACKUP_STATUS) {
 }
 
 function formatInt(value) {
-  return asNumber(value, 0).toLocaleString("uk-UA");
+  return asNumber(value, 0).toLocaleString("ru-RU");
 }
 
 function formatFixed(value, digits = 1) {
-  return asNumber(value, 0).toLocaleString("uk-UA", {
+  return asNumber(value, 0).toLocaleString("ru-RU", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
@@ -196,7 +196,7 @@ function formatDateTime(value) {
     return String(value);
   }
 
-  return date.toLocaleString("uk-UA", {
+  return date.toLocaleString("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -212,7 +212,7 @@ function formatHeaderTime(value) {
     return String(value);
   }
 
-  return date.toLocaleTimeString("uk-UA", {
+  return date.toLocaleTimeString("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -226,7 +226,7 @@ function formatHeroDate(value) {
     return String(value);
   }
 
-  return date.toLocaleDateString("uk-UA", {
+  return date.toLocaleDateString("ru-RU", {
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -238,15 +238,15 @@ function formatLag(value) {
 
   if (ms >= 60000) {
     const minutes = ms / 60000;
-    return `${minutes.toLocaleString("uk-UA", {
+    return `${minutes.toLocaleString("ru-RU", {
       minimumFractionDigits: minutes < 10 ? 1 : 0,
       maximumFractionDigits: 1,
-    })} хв`;
+    })} мин`;
   }
 
   if (ms >= 1000) {
     const seconds = ms / 1000;
-    return `${seconds.toLocaleString("uk-UA", {
+    return `${seconds.toLocaleString("ru-RU", {
       minimumFractionDigits: seconds < 10 ? 1 : 0,
       maximumFractionDigits: 1,
     })} с`;
@@ -284,29 +284,29 @@ function getAlertTone(level) {
 
 function getAlertLabel(level) {
   const v = String(level || "").toLowerCase();
-  if (v === "error") return "Помилка";
-  if (v === "warn" || v === "warning") return "Попередження";
-  if (v === "ok" || v === "success") return "Добре";
-  return "Інфо";
+  if (v === "error") return "Ошибка";
+  if (v === "warn" || v === "warning") return "Предупреждение";
+  if (v === "ok" || v === "success") return "Хорошо";
+  return "Инфо";
 }
 
-// Single source of truth for the "Стан сервісів" panel so that the tag colour,
+// Single source of truth for the "Состояние сервисов" panel so that the tag colour,
 // the Ukrainian label and the "problem" counter never drift apart.
 function describeService(status) {
   const v = String(status || "").trim().toLowerCase();
 
   if (!v || v === "unknown")
-    return { tone: "primary", label: "Невідомо", problem: false };
+    return { tone: "primary", label: "Неизвестно", problem: false };
   if (v === "up" || v === "ok" || v === "healthy")
-    return { tone: "success", label: "Працює", problem: false };
+    return { tone: "success", label: "Работает", problem: false };
   if (v === "degraded" || v === "warning" || v === "warn")
-    return { tone: "warning", label: "Частково", problem: false };
+    return { tone: "warning", label: "Частично", problem: false };
   if (v === "down" || v === "offline" || v === "unreachable")
-    return { tone: "danger", label: "Недоступний", problem: true };
+    return { tone: "danger", label: "Недоступен", problem: true };
 
   // Any other value (error, failed, timeout, …) is an unhealthy state: keep it
   // red and counted, but never leak the raw English token into the UI.
-  return { tone: "danger", label: "Помилка", problem: true };
+  return { tone: "danger", label: "Ошибка", problem: true };
 }
 
 function getBackupTone(status) {
@@ -324,38 +324,38 @@ function getBackupStatusLabel(status) {
   const v = String(status || "").toLowerCase();
 
   if (v === "success") return "Готово";
-  if (v === "running") return "Виконується";
-  if (v === "queued") return "У черзі";
-  if (v === "idle") return "Очікування";
-  if (v === "failed" || v === "error") return "Помилка";
+  if (v === "running") return "Выполняется";
+  if (v === "queued") return "В очереди";
+  if (v === "idle") return "Ожидание";
+  if (v === "failed" || v === "error") return "Ошибка";
   if (v === "skipped") return "Пропущено";
 
-  return "Невідомо";
+  return "Неизвестно";
 }
 
 function getBackupStepLabel(step) {
   const labels = {
-    preflight: "Перевірка умов",
-    preparing: "Підготовка",
-    database: "База даних",
-    files: "Файли",
-    verifying: "Перевірка",
-    uploading: "Копіювання",
-    queued: "У черзі",
+    preflight: "Проверка условий",
+    preparing: "Подготовка",
+    database: "База данных",
+    files: "Файлы",
+    verifying: "Проверка",
+    uploading: "Копирование",
+    queued: "В очереди",
     postgres: "PostgreSQL",
     uploads: "Uploads",
     minio: "MinIO",
     ingester: "Ingester data",
     stl_large: "STL/3MF large",
     stl_small: "STL/3MF small",
-    config: "Конфігурація",
+    config: "Конфигурация",
     manifest: "Manifest",
     checksum: "SHA256",
-    remote: "Копіювання на ПК",
-    retention: "Очищення старих копій",
+    remote: "Копирование на ПК",
+    retention: "Очистка старых копий",
     done: "Готово",
-    error: "Помилка",
-    lock: "Вже виконується",
+    error: "Ошибка",
+    lock: "Уже выполняется",
   };
 
   return labels[step] || (step ? String(step) : "—");
@@ -419,7 +419,7 @@ function StatusTag({ children, tone = "primary" }) {
   return <span className={`tag${toneClass ? ` ${toneClass}` : ""}`}>{children}</span>;
 }
 
-function EmptyState({ title = "Поки що порожньо", desc = "Тут ще нічого немає, але я приглядаю за цим місцем." }) {
+function EmptyState({ title = "Пока что пусто", desc = "Здесь ещё ничего нет, но я приглядываю за этим местом." }) {
   return (
     <div className="wboard-empty">
       <div className="wboard-empty-icon" aria-hidden="true">
@@ -459,20 +459,20 @@ function HeroHeader({ updatedAt, loading, hasError }) {
 
   const statusTone = hasError ? "danger" : loading ? "warning" : "success";
   const statusText = hasError
-    ? "Є проблеми із синхронізацією — я вже розбираюся"
+    ? "Есть проблемы с синхронизацией — я уже разбираюсь"
     : loading
-      ? "Оновлюю дані…"
-      : "Синхронізація активна, все спокійно";
+      ? "Обновляю данные…"
+      : "Синхронизация активна, всё спокойно";
 
   return (
     <header className="wallboard-hero">
       <div className="wallboard-hero-inner">
         <div>
           <div className="wallboard-hero-greeting">Lite Forest</div>
-          <h1>Операційна панель</h1>
+          <h1>Операционная панель</h1>
           <p className="wallboard-hero-sub">
-            Замовлення, друк, логістика та стан сервісів — усе зібрано тут,
-            під дбайливим наглядом.
+            Заказы, печать, логистика и состояние сервисов — всё собрано здесь,
+            под заботливым присмотром.
           </p>
         </div>
 
@@ -486,7 +486,7 @@ function HeroHeader({ updatedAt, loading, hasError }) {
             {statusText}
           </div>
           <div className="wallboard-hero-updated">
-            Дані оновлено о {formatHeaderTime(updatedAt)}
+            Данные обновлены в {formatHeaderTime(updatedAt)}
           </div>
         </div>
       </div>
@@ -504,9 +504,9 @@ const SectionOrders = memo(function SectionOrders({ data = {}, loading = false }
   return (
     <Panel
       loading={loading}
-      title="Замовлення — конвеєр"
-      subtitle="Кількість замовлень у кожному поточному статусі"
-      footer={<span className="panel-footer-meta">Усього замовлень: {formatInt(total)}</span>}
+      title="Заказы — конвейер"
+      subtitle="Количество заказов в каждом текущем статусе"
+      footer={<span className="panel-footer-meta">Всего заказов: {formatInt(total)}</span>}
     >
       <div className="kpi-grid kpi-grid--orders">
         {ORDER_STAGES.map(({ key, label, icon, variant }) => (
@@ -533,15 +533,15 @@ const SectionQueues = memo(function SectionQueues({ queues = {}, loading = false
   }));
 
   return (
-    <Panel loading={loading} title="Черги та відставання" subtitle="Розмір черг і час затримки">
+    <Panel loading={loading} title="Очереди и отставание" subtitle="Размер очередей и время задержки">
       <div className="wboard-table-wrap">
         <table className="wboard-table">
           <thead>
             <tr>
-              <th>Черга</th>
-              <th>Готово / беклог</th>
-              <th>Виконується</th>
-              <th>Відставання</th>
+              <th>Очередь</th>
+              <th>Готово / бэклог</th>
+              <th>Выполняется</th>
+              <th>Отставание</th>
             </tr>
           </thead>
 
@@ -570,30 +570,30 @@ const SectionMaterials = memo(function SectionMaterials({ materials = {}, loadin
   return (
     <Panel
       loading={loading}
-      title="Склад пластику"
-      subtitle="Залишки філаменту за матеріалом і кольором"
+      title="Склад пластика"
+      subtitle="Остатки филамента по материалу и цвету"
     >
       <div className="wallboard-grid-2">
         <KpiCard
-          label="Філамент"
+          label="Филамент"
           value={`${formatFixed(materials.filamentKg ?? 0, 1)} кг`}
           icon="◔"
           variant="primary"
         />
         <KpiCard
-          label="Позицій на складі"
+          label="Позиций на складе"
           value={formatInt(stock.length)}
           icon="≡"
           variant="info"
         />
         <KpiCard
-          label="Котушки в роботі"
+          label="Катушки в работе"
           value={formatInt(materials.reelsInUse ?? 0)}
           icon="◎"
           variant="success"
         />
         <KpiCard
-          label="Проблемні залишки"
+          label="Проблемные остатки"
           value={formatInt(low.length)}
           icon="!"
           variant={low.length ? "warning" : "info"}
@@ -606,8 +606,8 @@ const SectionMaterials = memo(function SectionMaterials({ materials = {}, loadin
             <table className="wboard-table">
               <thead>
                 <tr>
-                  <th>Матеріал</th>
-                  <th>Залишок</th>
+                  <th>Материал</th>
+                  <th>Остаток</th>
                   <th>Статус</th>
                 </tr>
               </thead>
@@ -637,7 +637,7 @@ const SectionMaterials = memo(function SectionMaterials({ materials = {}, loadin
                           {status === "critical"
                             ? "Критично"
                             : status === "low"
-                              ? "Низький"
+                              ? "Низкий"
                               : "Норма"}
                         </StatusTag>
                       </td>
@@ -649,8 +649,8 @@ const SectionMaterials = memo(function SectionMaterials({ materials = {}, loadin
           </div>
         ) : (
           <EmptyState
-            title="Склад пластику порожній"
-            desc="Щойно ви поповните запаси, я охайно розкладу тут усі залишки."
+            title="Склад пластика пуст"
+            desc="Как только вы пополните запасы, я аккуратно разложу здесь все остатки."
           />
         )}
       </div>
@@ -665,8 +665,8 @@ const SectionLogistics = memo(function SectionLogistics({ logistics = {}, loadin
   return (
     <Panel
       loading={loading}
-      title="Логістика"
-      subtitle="Статуси відправлень та розподіл за перевізниками"
+      title="Логистика"
+      subtitle="Статусы отправлений и распределение по перевозчикам"
     >
       <div className="wallboard-grid-2">
         {LOGISTICS_STATUSES.map(([key, label]) => (
@@ -686,11 +686,11 @@ const SectionLogistics = memo(function SectionLogistics({ logistics = {}, loadin
             <table className="wboard-table">
               <thead>
                 <tr>
-                  <th>Перевізник</th>
-                  <th>Нові</th>
-                  <th>У дорозі</th>
+                  <th>Перевозчик</th>
+                  <th>Новые</th>
+                  <th>В пути</th>
                   <th>Доставлено</th>
-                  <th>Проблемні</th>
+                  <th>Проблемные</th>
                 </tr>
               </thead>
 
@@ -713,8 +713,8 @@ const SectionLogistics = memo(function SectionLogistics({ logistics = {}, loadin
           </div>
         ) : (
           <EmptyState
-            title="Немає даних про перевізників"
-            desc="Щойно з'являться перші відправлення, я зберу для вас статистику за службами доставки."
+            title="Нет данных о перевозчиках"
+            desc="Как только появятся первые отправления, я соберу для вас статистику по службам доставки."
           />
         )}
       </div>
@@ -726,30 +726,30 @@ const SectionPayments = memo(function SectionPayments({ payments = {}, loading =
   return (
     <Panel
       loading={loading}
-      title="Оплати"
-      subtitle="Передоплата, доплати та спірні платежі перед відвантаженням"
+      title="Оплаты"
+      subtitle="Предоплата, доплаты и спорные платежи перед отгрузкой"
     >
       <div className="wallboard-grid-2">
         <KpiCard
-          label="Очікує 25%"
+          label="Ожидает 25%"
           value={formatInt(payments.awaitingPrepay || 0)}
           icon="₴"
           variant="warning"
         />
         <KpiCard
-          label="Очікує доплату"
+          label="Ожидает доплату"
           value={formatInt(payments.awaitingRest || 0)}
           icon="₴"
           variant="primary"
         />
         <KpiCard
-          label="Спори"
+          label="Споры"
           value={formatInt(payments.disputes || 0)}
           icon="!"
           variant="danger"
         />
         <KpiCard
-          label="Середній чек"
+          label="Средний чек"
           value={`${formatInt(payments.avgCheckUAH || 0)} ₴`}
           icon="◌"
           variant="success"
@@ -770,15 +770,15 @@ const SectionServices = memo(function SectionServices({ services = {}, loading =
   return (
     <Panel
       loading={loading}
-      title="Стан сервісів"
-      subtitle="Доступність ключових систем"
-      footer={<span className="panel-footer-meta">Проблемних сервісів: {formatInt(downCount)}</span>}
+      title="Состояние сервисов"
+      subtitle="Доступность ключевых систем"
+      footer={<span className="panel-footer-meta">Проблемных сервисов: {formatInt(downCount)}</span>}
     >
       <div className="wboard-table-wrap">
         <table className="wboard-table">
           <thead>
             <tr>
-              <th>Сервіс</th>
+              <th>Сервис</th>
               <th>Статус</th>
             </tr>
           </thead>
@@ -807,11 +807,11 @@ const SectionBackups = memo(function SectionBackups({ backup = DEFAULT_BACKUP_ST
   return (
     <Panel
       loading={loading}
-      title="Резервні копії"
-      subtitle="Останній стан backup.sh на основному сервері"
+      title="Резервные копии"
+      subtitle="Последнее состояние backup.sh на основном сервере"
       footer={
         <span className="panel-footer-meta">
-          Оновлено: {formatDateTime(backup.updated_at)}
+          Обновлено: {formatDateTime(backup.updated_at)}
         </span>
       }
     >
@@ -825,25 +825,25 @@ const SectionBackups = memo(function SectionBackups({ backup = DEFAULT_BACKUP_ST
         />
 
         <KpiCard
-          label="Етап"
+          label="Этап"
           value={getBackupStepLabel(backup.step)}
-          context={backup.run_id ? `ID запуску: ${backup.run_id}` : "ID запуску ще немає"}
+          context={backup.run_id ? `ID запуска: ${backup.run_id}` : "ID запуска ещё нет"}
           icon="≡"
           variant="primary"
         />
 
         <KpiCard
-          label="Вік статусу"
-          value={ageHours == null ? "—" : `${formatFixed(ageHours, ageHours < 10 ? 1 : 0)} год`}
-          context={isOld ? "Статус давно не оновлювався" : "Статус актуальний"}
+          label="Возраст статуса"
+          value={ageHours == null ? "—" : `${formatFixed(ageHours, ageHours < 10 ? 1 : 0)} ч`}
+          context={isOld ? "Статус давно не обновлялся" : "Статус актуален"}
           icon="◌"
           variant={isOld ? "warning" : "info"}
         />
 
         <KpiCard
-          label="Перевірка"
-          value={backup.status === "success" ? "OK" : backup.status === "running" ? "У процесі" : "—"}
-          context="SHA256, дамп PostgreSQL і tar-архіви"
+          label="Проверка"
+          value={backup.status === "success" ? "OK" : backup.status === "running" ? "В процессе" : "—"}
+          context="SHA256, дамп PostgreSQL и tar-архивы"
           icon={backup.status === "success" ? "✓" : "!"}
           variant={backup.status === "success" ? "success" : "info"}
         />
@@ -864,7 +864,7 @@ const SectionBackups = memo(function SectionBackups({ backup = DEFAULT_BACKUP_ST
               </tr>
 
               <tr>
-                <td className="col-name">Вміст</td>
+                <td className="col-name">Содержимое</td>
                 <td className="col-sub">
                   PostgreSQL, uploads, MinIO, ingester data, STL/3MF, config
                 </td>
@@ -874,7 +874,7 @@ const SectionBackups = memo(function SectionBackups({ backup = DEFAULT_BACKUP_ST
         </div>
 
         <StatusTag tone={statusTone}>
-          {isOld ? "Потребує уваги" : getBackupStatusLabel(backup.status)}
+          {isOld ? "Требует внимания" : getBackupStatusLabel(backup.status)}
         </StatusTag>
       </div>
     </Panel>
@@ -885,20 +885,20 @@ const SectionIndexer = memo(function SectionIndexer({ idx = {}, loading = false 
   return (
     <Panel
       loading={loading}
-      title="Пошуковий індекс"
-      subtitle="Стан індексації каталогу та швидкість оновлення"
+      title="Поисковый индекс"
+      subtitle="Состояние индексации каталога и скорость обновления"
     >
       <div className="wallboard-grid-2">
-        <KpiCard label="Беклог" value={formatInt(idx.backlog || 0)} icon="◦" variant="warning" />
+        <KpiCard label="Бэклог" value={formatInt(idx.backlog || 0)} icon="◦" variant="warning" />
         <KpiCard
-          label="Швидкість"
-          value={`${formatInt(idx.ratePerMin || 0)}/хв`}
+          label="Скорость"
+          value={`${formatInt(idx.ratePerMin || 0)}/мин`}
           icon="→"
           variant="success"
         />
-        <KpiCard label="Шарди" value={formatInt(idx.shards || 1)} icon="≡" variant="primary" />
+        <KpiCard label="Шарды" value={formatInt(idx.shards || 1)} icon="≡" variant="primary" />
         <KpiCard
-          label="Останнє оновлення"
+          label="Последнее обновление"
           value={formatDateTime(idx.lastIndexedAt)}
           icon="◷"
           variant="info"
@@ -914,8 +914,8 @@ const SectionIngester = memo(function SectionIngester({ ing = {}, loading = fals
   return (
     <Panel
       loading={loading}
-      title="Імпорт"
-      subtitle="CSV, медіа, нормалізація та результат останніх пакетів"
+      title="Импорт"
+      subtitle="CSV, медиа, нормализация и результат последних пакетов"
     >
       {batches.length ? (
         <div className="wboard-table-wrap">
@@ -923,10 +923,10 @@ const SectionIngester = memo(function SectionIngester({ ing = {}, loading = fals
             <thead>
               <tr>
                 <th>Пакет</th>
-                <th>Рядків</th>
-                <th>Успішно</th>
-                <th>Помилки</th>
-                <th>Тривалість</th>
+                <th>Строк</th>
+                <th>Успешно</th>
+                <th>Ошибки</th>
+                <th>Длительность</th>
               </tr>
             </thead>
 
@@ -945,32 +945,32 @@ const SectionIngester = memo(function SectionIngester({ ing = {}, loading = fals
         </div>
       ) : (
         <EmptyState
-          title="Пакетів імпорту поки немає"
-          desc="Коли імпортер запуститься, я акуратно складу тут останні завантаження CSV і медіа."
+          title="Пакетов импорта пока нет"
+          desc="Когда импортер запустится, я аккуратно сложу здесь последние загрузки CSV и медиа."
         />
       )}
 
       <div className="wallboard-grid-4 wallboard-stack-lg">
         <KpiCard
-          label="Беклог медіа"
+          label="Бэклог медиа"
           value={formatInt(ing.mediaBacklog || 0)}
           icon="◫"
           variant="warning"
         />
         <KpiCard
-          label="Трансформацій за хвилину"
+          label="Трансформаций в минуту"
           value={formatInt(ing.mediaRatePerMin || 0)}
           icon="⇄"
           variant="success"
         />
         <KpiCard
-          label="Помилки за годину"
+          label="Ошибки за час"
           value={formatInt(ing.errors1h || 0)}
           icon="!"
           variant="danger"
         />
         <KpiCard
-          label="Версія pricing.yml"
+          label="Версия pricing.yml"
           value={ing.pricingVersion || "—"}
           icon="⌘"
           variant="primary"
@@ -988,17 +988,17 @@ const SectionWebhooks = memo(function SectionWebhooks({ wh = {}, loading = false
     <Panel
       loading={loading}
       title="Вебхуки"
-      subtitle="Платіжні провайдери, перевізники та останні помилки"
+      subtitle="Платёжные провайдеры, перевозчики и последние ошибки"
     >
       {items.length ? (
         <div className="wboard-table-wrap">
           <table className="wboard-table">
             <thead>
               <tr>
-                <th>Джерело</th>
-                <th>Успішність</th>
-                <th>Збої за 5 хв</th>
-                <th>Остання помилка</th>
+                <th>Источник</th>
+                <th>Успешность</th>
+                <th>Сбои за 5 мин</th>
+                <th>Последняя ошибка</th>
               </tr>
             </thead>
 
@@ -1020,8 +1020,8 @@ const SectionWebhooks = memo(function SectionWebhooks({ wh = {}, loading = false
         </div>
       ) : (
         <EmptyState
-          title="Немає даних по вебхуках"
-          desc="Щойно провайдери озвуться, я вестиму тут статистику доставок і помилок."
+          title="Нет данных по вебхукам"
+          desc="Как только провайдеры отзовутся, я буду вести здесь статистику доставок и ошибок."
         />
       )}
     </Panel>
@@ -1030,7 +1030,7 @@ const SectionWebhooks = memo(function SectionWebhooks({ wh = {}, loading = false
 
 const SectionAlerts = memo(function SectionAlerts({ alerts = [], loading = false }) {
   return (
-    <Panel loading={loading} title="Оповіщення" subtitle="Останні 10 подій" flush>
+    <Panel loading={loading} title="Оповещения" subtitle="Последние 10 событий" flush>
       {alerts.length ? (
         <div className="activity-feed">
           {alerts.slice(0, 10).map((alert, index) => (
@@ -1043,10 +1043,10 @@ const SectionAlerts = memo(function SectionAlerts({ alerts = [], loading = false
               </div>
 
               <div className="activity-content">
-                <div className="activity-name">{alert.title || "Без назви"}</div>
+                <div className="activity-name">{alert.title || "Без названия"}</div>
                 <div className="activity-desc">
                   <strong>{getAlertLabel(alert.level)}</strong>
-                  {alert.message ? ` • ${alert.message}` : " • Системне сповіщення"}
+                  {alert.message ? ` • ${alert.message}` : " • Системное уведомление"}
                 </div>
               </div>
 
@@ -1058,8 +1058,8 @@ const SectionAlerts = memo(function SectionAlerts({ alerts = [], loading = false
         </div>
       ) : (
         <EmptyState
-          title="Немає активних оповіщень"
-          desc="Усе спокійно ♡ Якщо щось трапиться, я одразу повідомлю вам тут."
+          title="Нет активных оповещений"
+          desc="Всё спокойно ♡ Если что-то случится, я сразу сообщу вам здесь."
         />
       )}
     </Panel>
@@ -1080,35 +1080,35 @@ const TopSummary = memo(function TopSummary({ prints, stats, alertsCount }) {
   const printsValue = (value) =>
     printsAvailable ? formatInt(asNumber(value, 0)) : "—";
   const printsContext = (text) =>
-    printsAvailable ? text : "Оркестратор друку недоступний";
+    printsAvailable ? text : "Оркестратор печати недоступен";
 
   return (
     <div className="kpi-grid">
       <KpiCard
-        label="Друкується зараз"
+        label="Печатается сейчас"
         value={printsValue(prints.stats?.printing)}
-        context={printsContext(`Завдань у черзі: ${formatInt(jobs.length)}`)}
+        context={printsContext(`Заданий в очереди: ${formatInt(jobs.length)}`)}
         icon="◔"
         variant="success"
       />
       <KpiCard
-        label="У черзі"
+        label="В очереди"
         value={printsValue(prints.stats?.queued)}
-        context={printsContext("Черга оркестратора друку")}
+        context={printsContext("Очередь оркестратора печати")}
         icon="≡"
         variant="warning"
       />
       <KpiCard
-        label="Завершено сьогодні"
+        label="Завершено сегодня"
         value={printsValue(prints.stats?.done)}
         context={`Доставлено: ${formatInt(stats.logistics?.delivered || 0)}`}
         icon="✓"
         variant="primary"
       />
       <KpiCard
-        label="Проблеми й оповіщення"
+        label="Проблемы и оповещения"
         value={formatInt(problemsCount)}
-        context={`Проблемних замовлень: ${formatInt(orderProblems)}`}
+        context={`Проблемных заказов: ${formatInt(orderProblems)}`}
         icon="!"
         variant={problemsCount > 0 ? "danger" : "info"}
       />
@@ -1144,7 +1144,7 @@ export default function Board() {
         const errors = [opsResult, printsResult]
           .filter((result) => result.status === "rejected")
           .map((result) =>
-            result.reason instanceof Error ? result.reason.message : "Помилка завантаження"
+            result.reason instanceof Error ? result.reason.message : "Ошибка загрузки"
           );
 
         setLoadError(errors.join(" • "));
@@ -1184,7 +1184,7 @@ export default function Board() {
         setBackupError(
           error instanceof Error
             ? error.message
-            : "Мені не вдалося дізнатися стан резервних копій"
+            : "Мне не удалось узнать состояние резервных копий"
         );
       } finally {
         inFlight = false;
@@ -1302,7 +1302,7 @@ export default function Board() {
           <div className="alert-strip-icon" aria-hidden="true">
             ⟳
           </div>
-          <div className="alert-strip-text">Хвилинку, будь ласка… я збираю зведення операцій та друкарської ферми.</div>
+          <div className="alert-strip-text">Минутку, пожалуйста… я собираю сводку операций и печатной фермы.</div>
         </div>
       ) : null}
 
@@ -1321,8 +1321,8 @@ export default function Board() {
             !
           </div>
           <div className="alert-strip-text">
-            Мені не вдалося дізнатися стан резервних копій: {backupError}. Я
-            продовжую спроби.
+            Мне не удалось узнать состояние резервных копий: {backupError}. Я
+            продолжаю попытки.
           </div>
         </div>
       ) : null}

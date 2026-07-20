@@ -139,17 +139,17 @@ export type SyncPrinterFilamentResult =
     };
 
 const COLOR_NAMES: Record<string, string> = {
-  black: "Чорний",
-  white: "Білий",
-  gray: "Сірий",
-  grey: "Сірий",
-  red: "Червоний",
-  blue: "Синій",
-  green: "Зелений",
-  yellow: "Жовтий",
-  orange: "Помаранчевий",
-  transparent: "Прозорий",
-  clear: "Прозорий",
+  black: "Чёрный",
+  white: "Белый",
+  gray: "Серый",
+  grey: "Серый",
+  red: "Красный",
+  blue: "Синий",
+  green: "Зелёный",
+  yellow: "Жёлтый",
+  orange: "Оранжевый",
+  transparent: "Прозрачный",
+  clear: "Прозрачный",
 };
 
 function nowIso() {
@@ -636,8 +636,8 @@ function withReactivationNote(
   }
 
   return base
-    ? `${base} · позицію повернено з архіву`
-    : "позицію повернено з архіву";
+    ? `${base} · позиция возвращена из архива`
+    : "позиция возвращена из архива";
 }
 
 export async function listFilamentStock(): Promise<FilamentStockView[]> {
@@ -732,7 +732,7 @@ export async function addFilament(input: AddFilamentInput) {
 }
 
 /**
- * Resolves which stock a consumption должен списаться from, in priority order:
+ * Resolves which stock a consumption should be drawn from, in priority order:
  *
  *  1. Explicit material+color that matches an existing stock — the dashboard's
  *     manual flow, unchanged.

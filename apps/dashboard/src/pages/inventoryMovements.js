@@ -1,4 +1,4 @@
-// Pure helpers for the "Останні рухи" (recent movements) table. Kept free of
+// Pure helpers for the "Последние движения" (recent movements) table. Kept free of
 // React so they can be unit-tested (see inventoryMovements.test.js) — this is
 // where the "printer name / — / unknown-safe" and "position / archived / safe"
 // rendering rules live.
@@ -56,7 +56,7 @@ export function resolvePrinterLabel(printerId, printerNameById) {
 
   return {
     text: printerId,
-    title: "Невідомий або видалений принтер",
+    title: "Неизвестный или удалённый принтер",
     unknown: true,
     manual: false,
   };
@@ -65,7 +65,7 @@ export function resolvePrinterLabel(printerId, printerNameById) {
 /**
  * How to render a movement's position (material + colour) cell from the
  * denormalised stock fields the API now returns on each movement.
- *   - resolvable position → "PLA Чорний" (+ "(архів)" when archived)
+ *   - resolvable position → "PLA Чёрный" (+ "(архив)" when archived)
  *   - missing/removed     → "—", flagged unknown (never crashes the render)
  * The stock id goes into the tooltip, so the table itself is not littered with
  * UUIDs.

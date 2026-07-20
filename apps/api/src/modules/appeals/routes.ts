@@ -31,12 +31,12 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
     } catch (error) {
       app.log.error({ err: error }, "failed to list appeals");
       reply.code(errorStatus(error));
-      return { ok: false, error: errorMessage(error, "Не вдалося завантажити звернення") };
+      return { ok: false, error: errorMessage(error, "Не удалось загрузить обращения") };
     }
   });
 
   // POST /api/appeals/ingest — a customer question from the shop's
-  // "Поставити запитання майстру" chat. The shop forwards its OutboundQuestion
+  // "Задать вопрос мастеру" chat. The shop forwards its OutboundQuestion
   // here (nested product/customer + thread_id); a flat variant is also accepted.
   app.post("/ingest", async (req, reply) => {
     const body = (req.body ?? {}) as Record<string, any>;
@@ -44,7 +44,7 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
 
     if (!text) {
       reply.code(400);
-      return { ok: false, error: "Порожнє повідомлення" };
+      return { ok: false, error: "Пустое сообщение" };
     }
 
     const product = body.product ?? {};
@@ -77,12 +77,12 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
     } catch (error) {
       app.log.error({ err: error }, "failed to ingest appeal");
       reply.code(errorStatus(error));
-      return { ok: false, error: errorMessage(error, "Не вдалося прийняти звернення") };
+      return { ok: false, error: errorMessage(error, "Не удалось принять обращение") };
     }
   });
 
   // GET /api/appeals/ingest/:threadId — public read side of the shop mini-chat.
-  // The "Поставити запитання майстру" chat polls this with the thread_id it got
+  // The "Задать вопрос мастеру" chat polls this with the thread_id it got
   // back from POST /ingest to pull operator replies. Deliberately narrow: it
   // returns ONLY this one thread's messages — never the inbox listing or other
   // customers' contacts — and is read-only, so it must NOT touch the operator's
@@ -105,7 +105,7 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
       };
     } catch (error) {
       reply.code(errorStatus(error));
-      return { ok: false, error: errorMessage(error, "Звернення не знайдено") };
+      return { ok: false, error: errorMessage(error, "Обращение не найдено") };
     }
   });
 
@@ -116,7 +116,7 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
       return { item: await getAppeal(id) };
     } catch (error) {
       reply.code(errorStatus(error));
-      return { ok: false, error: errorMessage(error, "Не вдалося завантажити звернення") };
+      return { ok: false, error: errorMessage(error, "Не удалось загрузить обращение") };
     }
   });
 
@@ -131,7 +131,7 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
       return { item: await markAppealRead(id) };
     } catch (error) {
       reply.code(errorStatus(error));
-      return { ok: false, error: errorMessage(error, "Не вдалося оновити звернення") };
+      return { ok: false, error: errorMessage(error, "Не удалось обновить обращение") };
     }
   });
 
@@ -146,7 +146,7 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
 
     if (!text) {
       reply.code(400);
-      return { ok: false, error: "Порожнє повідомлення" };
+      return { ok: false, error: "Пустое сообщение" };
     }
 
     try {
@@ -160,7 +160,7 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
     } catch (error) {
       app.log.error({ err: error }, "failed to send appeal message");
       reply.code(errorStatus(error));
-      return { ok: false, error: errorMessage(error, "Не вдалося надіслати повідомлення") };
+      return { ok: false, error: errorMessage(error, "Не удалось отправить сообщение") };
     }
   });
 
@@ -174,14 +174,14 @@ const appealsRoutes: FastifyPluginAsync = async (app) => {
 
     if (!isAppealStatus(status)) {
       reply.code(400);
-      return { ok: false, error: "Невідомий статус звернення" };
+      return { ok: false, error: "Неизвестный статус обращения" };
     }
 
     try {
       return { item: await setAppealStatus(id, status) };
     } catch (error) {
       reply.code(errorStatus(error));
-      return { ok: false, error: errorMessage(error, "Не вдалося змінити статус") };
+      return { ok: false, error: errorMessage(error, "Не удалось изменить статус") };
     }
   });
 };

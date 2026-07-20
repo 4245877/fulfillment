@@ -404,7 +404,7 @@ test("a confirmed orchestrator outage alerts exactly once and recovers once", as
   // Second consecutive success confirms recovery -> exactly one message.
   await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
   assert.equal(c.criticalPayloads.length, 2);
-  assert.match(c.criticalPayloads[1].message, /відновлено|доступ/i);
+  assert.match(c.criticalPayloads[1].message, /восстановлен|доступ/i);
 });
 
 test("one printer's failure does not break the others", async () => {

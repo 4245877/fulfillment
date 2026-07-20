@@ -67,7 +67,7 @@ function NumberField({ value, format, onChange, disabled }) {
         }}
       />
       {invalid ? (
-        <span className={styles.pricingWarn}>Невірне число (напр. 6.5 або 6,5)</span>
+        <span className={styles.pricingWarn}>Неверное число (напр. 6.5 или 6,5)</span>
       ) : null}
     </>
   );
@@ -133,7 +133,7 @@ function JsonArrayField({ value, onChange, disabled }) {
         }}
       />
       {invalid ? (
-        <span className={styles.pricingWarn}>Очікується JSON-масив</span>
+        <span className={styles.pricingWarn}>Ожидается JSON-массив</span>
       ) : null}
     </div>
   );
@@ -161,7 +161,7 @@ function ScalarField({ nodeKey, value, onChange, disabled, error, format }) {
           disabled={disabled}
           onChange={(event) => onChange(event.target.checked)}
         />
-        <span>{value ? "так" : "ні"}</span>
+        <span>{value ? "да" : "нет"}</span>
       </label>
     );
   } else if (typeof value === "number") {
@@ -223,8 +223,8 @@ function KeyLabel({ value, className, siblingKeys, onRename, disabled }) {
           type="button"
           className={styles.pricingEdit}
           disabled={disabled}
-          title="Перейменувати ключ"
-          aria-label={`Перейменувати ${value}`}
+          title="Переименовать ключ"
+          aria-label={`Переименовать ${value}`}
           onClick={open}
         >
           ✎
@@ -263,9 +263,9 @@ function KeyLabel({ value, className, siblingKeys, onRename, disabled }) {
         ×
       </button>
       {isDuplicate ? (
-        <span className={styles.pricingWarn}>Ключ уже існує</span>
+        <span className={styles.pricingWarn}>Ключ уже существует</span>
       ) : unsafe ? (
-        <span className={styles.pricingWarn}>Недопустимий ключ</span>
+        <span className={styles.pricingWarn}>Недопустимый ключ</span>
       ) : null}
     </span>
   );
@@ -311,7 +311,7 @@ function AddFieldRow({ existingKeys, onAdd, disabled }) {
         disabled={disabled}
         onClick={() => setOpen(true)}
       >
-        + Додати поле
+        + Добавить поле
       </button>
     );
   }
@@ -340,10 +340,10 @@ function AddFieldRow({ existingKeys, onAdd, disabled }) {
       </select>
 
       {type === "group" ? (
-        <span className={styles.pricingHintInline}>порожня група</span>
+        <span className={styles.pricingHintInline}>пустая группа</span>
       ) : type === "array" ? (
         <span className={styles.pricingHintInline}>
-          порожній масив (заповніть після додавання)
+          пустой массив (заполните после добавления)
         </span>
       ) : type === "boolean" ? (
         <select
@@ -352,13 +352,13 @@ function AddFieldRow({ existingKeys, onAdd, disabled }) {
           disabled={disabled}
           onChange={(event) => setRawValue(event.target.value)}
         >
-          <option value="false">ні</option>
-          <option value="true">так</option>
+          <option value="false">нет</option>
+          <option value="true">да</option>
         </select>
       ) : (
         <input
           className="input"
-          placeholder="значення"
+          placeholder="значение"
           inputMode={type === "number" ? "decimal" : undefined}
           value={rawValue}
           disabled={disabled}
@@ -372,7 +372,7 @@ function AddFieldRow({ existingKeys, onAdd, disabled }) {
         disabled={disabled || !canAdd}
         onClick={submit}
       >
-        Додати
+        Добавить
       </button>
 
       <button
@@ -381,16 +381,16 @@ function AddFieldRow({ existingKeys, onAdd, disabled }) {
         disabled={disabled}
         onClick={reset}
       >
-        Скасувати
+        Отменить
       </button>
 
       {isDuplicate ? (
-        <span className={styles.pricingWarn}>Ключ уже існує</span>
+        <span className={styles.pricingWarn}>Ключ уже существует</span>
       ) : unsafe ? (
-        <span className={styles.pricingWarn}>Недопустимий ключ</span>
+        <span className={styles.pricingWarn}>Недопустимый ключ</span>
       ) : numberInvalid ? (
         <span className={styles.pricingWarn}>
-          Невірне число (напр. 6.5 або 6,5)
+          Неверное число (напр. 6.5 или 6,5)
         </span>
       ) : null}
     </div>
@@ -419,8 +419,8 @@ function PricingNode({
 
     if (childCount > 0) {
       const confirmed = window.confirm(
-        `Видалити «${nodeKey}» разом із ${childCount} вкладеними значеннями?\n\n` +
-          "Не хвилюйтеся: дію можна скасувати кнопкою «Скасувати останню зміну»."
+        `Удалить «${nodeKey}» вместе с ${childCount} вложенными значениями?\n\n` +
+          "Не волнуйтесь: действие можно отменить кнопкой «Отменить последнее изменение»."
       );
       if (!confirmed) return;
     }
@@ -433,8 +433,8 @@ function PricingNode({
       type="button"
       className={styles.pricingDelete}
       disabled={disabled}
-      title="Видалити значення"
-      aria-label={`Видалити ${nodeKey}`}
+      title="Удалить значение"
+      aria-label={`Удалить ${nodeKey}`}
       onClick={handleRemove}
     >
       ×
@@ -563,7 +563,7 @@ export default function PricingSection({ showToast }) {
 
       if (!result || result.ok === false) {
         throw new Error(
-          result?.error || "Мені не вдалося завантажити pricing.yml. Спробуйте, будь ласка, ще раз."
+          result?.error || "Мне не удалось загрузить pricing.yml. Попробуйте, пожалуйста, ещё раз."
         );
       }
 
@@ -664,7 +664,7 @@ export default function PricingSection({ showToast }) {
     if (
       dirty &&
       !window.confirm(
-        "У вас є незбережені зміни, і перезавантаження їх відкине. Ви точно хочете продовжити?"
+        "У вас есть несохранённые изменения, и перезагрузка их отбросит. Вы точно хотите продолжить?"
       )
     ) {
       return;
@@ -679,7 +679,7 @@ export default function PricingSection({ showToast }) {
       showToast?.(
         {
           kind: "error",
-          text: "Ой… конфігурація не може бути зовсім порожньою. Залиште, будь ласка, хоча б один ключ.",
+          text: "Ой… конфигурация не может быть совсем пустой. Оставьте, пожалуйста, хотя бы один ключ.",
         },
         3500
       );
@@ -690,7 +690,7 @@ export default function PricingSection({ showToast }) {
       showToast?.(
         {
           kind: "error",
-          text: "Перед збереженням виправте, будь ласка, помилки валідації — я не хочу зіпсувати файл.",
+          text: "Перед сохранением исправьте, пожалуйста, ошибки валидации — я не хочу испортить файл.",
         },
         3500
       );
@@ -700,9 +700,9 @@ export default function PricingSection({ showToast }) {
     const isOverwrite = overrideHash !== undefined;
     const confirmed = window.confirm(
       isOverwrite
-        ? `Перезаписати версію на сервері вашими змінами?\n\n${meta.path}\n\nЦе замінить те, що зараз на сервері, — будьте, будь ласка, уважні.`
-        : `Зберегти зміни у файл pricing.yml на сервері?\n\n${meta.path}\n\n` +
-            "Коментарі та форматування незмінених рядків я дбайливо збережу."
+        ? `Перезаписать версию на сервере вашими изменениями?\n\n${meta.path}\n\nЭто заменит то, что сейчас на сервере, — будьте, пожалуйста, внимательны.`
+        : `Сохранить изменения в файл pricing.yml на сервере?\n\n${meta.path}\n\n` +
+            "Комментарии и форматирование неизменённых строк я бережно сохраню."
     );
 
     if (!confirmed) return;
@@ -718,7 +718,7 @@ export default function PricingSection({ showToast }) {
 
       if (!result || result.ok === false) {
         throw new Error(
-          result?.error || "Мені не вдалося зберегти pricing.yml. Ваші правки залишилися у формі."
+          result?.error || "Мне не удалось сохранить pricing.yml. Ваши правки остались в форме."
         );
       }
 
@@ -730,7 +730,7 @@ export default function PricingSection({ showToast }) {
       setReadOnlyReason(result.readOnly ? result.readOnlyReason : null);
       resetHistory();
       showToast?.(
-        { kind: "success", text: "Готово — я дбайливо зберегла все у pricing.yml ♡" },
+        { kind: "success", text: "Готово — я бережно сохранила всё в pricing.yml ♡" },
         2500
       );
     } catch (caught) {
@@ -748,13 +748,13 @@ export default function PricingSection({ showToast }) {
         showToast?.(
           {
             kind: "error",
-            text: "Файл тим часом змінили на сервері. Не хвилюйтеся — ваші правки я зберегла у формі. Оберіть, будь ласка, дію нижче.",
+            text: "Файл тем временем изменили на сервере. Не волнуйтесь — ваши правки я сохранила в форме. Выберите, пожалуйста, действие ниже.",
           },
           5000
         );
       } else {
         showToast?.(
-          { kind: "error", text: `Не вийшло зберегти: ${String(caught?.message || caught)}` },
+          { kind: "error", text: `Не получилось сохранить: ${String(caught?.message || caught)}` },
           4000
         );
       }
@@ -765,12 +765,12 @@ export default function PricingSection({ showToast }) {
 
   return (
     <Card
-      title="Змінні ціноутворення (pricing.yml)"
-      sub="Редагування, додавання та видалення значень із прямим збереженням у файл на сервері"
+      title="Переменные ценообразования (pricing.yml)"
+      sub="Редактирование, добавление и удаление значений с прямым сохранением в файл на сервере"
     >
       <FieldRow
         label="Файл"
-        hint="Зберігається на 192.168.0.135 через захищене SSH-з'єднання бекенду."
+        hint="Сохраняется на 192.168.0.135 через защищённое SSH-соединение бэкенда."
       >
         <div className={styles.pricingMeta}>
           <code className={styles.pricingPath}>{meta.path || "—"}</code>
@@ -782,7 +782,7 @@ export default function PricingSection({ showToast }) {
               disabled={loading || saving}
               onClick={reload}
             >
-              Перезавантажити
+              Перезагрузить
             </button>
 
             <button
@@ -791,7 +791,7 @@ export default function PricingSection({ showToast }) {
               disabled={historyLen === 0 || saving}
               onClick={undo}
             >
-              Скасувати останню зміну
+              Отменить последнее изменение
             </button>
 
             <button
@@ -802,24 +802,24 @@ export default function PricingSection({ showToast }) {
               }
               onClick={() => save()}
             >
-              {saving ? "Збереження…" : "Зберегти у pricing.yml"}
+              {saving ? "Сохранение…" : "Сохранить в pricing.yml"}
             </button>
 
             {dirty ? (
-              <span className={styles.pricingDirty}>Є незбережені зміни</span>
+              <span className={styles.pricingDirty}>Есть несохранённые изменения</span>
             ) : null}
           </div>
 
           {readOnly ? (
             <div className={styles.pricingConflict}>
-              <strong>Лише для читання.</strong> {readOnlyReason}
+              <strong>Только для чтения.</strong> {readOnlyReason}
             </div>
           ) : null}
 
           {conflict ? (
             <div className={styles.pricingConflict}>
-              <strong>Конфлікт версій.</strong> Файл було змінено на сервері після
-              завантаження. Ваші зміни збережено у формі.
+              <strong>Конфликт версий.</strong> Файл был изменён на сервере после
+              загрузки. Ваши изменения сохранены в форме.
               <div className={styles.pricingConflictActions}>
                 <button
                   type="button"
@@ -827,7 +827,7 @@ export default function PricingSection({ showToast }) {
                   disabled={saving || conflict.latestHash == null}
                   onClick={() => save(conflict.latestHash)}
                 >
-                  Перезаписати моїми змінами
+                  Перезаписать моими изменениями
                 </button>
                 <button
                   type="button"
@@ -836,14 +836,14 @@ export default function PricingSection({ showToast }) {
                   onClick={() => {
                     if (
                       window.confirm(
-                        "Відхилити ваші зміни і завантажити версію з сервера? Ваші правки буде втрачено."
+                        "Отклонить ваши изменения и загрузить версию с сервера? Ваши правки будут потеряны."
                       )
                     ) {
                       load();
                     }
                   }}
                 >
-                  Завантажити версію з сервера
+                  Загрузить версию с сервера
                 </button>
               </div>
             </div>
@@ -852,24 +852,24 @@ export default function PricingSection({ showToast }) {
       </FieldRow>
 
       <FieldRow
-        label="Змінні"
-        hint="✎ — перейменувати ключ; × — видалити значення; «Додати поле» — створити нове (текст, число, так/ні, вкладена група або масив)."
+        label="Переменные"
+        hint="✎ — переименовать ключ; × — удалить значение; «Добавить поле» — создать новое (текст, число, да/нет, вложенная группа или массив)."
       >
         {loading ? (
-          <div className="text-muted">Хвилинку, будь ласка… я відкриваю pricing.yml.</div>
+          <div className="text-muted">Минутку, пожалуйста… я открываю pricing.yml.</div>
         ) : error ? (
           <div className={styles.pricingError}>{error}</div>
         ) : tree ? (
           <div className={styles.pricingTree}>
             {hasErrors ? (
               <div className={styles.pricingError}>
-                Є помилки валідації — виправте позначені поля перед збереженням.
+                Есть ошибки валидации — исправьте отмеченные поля перед сохранением.
               </div>
             ) : null}
 
             {isEmpty ? (
               <div className={styles.pricingError}>
-                Конфігурація порожня — додайте хоча б один ключ, щоб зберегти.
+                Конфигурация пуста — добавьте хотя бы один ключ, чтобы сохранить.
               </div>
             ) : null}
 
@@ -896,13 +896,13 @@ export default function PricingSection({ showToast }) {
             />
           </div>
         ) : (
-          <div className="text-muted">Немає даних.</div>
+          <div className="text-muted">Нет данных.</div>
         )}
       </FieldRow>
 
       <FieldRow
-        label="Перегляд YAML"
-        hint="Версія файлу з сервера на момент завантаження (тільки для читання)."
+        label="Просмотр YAML"
+        hint="Версия файла с сервера на момент загрузки (только для чтения)."
       >
         <div className={styles.inputGroup}>
           <button
@@ -910,15 +910,15 @@ export default function PricingSection({ showToast }) {
             className="btn btn-secondary btn-sm"
             onClick={() => setShowRaw((value) => !value)}
           >
-            {showRaw ? "Сховати YAML" : "Показати YAML"}
+            {showRaw ? "Скрыть YAML" : "Показать YAML"}
           </button>
 
           {showRaw ? (
             <>
               {dirty ? (
                 <div className={styles.pricingRawNote}>
-                  ⚠ Це версія з сервера на момент завантаження. Незбережені зміни
-                  у формі вище тут <strong>не</strong> відображаються.
+                  ⚠ Это версия с сервера на момент загрузки. Несохранённые изменения
+                  в форме выше здесь <strong>не</strong> отображаются.
                 </div>
               ) : null}
               <pre className={styles.pricingRaw}>{meta.raw || "—"}</pre>

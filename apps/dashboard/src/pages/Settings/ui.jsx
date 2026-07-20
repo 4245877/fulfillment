@@ -99,7 +99,7 @@ export function TextArea({ value, onChange, placeholder, rows = 3, onBlur, onKey
   );
 }
 
-export function ChipsEditor({ value, onChange, placeholder = "Введи та натисни Enter" }) {
+export function ChipsEditor({ value, onChange, placeholder = "Введите и нажмите Enter" }) {
   const [draft, setDraft] = useState("");
   const items = Array.isArray(value) ? value : [];
 
@@ -114,7 +114,7 @@ export function ChipsEditor({ value, onChange, placeholder = "Введи та н
               className={styles.chipRemove}
               type="button"
               onClick={() => onChange(items.filter((_, idx) => idx !== i))}
-              aria-label={`Видалити ${x}`}
+              aria-label={`Удалить ${x}`}
             >
               ×
             </button>

@@ -24,7 +24,7 @@ export function classifyError(
     return { status: statusCode, text: message };
   }
   if (statusCode === 500) {
-    return { status: 500, text: "Внутрішня помилка під час підготовки pricing.yml." };
+    return { status: 500, text: "Внутренняя ошибка при подготовке pricing.yml." };
   }
   return { status: 502, text: fallbackText };
 }
@@ -37,7 +37,7 @@ const pricingRoutes: FastifyPluginAsync = async (app) => {
       app.log.error({ err: error }, "failed to read pricing.yml");
       const { status, text } = classifyError(
         error,
-        "Не вдалося прочитати pricing.yml із сервера."
+        "Не удалось прочитать pricing.yml с сервера."
       );
       reply.code(status);
       return { ok: false, error: text };
@@ -63,7 +63,7 @@ const pricingRoutes: FastifyPluginAsync = async (app) => {
       app.log.error({ err: error }, "failed to write pricing.yml");
       const { status, text } = classifyError(
         error,
-        "Не вдалося зберегти pricing.yml на сервері (помилка віддаленого збереження)."
+        "Не удалось сохранить pricing.yml на сервере (ошибка удалённого сохранения)."
       );
       reply.code(status);
       return { ok: false, error: text };

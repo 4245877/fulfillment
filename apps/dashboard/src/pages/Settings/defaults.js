@@ -42,27 +42,27 @@ export const DEFAULTS = {
   },
 
   backups: {
-    // Ручний запуск, без розкладу. Копії, старші за retentionDays, прибирає
-    // backup.sh на сервері магазину. Шляхи/хости приходять з /api/ops/backup/config.
+    // Ручной запуск, без расписания. Копии старше retentionDays убирает
+    // backup.sh на сервере магазина. Пути/хосты приходят из /api/ops/backup/config.
     manualOnly: true,
-    retentionDays: 28, // ≈3–4 тижні
+    retentionDays: 28, // ≈3–4 недели
 
     includes: [
-      "Товари та база даних",
-      "Зображення",
-      "STL / 3MF файли",
-      "Дані користувачів",
+      "Товары и база данных",
+      "Изображения",
+      "STL / 3MF файлы",
+      "Данные пользователей",
     ],
 
     source: {
       host: "192.168.0.135",
-      label: "Сервер магазину",
+      label: "Сервер магазина",
     },
 
     destination: {
       host: "192.168.0.139",
       disk: "SSD 240 GB",
-      label: "Сервер застосунку",
+      label: "Сервер приложения",
     },
   },
 
@@ -84,7 +84,7 @@ export const DEFAULTS = {
       enabled: false,
       allowCatalogRead: true,
       blockCheckout: true,
-      message: "Технічні роботи. Спробуй, будь ласка, трохи пізніше.",
+      message: "Технические работы. Попробуйте, пожалуйста, чуть позже.",
     },
   },
 

@@ -55,14 +55,14 @@ function money(total: number | null, currency: string): string {
 
 function orderTitle(payload: OrderNotificationPayload) {
   if (payload.event === "received") {
-    return "Нове замовлення";
+    return "Новый заказ";
   }
 
   if (payload.event === "synced") {
-    return "Синхронізація замовлення";
+    return "Синхронизация заказа";
   }
 
-  return "Зміна статусу замовлення";
+  return "Изменение статуса заказа";
 }
 
 function renderOrder(payload: OrderNotificationPayload): string {
@@ -71,17 +71,17 @@ function renderOrder(payload: OrderNotificationPayload): string {
     `<b>${orderTitle(payload)}</b>`,
     line("ID", order.id),
     line("ID магазину", order.shopOrderId),
-    line("Статус", order.status),
-    line("Клієнт", order.customerName),
+    line("ID магазина", order.shopOrderId),
+    line("Клиент", order.customerName),
     line("Телефон", order.phone),
     line("Email", order.email),
-    line("Сума", money(order.totalUah, order.currency)),
-    line("Позицій", order.itemsCount),
+    line("Сумма", money(order.totalUah, order.currency)),
+    line("Позиций", order.itemsCount),
   ];
 
   if (payload.previousStatus || payload.nextStatus) {
     lines.push(
-      line("Перехід", `${payload.previousStatus || "-"} -> ${payload.nextStatus || "-"}`)
+      line("Переход", `${payload.previousStatus || "-"} -> ${payload.nextStatus || "-"}`)
     );
   }
 
@@ -90,7 +90,7 @@ function renderOrder(payload: OrderNotificationPayload): string {
   }
 
   if (payload.note) {
-    lines.push(line("Нотатка", payload.note));
+    lines.push(line("Заметка", payload.note));
   }
 
   return lines.join("\n");
@@ -100,35 +100,35 @@ function renderProductReport(payload: ProductReportNotificationPayload): string 
   const report = payload.report;
 
   return [
-    "<b>Скарга на товар</b>",
+    "<b>Жалоба на товар</b>",
     line("Report ID", report.reportId),
     line("Товар", report.productName || report.productId),
     line("SKU", report.productSku),
     line("Причина", report.reason),
-    line("Коментар", report.comment),
-    line("Сторінка", report.pageUrl),
-    line("Джерело", report.source),
+    line("Комментарий", report.comment),
+    line("Страница", report.pageUrl),
+    line("Источник", report.source),
   ].join("\n");
 }
 
 function printerTitle(payload: PrinterNotificationPayload): string {
   if (payload.kind === "error") {
-    return "❌ Помилка принтера";
+    return "❌ Ошибка принтера";
   }
 
   if (payload.kind === "filament_runout") {
-    return "🧵 Закінчився філамент";
+    return "🧵 Закончился филамент";
   }
 
   if (payload.kind === "paused") {
-    return "⏸ Друк призупинено";
+    return "⏸ Печать приостановлена";
   }
 
   if (payload.kind === "cancelled") {
-    return "🚫 Друк скасовано";
+    return "🚫 Печать отменена";
   }
 
-  return "✅ Друк завершено";
+  return "✅ Печать завершена";
 }
 
 function renderPrinter(payload: PrinterNotificationPayload): string {
@@ -149,17 +149,17 @@ function renderPrinter(payload: PrinterNotificationPayload): string {
     (payload.kind === "completed" || payload.kind === "cancelled") &&
     payload.progressPct != null
   ) {
-    lines.push(line("Прогрес", `${payload.progressPct}%`));
+    lines.push(line("Прогресс", `${payload.progressPct}%`));
   }
 
   // Description carries the human-readable reason for errors, pauses and
   // filament runouts. Completion/cancellation drop it via a null errorMessage.
   // Kept short so the rendered total stays under the 1024-char photo caption.
   if (payload.errorMessage) {
-    lines.push(line("Опис", clamp(payload.errorMessage, 400)));
+    lines.push(line("Описание", clamp(payload.errorMessage, 400)));
   }
 
-  lines.push(line("Час", payload.occurredAt));
+  lines.push(line("Время", payload.occurredAt));
 
   return lines.join("\n");
 }
@@ -173,27 +173,27 @@ function renderFilamentLowStock(
 ): string {
   const title =
     payload.status === "critical"
-      ? "🛑 Критичний запас філаменту"
-      : "⚠️ Філамент закінчується";
+      ? "🛑 Критический запас филамента"
+      : "⚠️ Филамент заканчивается";
 
   return [
     `<b>${title}</b>`,
-    line("Матеріал", payload.label),
-    line("Залишок", kg(payload.stockG)),
-    line("Поріг", kg(payload.thresholdG)),
-    line("Час", payload.occurredAt),
+    line("Материал", payload.label),
+    line("Остаток", kg(payload.stockG)),
+    line("Порог", kg(payload.thresholdG)),
+    line("Время", payload.occurredAt),
   ].join("\n");
 }
 
 function renderCriticalError(payload: CriticalErrorNotificationPayload): string {
   const lines = [
-    "<b>Критична помилка API</b>",
-    line("Повідомлення", clamp(payload.message, 1500)),
+    "<b>Критическая ошибка API</b>",
+    line("Сообщение", clamp(payload.message, 1500)),
     line("Статус", payload.statusCode ?? 500),
     line("Метод", payload.method),
     line("URL", clamp(String(payload.url ?? ""), 500)),
     line("Request ID", payload.requestId),
-    line("Час", payload.occurredAt),
+    line("Время", payload.occurredAt),
   ];
 
   if (payload.stack) {
@@ -205,10 +205,10 @@ function renderCriticalError(payload: CriticalErrorNotificationPayload): string 
 
 function renderTest(payload: TestNotificationPayload): string {
   return [
-    "<b>Тест Telegram-теми</b>",
+    "<b>Тест Telegram-темы</b>",
     line("Тема", TELEGRAM_TOPIC_LABELS[payload.topic]),
-    line("Мітка", payload.label),
-    line("Час", payload.requestedAt),
+    line("Метка", payload.label),
+    line("Время", payload.requestedAt),
   ].join("\n");
 }
 

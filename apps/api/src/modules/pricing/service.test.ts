@@ -286,7 +286,7 @@ process:
   const tree = parse(withAnchor) as Record<string, any>;
   tree.process.FDM.yield = 0.95;
 
-  assert.throws(() => applyPricingChanges(withAnchor, tree), /anchor|alias|якор|псевдонім/i);
+  assert.throws(() => applyPricingChanges(withAnchor, tree), /anchor|alias|якор|псевдоним/i);
 });
 
 test("refuses to write a file using YAML merge keys (issue #9)", () => {
@@ -300,7 +300,7 @@ process:
   const tree = parse(withMerge) as Record<string, any>;
   tree.process.FDM.waste_pct = 0.2;
 
-  assert.throws(() => applyPricingChanges(withMerge, tree), /anchor|alias|merge|злит|якор|псевдонім/i);
+  assert.throws(() => applyPricingChanges(withMerge, tree), /anchor|alias|merge|слияни|якор|псевдоним/i);
 });
 
 test("isPlainObject and sha256 behave as expected", () => {
@@ -355,17 +355,17 @@ test("refuses to write unsafe keys at any depth (issue #10)", () => {
 // and a read-only file is flagged up front (issues #6 / #9).
 // ---------------------------------------------------------------------------
 test("detectAnchors ignores `<<` in strings and `&anchor` in comments (issue #6)", () => {
-  const benign = `# приклад з &anchor усередині коментаря
-note: "значення з << усередині рядка"
+  const benign = `# пример с &anchor внутри комментария
+note: "значение с << внутри строки"
 math: "a << b"
 price: 10
 `;
   assert.equal(detectAnchors(parseDocument(benign)), null);
 
-  assert.match(detectAnchors(parseDocument("a: &x 1\nb: *x\n")) || "", /якор|псевдонім/);
+  assert.match(detectAnchors(parseDocument("a: &x 1\nb: *x\n")) || "", /якор|псевдоним/);
   assert.match(
     detectAnchors(parseDocument("base: &b\n  x: 1\nm:\n  <<: *b\n")) || "",
-    /якор|псевдонім|злит/
+    /якор|псевдоним|слияни/
   );
 });
 

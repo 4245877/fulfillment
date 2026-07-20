@@ -13,7 +13,7 @@ export default function Audit() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h2 className={styles.title}>
-          Журнал подій
+          Журнал событий
           <span className={styles.badge}>{events.length}</span>
         </h2>
       </div>
@@ -21,10 +21,10 @@ export default function Audit() {
       {events.length === 0 ? (
         <div className={styles.emptyState}>
           <div className={styles.emptyIcon}>🗂️</div>
-          <div className={styles.emptyTitle}>Подій поки немає</div>
+          <div className={styles.emptyTitle}>Событий пока нет</div>
           <div className={styles.emptyDescription}>
-            Я уважно слухаю систему — щойно щось станеться, запис одразу
-            з&apos;явиться тут.
+            Я внимательно слушаю систему — как только что-то произойдёт, запись
+            сразу появится здесь.
           </div>
         </div>
       ) : (

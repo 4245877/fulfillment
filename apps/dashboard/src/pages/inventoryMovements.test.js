@@ -67,10 +67,10 @@ test("a resolvable position shows material + colour", () => {
   const label = resolvePositionLabel({
     stockMaterial: "PLA",
     stockColor: "black",
-    stockColorName: "Чорний",
+    stockColorName: "Чёрный",
     stockEnabled: true,
   });
-  assert.equal(label.text, "PLA Чорний");
+  assert.equal(label.text, "PLA Чёрный");
   assert.equal(label.unknown, false);
   assert.equal(label.archived, false);
 });
@@ -78,16 +78,16 @@ test("a resolvable position shows material + colour", () => {
 test("an archived position is flagged but still readable", () => {
   const label = resolvePositionLabel({
     stockMaterial: "PLA",
-    stockColorName: "Чорний",
+    stockColorName: "Чёрный",
     stockEnabled: false,
   });
   assert.equal(label.archived, true);
-  assert.match(label.text, /PLA Чорний/);
+  assert.match(label.text, /PLA Чёрный/);
 });
 
 test("position colour name falls back to the colour vocabulary", () => {
   const label = resolvePositionLabel({ stockMaterial: "PETG", stockColor: "white" });
-  assert.equal(label.text, "PETG Білий");
+  assert.equal(label.text, "PETG Белый");
 });
 
 // ── Source vocabulary alignment ──────────────────────────────────────────────
@@ -98,7 +98,7 @@ test("the source vocabulary includes telegram and excludes the stale `api`", () 
   assert.ok(!values.includes("api"), "api is not a real source");
   assert.equal(getMovementSourceLabel("telegram"), "Telegram");
   // An unexpected value degrades gracefully rather than throwing.
-  assert.equal(getMovementSourceLabel("api"), "Невідомо");
+  assert.equal(getMovementSourceLabel("api"), "Неизвестно");
 });
 
 test("shortId keeps ids compact for the table", () => {

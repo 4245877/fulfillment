@@ -41,7 +41,7 @@ function stock(over: Partial<FilamentStock> = {}): FilamentStock {
     id: "filament_stock_pla_black",
     material: "PLA",
     color: "black",
-    colorName: "Чорний",
+    colorName: "Чёрный",
     stockG: 4800,
     lowStockG: 1000,
     criticalStockG: 300,

@@ -24,7 +24,7 @@ function normalizePercent(value) {
 }
 
 function formatInt(value) {
-  return asNumber(value, 0).toLocaleString("uk-UA");
+  return asNumber(value, 0).toLocaleString("ru-RU");
 }
 
 function formatDateTime(value) {
@@ -36,7 +36,7 @@ function formatDateTime(value) {
     return String(value);
   }
 
-  return date.toLocaleString("uk-UA", {
+  return date.toLocaleString("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -71,17 +71,17 @@ function getPrinterStateLabel(state) {
   const v = String(state || "").toLowerCase();
 
   const labels = {
-    printing: "Друкує",
-    ready: "Готовий",
-    idle: "Очікує",
+    printing: "Печатает",
+    ready: "Готов",
+    idle: "Ожидает",
     paused: "Пауза",
-    maintenance: "Обслуговування",
-    error: "Помилка",
+    maintenance: "Обслуживание",
+    error: "Ошибка",
     offline: "Офлайн",
-    unknown: "Невідомо",
+    unknown: "Неизвестно",
   };
 
-  return labels[v] || (state ? String(state) : "Невідомо");
+  return labels[v] || (state ? String(state) : "Неизвестно");
 }
 
 function toTagClass(tone = "primary") {
@@ -279,8 +279,8 @@ function StatusTag({ children, tone = "primary" }) {
 }
 
 function EmptyState({
-  title = "Поки що порожньо",
-  desc = "Тут ще нічого немає, але я приглядаю за цим місцем.",
+  title = "Пока что пусто",
+  desc = "Здесь ещё ничего нет, но я приглядываю за этим местом.",
 }) {
   return (
     <div className="wboard-empty">
@@ -339,22 +339,22 @@ export default function PrinterMonitoringPanel({
   return (
     <Panel
       loading={loading}
-      title="3D-ферма — моніторинг принтерів"
-      subtitle="Живий стан обладнання, температури, файли та прогрес друку"
+      title="3D-ферма — мониторинг принтеров"
+      subtitle="Живое состояние оборудования, температуры, файлы и прогресс печати"
       footer={
         <>
           <span className="panel-footer-meta">
-            Принтерів: {formatInt(visiblePrinters.length)}
+            Принтеров: {formatInt(visiblePrinters.length)}
           </span>
           <span className="panel-footer-meta">
-            Активних робіт: {formatInt(jobs.length)}
+            Активных работ: {formatInt(jobs.length)}
           </span>
         </>
       }
     >
       {monitorError ? (
         <div className="printer-monitor-alert">
-          Моніторинг тимчасово без зв'язку: {monitorError}. Я продовжую спроби.
+          Мониторинг временно без связи: {monitorError}. Я продолжаю попытки.
         </div>
       ) : null}
 
@@ -402,11 +402,11 @@ export default function PrinterMonitoringPanel({
                 <div className="printer-monitor-top">
                   <div>
                     <div className="printer-monitor-name">
-                      {printer.name || "Принтер без назви"}
+                      {printer.name || "Принтер без названия"}
                     </div>
 
                     <div className="printer-monitor-meta">
-                      {meta || "Дані підключення не вказані"}
+                      {meta || "Данные подключения не указаны"}
                     </div>
                   </div>
 
@@ -416,7 +416,7 @@ export default function PrinterMonitoringPanel({
                 </div>
 
                 <div className="printer-monitor-file">
-                  {printer.currentFile || "Файл не друкується"}
+                  {printer.currentFile || "Файл не печатается"}
                 </div>
 
                 <div className="printer-monitor-progress">
@@ -436,19 +436,19 @@ export default function PrinterMonitoringPanel({
                   <span>{Math.round(progress)}%</span>
                   <span>
                     {printer.remainingMinutes != null
-                      ? `${formatInt(printer.remainingMinutes)} хв залишилося`
+                      ? `${formatInt(printer.remainingMinutes)} мин осталось`
                       : "—"}
                   </span>
                 </div>
 
                 <div className="printer-monitor-details">
                   <span>Сопло: {formatTemperature(printer.nozzleTemp)}</span>
-                  <span>Стіл: {formatTemperature(printer.bedTemp)}</span>
+                  <span>Стол: {formatTemperature(printer.bedTemp)}</span>
                 </div>
 
                 <div className="printer-monitor-updated">
-                  Оновлено: {formatDateTime(printer.updatedAt)}
-                  {printer.stale ? " · дані застарілі" : ""}
+                  Обновлено: {formatDateTime(printer.updatedAt)}
+                  {printer.stale ? " · данные устарели" : ""}
                 </div>
 
                 {printer.error ? (
@@ -462,13 +462,13 @@ export default function PrinterMonitoringPanel({
         <EmptyState
           title={
             configs.length && !enabledConfigCount
-              ? "Усі принтери вимкнено"
-              : "Немає даних про принтери"
+              ? "Все принтеры выключены"
+              : "Нет данных о принтерах"
           }
           desc={
             configs.length && !enabledConfigCount
-              ? "Увімкніть принтер у керуванні та збережіть налаштування — і я одразу візьму його під нагляд."
-              : "Щойно API вперше відповість, я складу тут список принтерів."
+              ? "Включите принтер в управлении и сохраните настройки — и я сразу возьму его под присмотр."
+              : "Как только API впервые ответит, я составлю здесь список принтеров."
           }
         />
       )}
@@ -478,11 +478,11 @@ export default function PrinterMonitoringPanel({
           <table className="wboard-table">
             <thead>
               <tr>
-                <th>Замовлення</th>
-                <th>SKU × кількість</th>
+                <th>Заказ</th>
+                <th>SKU × количество</th>
                 <th>Принтер</th>
-                <th>Прогрес</th>
-                <th>Час завершення</th>
+                <th>Прогресс</th>
+                <th>Время завершения</th>
               </tr>
             </thead>
 

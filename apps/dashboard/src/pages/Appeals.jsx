@@ -4,16 +4,16 @@ import { appealsApi } from "../api/appealsApi.js";
 import s from "./Appeals.module.css";
 
 const STATUS_META = {
-  new: { label: "Нове" },
-  in_progress: { label: "В роботі" },
-  closed: { label: "Закрито" },
+  new: { label: "Новое" },
+  in_progress: { label: "В работе" },
+  closed: { label: "Закрыто" },
 };
 
 const FILTERS = [
-  { value: "all", label: "Усі" },
-  { value: "new", label: "Нові" },
-  { value: "in_progress", label: "В роботі" },
-  { value: "closed", label: "Закриті" },
+  { value: "all", label: "Все" },
+  { value: "new", label: "Новые" },
+  { value: "in_progress", label: "В работе" },
+  { value: "closed", label: "Закрытые" },
 ];
 
 const STATUS_ORDER = ["new", "in_progress", "closed"];
@@ -21,7 +21,7 @@ const STATUS_ORDER = ["new", "in_progress", "closed"];
 /* ── Helpers ──────────────────────────────────────────────────── */
 
 function displayName(customer) {
-  return customer.name?.trim() || customer.contact?.trim() || "Анонімний клієнт";
+  return customer.name?.trim() || customer.contact?.trim() || "Анонимный клиент";
 }
 
 function initialsOf(customer) {
@@ -37,21 +37,21 @@ function initialsOf(customer) {
 
 function timeAgo(iso) {
   const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (diffMin < 1) return "щойно";
-  if (diffMin < 60) return `${diffMin} хв`;
+  if (diffMin < 1) return "только что";
+  if (diffMin < 60) return `${diffMin} мин`;
   const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} год`;
+  if (diffHr < 24) return `${diffHr} ч`;
   const diffDay = Math.round(diffHr / 24);
-  if (diffDay === 1) return "вчора";
+  if (diffDay === 1) return "вчера";
   if (diffDay < 7) return `${diffDay} дн`;
-  return new Date(iso).toLocaleDateString("uk-UA", {
+  return new Date(iso).toLocaleDateString("ru-RU", {
     day: "2-digit",
     month: "2-digit",
   });
 }
 
 function clockTime(iso) {
-  return new Date(iso).toLocaleTimeString("uk-UA", {
+  return new Date(iso).toLocaleTimeString("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -65,9 +65,9 @@ function dayLabel(iso) {
   const date = new Date(iso);
   const now = new Date();
   const diffDays = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000);
-  if (diffDays === 0) return "Сьогодні";
-  if (diffDays === 1) return "Вчора";
-  return date.toLocaleDateString("uk-UA", {
+  if (diffDays === 0) return "Сегодня";
+  if (diffDays === 1) return "Вчера";
+  return date.toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "long",
     ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
@@ -162,8 +162,8 @@ function StatusPill({ status }) {
 function ThreadRow({ thread, active, onSelect }) {
   const last = lastMessage(thread);
   const preview = last
-    ? `${last.author === "operator" ? "Ви: " : ""}${last.text}`
-    : "Без повідомлень";
+    ? `${last.author === "operator" ? "Вы: " : ""}${last.text}`
+    : "Без сообщений";
 
   return (
     <button
@@ -311,13 +311,13 @@ export default function Appeals() {
         if (alive) setThreads(data);
       })
       .catch((err) => {
-        // The API returns a clean { ok:false, error } message (e.g. "Сервіс
-        // звернень недоступний"); fall back to a generic line only when the
+        // The API returns a clean { ok:false, error } message (e.g. "Сервис
+        // обращений недоступен"); fall back to a generic line only when the
         // request never reached it (API down / network).
         if (alive)
           setListError(
             err?.body?.error ||
-              "Ой… мені не вдалося завантажити звернення. Перевірте, будь ласка, підключення до сервісу — я спробую ще раз."
+              "Ой… мне не удалось загрузить обращения. Проверьте, пожалуйста, подключение к сервису — я попробую ещё раз."
           );
       })
       .finally(() => {
@@ -417,7 +417,7 @@ export default function Appeals() {
     } catch (err) {
       setActionError(
         err?.body?.error ||
-          "Мені не вдалося надіслати повідомлення. Спробуйте, будь ласка, ще раз — клієнт не має лишитися без відповіді."
+          "Мне не удалось отправить сообщение. Попробуйте, пожалуйста, ещё раз — клиент не должен остаться без ответа."
       );
       // Full rollback: drop the optimistic message and restore the thread's
       // prior status and lastMessageAt (the send may have advanced new →
@@ -454,7 +454,7 @@ export default function Appeals() {
       );
       setActionError(
         err?.body?.error ||
-          "Мені не вдалося змінити статус звернення. Спробуйте, будь ласка, ще раз."
+          "Мне не удалось изменить статус обращения. Попробуйте, пожалуйста, ещё раз."
       );
     }
   }
@@ -463,17 +463,17 @@ export default function Appeals() {
     <section
       className={s.page}
       data-pane={active ? "chat" : "list"}
-      aria-label="Звернення клієнтів"
+      aria-label="Обращения клиентов"
     >
       {/* ── Inbox / thread list ───────────────────────────────── */}
-      <aside className={s.listPane} aria-label="Список звернень">
+      <aside className={s.listPane} aria-label="Список обращений">
         <header className={s.listHeader}>
           <div className={s.listTitleRow}>
             <div>
-              <h1 className={s.title}>Звернення</h1>
+              <h1 className={s.title}>Обращения</h1>
               <p className={s.subtitle}>
-                Запитання покупців про ваші вироби — подбаймо, щоб ніхто не
-                лишився без відповіді ♡
+                Вопросы покупателей о ваших изделиях — позаботимся, чтобы никто
+                не остался без ответа ♡
               </p>
             </div>
             <button
@@ -481,8 +481,8 @@ export default function Appeals() {
               className={s.refreshBtn}
               onClick={() => setRefreshKey((value) => value + 1)}
               disabled={loading}
-              aria-label="Оновити список звернень"
-              title="Оновити"
+              aria-label="Обновить список обращений"
+              title="Обновить"
             >
               <Icon.Refresh className={s.refreshIcon} data-spinning={loading ? "true" : undefined} />
             </button>
@@ -495,12 +495,12 @@ export default function Appeals() {
               className={s.searchInput}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Пошук за клієнтом, товаром, текстом…"
-              aria-label="Пошук звернень"
+              placeholder="Поиск по клиенту, товару, тексту…"
+              aria-label="Поиск обращений"
             />
           </div>
 
-          <div className={s.filters} role="group" aria-label="Фільтр за статусом">
+          <div className={s.filters} role="group" aria-label="Фильтр по статусу">
             {FILTERS.map((filter) => (
               <button
                 key={filter.value}
@@ -529,8 +529,8 @@ export default function Appeals() {
             <div className={s.listEmpty}>
               <p>
                 {threads.length === 0
-                  ? "Поки що звернень немає — все спокійно ♡"
-                  : "Ой… за цими умовами я нічого не знайшла."}
+                  ? "Пока обращений нет — всё спокойно ♡"
+                  : "Ой… по этим условиям я ничего не нашла."}
               </p>
             </div>
           ) : (
@@ -547,7 +547,7 @@ export default function Appeals() {
       </aside>
 
       {/* ── Conversation ──────────────────────────────────────── */}
-      <section className={s.chatPane} aria-label="Діалог зі зверненням">
+      <section className={s.chatPane} aria-label="Диалог с обращением">
         {active ? (
           <>
             <header className={s.chatHeader}>
@@ -555,7 +555,7 @@ export default function Appeals() {
                 type="button"
                 className={s.backBtn}
                 onClick={() => setSelectedId(null)}
-                aria-label="Назад до списку"
+                aria-label="Назад к списку"
               >
                 <Icon.Back />
               </button>
@@ -565,7 +565,7 @@ export default function Appeals() {
               <div className={s.chatHeaderInfo}>
                 <span className={s.chatName}>{displayName(active.customer)}</span>
                 <span className={s.chatContact}>
-                  {active.customer.contact || "Контакт недоступний"}
+                  {active.customer.contact || "Контакт недоступен"}
                 </span>
               </div>
 
@@ -574,7 +574,7 @@ export default function Appeals() {
                   className={s.statusSelect}
                   value={active.status}
                   onChange={(event) => handleStatusChange(event.target.value)}
-                  aria-label="Статус звернення"
+                  aria-label="Статус обращения"
                 >
                   {STATUS_ORDER.map((value) => (
                     <option key={value} value={value}>
@@ -590,7 +590,7 @@ export default function Appeals() {
                 <Icon.Box />
               </span>
               <div className={s.prodText}>
-                <span className={s.prodLabel}>Запитання щодо товару</span>
+                <span className={s.prodLabel}>Вопрос по товару</span>
                 <span className={s.prodName}>{active.product.name}</span>
                 <span className={s.prodSku}>Артикул: {active.product.sku}</span>
               </div>
@@ -600,7 +600,7 @@ export default function Appeals() {
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                Відкрити товар
+                Открыть товар
               </a>
             </div>
 
@@ -621,15 +621,15 @@ export default function Appeals() {
                 value={draft}
                 onChange={handleDraftInput}
                 onKeyDown={handleComposerKeyDown}
-                placeholder="Напишіть відповідь клієнту…"
+                placeholder="Напишите ответ клиенту…"
                 rows={1}
-                aria-label="Текст відповіді"
+                aria-label="Текст ответа"
               />
               <button
                 type="submit"
                 className={s.sendBtn}
                 disabled={!draft.trim() || sending}
-                aria-label="Надіслати відповідь"
+                aria-label="Отправить ответ"
                 data-sending={sending ? "true" : undefined}
               >
                 <Icon.Send className={s.sendIcon} />
@@ -668,10 +668,10 @@ export default function Appeals() {
                 />
               </svg>
             </div>
-            <h2 className={s.chatEmptyTitle}>Оберіть звернення</h2>
+            <h2 className={s.chatEmptyTitle}>Выберите обращение</h2>
             <p className={s.chatEmptyText}>
-              Виберіть діалог зі списку ліворуч — і я покажу запитання клієнта,
-              щоб ви могли відповісти.
+              Выберите диалог из списка слева — и я покажу вопрос клиента,
+              чтобы вы могли ответить.
             </p>
           </div>
         )}

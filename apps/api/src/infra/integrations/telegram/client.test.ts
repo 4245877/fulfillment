@@ -70,7 +70,7 @@ test("TelegramClient sendPhoto uploads multipart photo with caption", async () =
   await client.sendPhoto({
     chatId: "-100123",
     messageThreadId: 55,
-    caption: "<b>Друк завершено</b>",
+    caption: "<b>Печать завершена</b>",
     parseMode: "HTML",
     photo: new Uint8Array([1, 2, 3, 4]),
     mimeType: "image/png",
@@ -86,7 +86,7 @@ test("TelegramClient sendPhoto uploads multipart photo with caption", async () =
   const form = requestBody as FormData;
   assert.equal(form.get("chat_id"), "-100123");
   assert.equal(form.get("message_thread_id"), "55");
-  assert.equal(form.get("caption"), "<b>Друк завершено</b>");
+  assert.equal(form.get("caption"), "<b>Печать завершена</b>");
   assert.equal(form.get("parse_mode"), "HTML");
 
   const photo = form.get("photo");

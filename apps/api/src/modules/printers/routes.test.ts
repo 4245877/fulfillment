@@ -93,7 +93,7 @@ test("GET /status answers 502 with a readable error when the orchestrator is dow
 
   assert.equal(response.statusCode, 502);
   const body = response.json();
-  assert.match(body.error, /недоступний/i);
+  assert.match(body.error, /недоступен/i);
   assert.deepEqual(body.printers, []);
   await app.close();
 });
@@ -104,7 +104,7 @@ test("GET /status answers 503 when no orchestrator is configured", async () => {
   const response = await get(app, "/api/printers/status");
 
   assert.equal(response.statusCode, 503);
-  assert.match(response.json().error, /не налаштований/i);
+  assert.match(response.json().error, /не настроен/i);
   await app.close();
 });
 

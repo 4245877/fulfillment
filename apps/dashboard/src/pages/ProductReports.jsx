@@ -4,24 +4,24 @@ import { api } from "../api/client.js";
 import "./ProductReports.css";
 
 const VIEW_OPTIONS = [
-  { value: "active", label: "Активні" },
-  { value: "archived", label: "Архів" },
-  { value: "deleted", label: "Видалені" },
+  { value: "active", label: "Активные" },
+  { value: "archived", label: "Архив" },
+  { value: "deleted", label: "Удалённые" },
 ];
 
 const STATUS_OPTIONS = [
-  { value: "", label: "Усі статуси" },
-  { value: "new", label: "Нові" },
-  { value: "in_review", label: "На розгляді" },
-  { value: "resolved", label: "Вирішені" },
-  { value: "rejected", label: "Відхилені" },
+  { value: "", label: "Все статусы" },
+  { value: "new", label: "Новые" },
+  { value: "in_review", label: "На рассмотрении" },
+  { value: "resolved", label: "Решённые" },
+  { value: "rejected", label: "Отклонённые" },
 ];
 
 const STATUS_LABELS = {
-  new: "Нова",
-  in_review: "На розгляді",
-  resolved: "Вирішена",
-  rejected: "Відхилена",
+  new: "Новая",
+  in_review: "На рассмотрении",
+  resolved: "Решённая",
+  rejected: "Отклонённая",
 };
 
 function formatDate(value) {
@@ -33,7 +33,7 @@ function formatDate(value) {
     return value;
   }
 
-  return date.toLocaleString("uk-UA", {
+  return date.toLocaleString("ru-RU", {
     dateStyle: "short",
     timeStyle: "short",
   });
@@ -44,7 +44,7 @@ function getProductTitle(report) {
     report.product_name ||
     report.product_sku ||
     report.product_id ||
-    "Товар без назви"
+    "Товар без названия"
   );
 }
 
@@ -117,7 +117,7 @@ export default function ProductReports() {
         setError(
           err instanceof Error
             ? err.message
-            : "Мені не вдалося завантажити скарги. Спробуйте, будь ласка, ще раз."
+            : "Мне не удалось загрузить жалобы. Попробуйте, пожалуйста, ещё раз."
         );
       } finally {
         if (!ctrl.signal.aborted) {
@@ -140,7 +140,7 @@ export default function ProductReports() {
       const nextItem = data?.item;
 
       if (!nextItem) {
-        throw new Error("API не повернув оновлену скаргу");
+        throw new Error("API не вернул обновлённую жалобу");
       }
 
       setItems((prev) =>
@@ -159,7 +159,7 @@ export default function ProductReports() {
       setError(
         err instanceof Error
           ? err.message
-          : "Мені не вдалося оновити скаргу. Спробуйте, будь ласка, ще раз."
+          : "Мне не удалось обновить жалобу. Попробуйте, пожалуйста, ещё раз."
       );
     } finally {
       setActionId("");
@@ -181,7 +181,7 @@ export default function ProductReports() {
 
       if (action === "delete") {
         const ok = window.confirm(
-          "Перемістити скаргу у «Видалені»? Не хвилюйтеся — за потреби я зможу її відновити."
+          "Переместить жалобу в «Удалённые»? Не волнуйтесь — при необходимости я смогу её восстановить."
         );
 
         if (!ok) return;
@@ -191,7 +191,7 @@ export default function ProductReports() {
 
       if (action === "delete-permanently") {
         const ok = window.confirm(
-          "Скаргу буде видалено назавжди — цю дію не можна скасувати. Я зроблю це лише з вашого підтвердження. Продовжити?"
+          "Жалоба будет удалена навсегда — это действие нельзя отменить. Я сделаю это только с вашего подтверждения. Продолжить?"
         );
 
         if (!ok) return;
@@ -206,7 +206,7 @@ export default function ProductReports() {
       setError(
         err instanceof Error
           ? err.message
-          : "Мені не вдалося виконати цю дію. Спробуйте, будь ласка, ще раз."
+          : "Мне не удалось выполнить это действие. Попробуйте, пожалуйста, ещё раз."
       );
     } finally {
       setActionId("");
@@ -224,11 +224,11 @@ export default function ProductReports() {
     <section className="product-reports-page">
       <header className="product-reports-page__header">
         <div>
-          <h1>Скарги на товари</h1>
+          <h1>Жалобы на товары</h1>
           <p>
-            Я збираю тут скарги покупців: активні — на видноті, завершені можна
-            перенести в архів, відновити або видалити, не загубивши жодної
-            важливої заявки.
+            Я собираю здесь жалобы покупателей: активные — на виду, завершённые
+            можно перенести в архив, восстановить или удалить, не потеряв ни
+            одной важной заявки.
           </p>
         </div>
 
@@ -236,13 +236,13 @@ export default function ProductReports() {
           type="button"
           onClick={() => setRefreshKey((v) => v + 1)}
           disabled={loading}
-          aria-label="Оновити список скарг"
+          aria-label="Обновить список жалоб"
         >
-          Оновити
+          Обновить
         </button>
       </header>
 
-      <nav className="product-reports-page__views" aria-label="Розділи скарг">
+      <nav className="product-reports-page__views" aria-label="Разделы жалоб">
         {VIEW_OPTIONS.map((option) => (
           <button
             key={option.value}
@@ -277,39 +277,39 @@ export default function ProductReports() {
         </label>
 
         <label htmlFor="reports-search">
-          <span>Пошук</span>
+          <span>Поиск</span>
           <input
             id="reports-search"
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Назва, SKU, причина, коментар…"
+            placeholder="Название, SKU, причина, комментарий…"
           />
         </label>
       </div>
 
       <dl
         className="product-reports-page__stats"
-        aria-label="Статистика скарг"
+        aria-label="Статистика жалоб"
       >
         <div>
-          <dt>У цьому розділі</dt>
+          <dt>В этом разделе</dt>
           <dd>{stats.total}</dd>
         </div>
         <div>
-          <dt>Нові</dt>
+          <dt>Новые</dt>
           <dd>{stats.new}</dd>
         </div>
         <div>
-          <dt>На розгляді</dt>
+          <dt>На рассмотрении</dt>
           <dd>{stats.in_review}</dd>
         </div>
         <div>
-          <dt>Вирішені</dt>
+          <dt>Решённые</dt>
           <dd>{stats.resolved}</dd>
         </div>
         <div>
-          <dt>Відхилені</dt>
+          <dt>Отклонённые</dt>
           <dd>{stats.rejected}</dd>
         </div>
       </dl>
@@ -322,14 +322,14 @@ export default function ProductReports() {
 
       {loading ? (
         <div className="product-reports-page__empty" aria-live="polite">
-          Хвилинку, будь ласка… я збираю скарги.
+          Минутку, пожалуйста… я собираю жалобы.
         </div>
       ) : items.length === 0 ? (
         <div className="product-reports-page__empty" aria-live="polite">
-          За цими фільтрами скарг немає — здається, все гаразд ♡
+          По этим фильтрам жалоб нет — кажется, всё хорошо ♡
         </div>
       ) : (
-        <div className="product-reports-list" aria-label="Список скарг">
+        <div className="product-reports-list" aria-label="Список жалоб">
           {items.map((report) => {
             const noteValue = draftNotes[report.report_id] ?? "";
             const isBusy = actionId === report.report_id;
@@ -348,7 +348,7 @@ export default function ProductReports() {
                   <div>
                     <h2 id={`${cardId}-title`}>{getProductTitle(report)}</h2>
                     <p>
-                      ID товару: {report.product_id || "—"}
+                      ID товара: {report.product_id || "—"}
                       {report.product_sku
                         ? ` · SKU: ${report.product_sku}`
                         : ""}
@@ -358,13 +358,13 @@ export default function ProductReports() {
                   <div className="product-report-card__badges">
                     {report.archived_at && !report.deleted_at && (
                       <span className="product-report-visibility product-report-visibility--archived">
-                        Архів
+                        Архив
                       </span>
                     )}
 
                     {report.deleted_at && (
                       <span className="product-report-visibility product-report-visibility--deleted">
-                        Видалено
+                        Удалено
                       </span>
                     )}
 
@@ -385,7 +385,7 @@ export default function ProductReports() {
                     <dd>{report.reason || "—"}</dd>
                   </div>
                   <div>
-                    <dt>Створено</dt>
+                    <dt>Создано</dt>
                     <dd>
                       <time dateTime={report.created_at}>
                         {formatDate(report.created_at)}
@@ -393,7 +393,7 @@ export default function ProductReports() {
                     </dd>
                   </div>
                   <div>
-                    <dt>Закрито</dt>
+                    <dt>Закрыто</dt>
                     <dd>
                       {report.resolved_at ? (
                         <time dateTime={report.resolved_at}>
@@ -407,7 +407,7 @@ export default function ProductReports() {
 
                   {report.archived_at && !report.deleted_at && (
                     <div>
-                      <dt>В архіві</dt>
+                      <dt>В архиве</dt>
                       <dd>
                         <time dateTime={report.archived_at}>
                           {formatDate(report.archived_at)}
@@ -418,7 +418,7 @@ export default function ProductReports() {
 
                   {report.deleted_at && (
                     <div>
-                      <dt>Видалено</dt>
+                      <dt>Удалено</dt>
                       <dd>
                         <time dateTime={report.deleted_at}>
                           {formatDate(report.deleted_at)}
@@ -429,19 +429,19 @@ export default function ProductReports() {
                 </dl>
 
                 <div className="product-report-card__section">
-                  <h3>Коментар користувача</h3>
-                  <p>{report.comment || "Без коментаря."}</p>
+                  <h3>Комментарий пользователя</h3>
+                  <p>{report.comment || "Без комментария."}</p>
                 </div>
 
                 {report.page_url && (
                   <div className="product-report-card__section">
-                    <h3>Сторінка</h3>
+                    <h3>Страница</h3>
                     <a
                       href={report.page_url}
                       target="_blank"
                       rel="noreferrer noopener"
                     >
-                      Відкрити сторінку товару
+                      Открыть страницу товара
                     </a>
                   </div>
                 )}
@@ -467,7 +467,7 @@ export default function ProductReports() {
                     </label>
 
                     <label htmlFor={`${cardId}-note`}>
-                      <span>Нотатка адміністратора</span>
+                      <span>Заметка администратора</span>
                       <textarea
                         id={`${cardId}-note`}
                         rows={3}
@@ -476,7 +476,7 @@ export default function ProductReports() {
                         onChange={(e) =>
                           handleNoteChange(report.report_id, e.target.value)
                         }
-                        placeholder="Що перевірено, яке рішення прийнято…"
+                        placeholder="Что проверено, какое решение принято…"
                       />
                     </label>
 
@@ -488,7 +488,7 @@ export default function ProductReports() {
                         updateReport(report, { admin_note: noteValue })
                       }
                     >
-                      {isBusy ? "Збереження…" : "Зберегти нотатку"}
+                      {isBusy ? "Сохранение…" : "Сохранить заметку"}
                     </button>
                   </div>
                 )}
@@ -502,7 +502,7 @@ export default function ProductReports() {
                         data-variant="secondary"
                         onClick={() => runReportAction(report, "archive")}
                       >
-                        Архівувати
+                        Архивировать
                       </button>
 
                       <button
@@ -511,7 +511,7 @@ export default function ProductReports() {
                         data-variant="danger"
                         onClick={() => runReportAction(report, "delete")}
                       >
-                        Видалити
+                        Удалить
                       </button>
                     </>
                   )}
@@ -524,7 +524,7 @@ export default function ProductReports() {
                         data-variant="primary"
                         onClick={() => runReportAction(report, "restore")}
                       >
-                        Відновити
+                        Восстановить
                       </button>
 
                       <button
@@ -533,7 +533,7 @@ export default function ProductReports() {
                         data-variant="danger"
                         onClick={() => runReportAction(report, "delete")}
                       >
-                        Видалити
+                        Удалить
                       </button>
                     </>
                   )}
@@ -546,7 +546,7 @@ export default function ProductReports() {
                         data-variant="primary"
                         onClick={() => runReportAction(report, "restore")}
                       >
-                        Відновити
+                        Восстановить
                       </button>
 
                       <button
@@ -557,7 +557,7 @@ export default function ProductReports() {
                           runReportAction(report, "delete-permanently")
                         }
                       >
-                        Видалити назавжди
+                        Удалить навсегда
                       </button>
                     </>
                   )}

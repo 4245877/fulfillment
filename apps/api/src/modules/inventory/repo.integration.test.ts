@@ -162,7 +162,7 @@ describe("inventory point-query path (DB-backed)", { skip }, () => {
 
   test("movements feed is enriched with the (even archived) position", async () => {
     await reset();
-    await svc.addFilament({ material: "PLA", color: "black", quantityG: 1000, note: "нова котушка" });
+    await svc.addFilament({ material: "PLA", color: "black", quantityG: 1000, note: "новая катушка" });
     await svc.updateFilamentStock({ material: "PLA", color: "black", enabled: false });
 
     const movements = await svc.listFilamentMovements(10);

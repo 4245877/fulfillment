@@ -105,8 +105,8 @@ test("collectErrors flags negative prices and out-of-range fractions, skips arra
     [],
     bad
   );
-  assert.equal(bad[key("materials", "HYPER_PLA", "price_per_kg")], "Не може бути від’ємним");
-  assert.equal(bad[key("process", "FDM", "yield")], "Має бути частка від 0 до 1");
+  assert.equal(bad[key("materials", "HYPER_PLA", "price_per_kg")], "Не может быть отрицательным");
+  assert.equal(bad[key("process", "FDM", "yield")], "Должно быть долей от 0 до 1");
 
   const good = {};
   collectErrors(

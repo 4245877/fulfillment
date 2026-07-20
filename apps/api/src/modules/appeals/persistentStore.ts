@@ -1,7 +1,7 @@
 // Persistent, file-backed appeals store — the REAL source of truth for the
-// "Звернення" inbox.
+// "Обращения" inbox.
 //
-// Threads are created by the shop's "Поставити запитання майстру" mini-chat,
+// Threads are created by the shop's "Задать вопрос мастеру" mini-chat,
 // which POSTs each question to /api/appeals/ingest (see ./routes.ts). Operators
 // then read and answer them from the dashboard. Text-only messages (stage 1).
 //
@@ -44,7 +44,7 @@ export interface AppealIngestInput {
 
 export class AppealNotFoundError extends Error {
   statusCode = 404;
-  constructor(message = "Звернення не знайдено") {
+  constructor(message = "Обращение не найдено") {
     super(message);
     this.name = "AppealNotFoundError";
   }

@@ -5,27 +5,27 @@ import { Card, FieldRow } from "../ui.jsx";
 import styles from "../../Settings.module.css";
 
 const backupStages = [
-  { key: "preflight", label: "Перевірка умов", percent: 5 },
+  { key: "preflight", label: "Проверка условий", percent: 5 },
   { key: "postgres", label: "PostgreSQL", percent: 15 },
   { key: "uploads", label: "Uploads", percent: 25 },
   { key: "minio", label: "MinIO", percent: 35 },
   { key: "ingester", label: "Ingester data", percent: 45 },
   { key: "stl_large", label: "STL/3MF large", percent: 55 },
   { key: "stl_small", label: "STL/3MF small", percent: 65 },
-  { key: "config", label: "Конфігурація", percent: 72 },
+  { key: "config", label: "Конфигурация", percent: 72 },
   { key: "manifest", label: "Manifest", percent: 78 },
-  { key: "checksum", label: "Перевірка sha256", percent: 84 },
-  { key: "remote", label: "Копіювання на ПК", percent: 92 },
-  { key: "retention", label: "Очищення старих копій", percent: 97 },
+  { key: "checksum", label: "Проверка sha256", percent: 84 },
+  { key: "remote", label: "Копирование на ПК", percent: 92 },
+  { key: "retention", label: "Очистка старых копий", percent: 97 },
   { key: "done", label: "Готово", percent: 100 },
 ];
 
 const statusLabels = {
-  idle: "Немає активного процесу",
-  running: "Виконується",
+  idle: "Нет активного процесса",
+  running: "Выполняется",
   success: "Завершено",
-  failed: "Помилка",
-  error: "Помилка",
+  failed: "Ошибка",
+  error: "Ошибка",
   skipped: "Пропущено",
 };
 
@@ -46,7 +46,7 @@ function formatDateTime(value) {
 
   if (Number.isNaN(date.getTime())) return "—";
 
-  return new Intl.DateTimeFormat("uk-UA", {
+  return new Intl.DateTimeFormat("ru-RU", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -79,7 +79,7 @@ function normalizeProgress(raw) {
       status: "idle",
       step: null,
       percent: 0,
-      message: "Зараз усе тихо — резервне копіювання не виконується.",
+      message: "Сейчас всё тихо — резервное копирование не выполняется.",
       updatedAt: null,
       runId: null,
       runDir: null,
@@ -104,7 +104,7 @@ function normalizeProgress(raw) {
     status,
     step,
     percent,
-    message: raw.message || "Чекаю на відповідь сервера…",
+    message: raw.message || "Жду ответа сервера…",
     updatedAt: raw.updated_at || raw.updatedAt || null,
     runId: raw.run_id || raw.runId || null,
     runDir: raw.run_dir || raw.runDir || null,
@@ -154,7 +154,7 @@ async function runPostAction(doAction, action) {
     });
   }
 
-  throw new Error("Обробник POST-дії недоступний");
+  throw new Error("Обработчик POST-действия недоступен");
 }
 
 function BackupProgressPanel({ progress }) {
@@ -169,7 +169,7 @@ function BackupProgressPanel({ progress }) {
       <div className={styles.backupProgressHeader}>
         <div>
           <div className={styles.backupProgressEyebrow}>
-            Резервне копіювання
+            Резервное копирование
           </div>
 
           <div className={styles.backupProgressTitle}>
@@ -178,12 +178,12 @@ function BackupProgressPanel({ progress }) {
 
           <div className={styles.backupProgressMeta}>
             {progress.message}
-            {progress.updatedAt ? ` Оновлено: ${updatedAt}` : ""}
+            {progress.updatedAt ? ` Обновлено: ${updatedAt}` : ""}
           </div>
 
           {progress.runId ? (
             <div className={styles.backupProgressMeta}>
-              ID запуску: {progress.runId}
+              ID запуска: {progress.runId}
             </div>
           ) : null}
         </div>
@@ -239,10 +239,10 @@ function BackupProgressPanel({ progress }) {
 }
 
 const DEFAULT_INCLUDES = [
-  "Товари та база даних",
-  "Зображення",
-  "STL / 3MF файли",
-  "Дані користувачів",
+  "Товары и база данных",
+  "Изображения",
+  "STL / 3MF файлы",
+  "Данные пользователей",
 ];
 
 function BackupContents({ includes }) {
@@ -269,19 +269,19 @@ function BackupRoute({ backups, serverConfig }) {
   return (
     <div className={styles.inputGroup}>
       <div>
-        Звідки: {source.label ? `${source.label} ` : ""}({sourceHost})
+        Откуда: {source.label ? `${source.label} ` : ""}({sourceHost})
       </div>
       <div>
-        Куди: {destination.label ? `${destination.label} ` : ""}({destHost})
+        Куда: {destination.label ? `${destination.label} ` : ""}({destHost})
         {destDisk ? ` · ${destDisk}` : ""}
       </div>
-      <div>Запуск: лише вручну, без розкладу</div>
+      <div>Запуск: только вручную, без расписания</div>
       <div>
-        Зберігання: автоматичне видалення копій, старших за{" "}
-        {retentionDays ? `${retentionDays} днів (≈3–4 тижні)` : "налаштований строк"}
+        Хранение: автоматическое удаление копий старше{" "}
+        {retentionDays ? `${retentionDays} дней (≈3–4 недели)` : "настроенного срока"}
       </div>
       {serverConfig?.archivesDir ? (
-        <div>Каталог архівів: {serverConfig.archivesDir}</div>
+        <div>Каталог архивов: {serverConfig.archivesDir}</div>
       ) : null}
     </div>
   );
@@ -289,7 +289,7 @@ function BackupRoute({ backups, serverConfig }) {
 
 function ArchiveList({ archives }) {
   if (!archives.length) {
-    return <div className="text-muted">Список резервних копій ще не завантажено.</div>;
+    return <div className="text-muted">Список резервных копий ещё не загружен.</div>;
   }
 
   return (
@@ -315,12 +315,12 @@ function ArchiveList({ archives }) {
           </span>
 
           <span className="text-muted">
-            Розмір: {formatBytes(archive.sizeBytes)}
+            Размер: {formatBytes(archive.sizeBytes)}
           </span>
 
           {archive.path ? (
             <span className="text-muted">
-              Шлях: {archive.path}
+              Путь: {archive.path}
             </span>
           ) : null}
         </div>
@@ -359,7 +359,7 @@ export default function BackupsSection({ cfg, doAction }) {
         status: "error",
         step: "error",
         percent: 100,
-        message: "Мені не вдалося дізнатися стан резервного копіювання. Я спробую ще раз.",
+        message: "Мне не удалось узнать состояние резервного копирования. Я попробую ещё раз.",
         updatedAt: new Date().toISOString(),
       }));
     } finally {
@@ -379,7 +379,7 @@ export default function BackupsSection({ cfg, doAction }) {
       setArchives(normalizeArchiveList(result));
       setListError(null);
     } catch {
-      setListError("Мені не вдалося завантажити список резервних копій. Спробуйте, будь ласка, трохи згодом.");
+      setListError("Мне не удалось загрузить список резервных копий. Попробуйте, пожалуйста, чуть позже.");
     } finally {
       listInFlight.current = false;
     }
@@ -422,7 +422,7 @@ export default function BackupsSection({ cfg, doAction }) {
       status: "running",
       step: "preflight",
       percent: 5,
-      message: "Починаю резервне копіювання — я подбаю, щоб усе було збережено.",
+      message: "Начинаю резервное копирование — я позабочусь, чтобы всё было сохранено.",
       updatedAt: new Date().toISOString(),
       runId: null,
       runDir: null,
@@ -431,8 +431,8 @@ export default function BackupsSection({ cfg, doAction }) {
 
     try {
       const result = await runPostAction(doAction, {
-        title: "Запустити резервне копіювання",
-        description: "Запустити резервне копіювання на сервері магазину.",
+        title: "Запустить резервное копирование",
+        description: "Запустить резервное копирование на сервере магазина.",
         url: "/api/ops/backup/run",
         body: {},
         timeoutMs: 15000,
@@ -447,7 +447,7 @@ export default function BackupsSection({ cfg, doAction }) {
         status: "error",
         step: "error",
         percent: 100,
-        message: "Мені не вдалося запустити резервне копіювання. Перевірте, будь ласка, з'єднання з сервером.",
+        message: "Мне не удалось запустить резервное копирование. Проверьте, пожалуйста, соединение с сервером.",
         updatedAt: new Date().toISOString(),
       }));
     } finally {
@@ -463,14 +463,14 @@ export default function BackupsSection({ cfg, doAction }) {
       status: "running",
       step: "checksum",
       percent: Math.max(prev.percent || 0, 84),
-      message: "Я перевіряю останню резервну копію — це може тривати хвилину.",
+      message: "Я проверяю последнюю резервную копию — это может занять минуту.",
       updatedAt: new Date().toISOString(),
     }));
 
     try {
       const result = await runPostAction(doAction, {
-        title: "Перевірити останню резервну копію",
-        description: "Запустити перевірку для останньої копії (latest).",
+        title: "Проверить последнюю резервную копию",
+        description: "Запустить проверку для последней копии (latest).",
         url: "/api/ops/backup/test-restore",
         body: {},
         timeoutMs: 130000,
@@ -484,7 +484,7 @@ export default function BackupsSection({ cfg, doAction }) {
         status: "error",
         step: "error",
         percent: 100,
-        message: "Мені не вдалося запустити перевірку останньої копії. Спробуйте, будь ласка, ще раз.",
+        message: "Мне не удалось запустить проверку последней копии. Попробуйте, пожалуйста, ещё раз.",
         updatedAt: new Date().toISOString(),
       }));
     } finally {
@@ -494,33 +494,33 @@ export default function BackupsSection({ cfg, doAction }) {
 
   return (
     <Card
-      title="2) Резервні копії"
-      sub="Ручний запуск, перевірка, статус і список архівів Lite Forest"
+      title="2) Резервные копии"
+      sub="Ручной запуск, проверка, статус и список архивов Lite Forest"
     >
       <FieldRow
-        label="Що входить до резервної копії"
-        hint="Склад відповідає backup.sh на сервері магазину."
+        label="Что входит в резервную копию"
+        hint="Состав соответствует backup.sh на сервере магазина."
       >
         <BackupContents includes={backups?.includes} />
       </FieldRow>
 
       <FieldRow
-        label="Звідки / куди та зберігання"
-        hint="Хости, диск призначення та строк зберігання беруться з конфігурації API."
+        label="Откуда / куда и хранение"
+        hint="Хосты, диск назначения и срок хранения берутся из конфигурации API."
       >
         <BackupRoute backups={backups} serverConfig={serverConfig} />
       </FieldRow>
 
       <FieldRow
-        label="Поточний статус"
-        hint="Зчитується зі status-файла резервного копіювання через API."
+        label="Текущий статус"
+        hint="Считывается из status-файла резервного копирования через API."
       >
         <BackupProgressPanel progress={progress} />
       </FieldRow>
 
       <FieldRow
-        label="Ручні дії"
-        hint="Кнопки запускають реальні серверні скрипти через backend API."
+        label="Ручные действия"
+        hint="Кнопки запускают реальные серверные скрипты через backend API."
       >
         <div className={styles.buttonGroup}>
           <button
@@ -529,7 +529,7 @@ export default function BackupsSection({ cfg, doAction }) {
             disabled={isBusy}
             onClick={runBackup}
           >
-            Запустити резервне копіювання
+            Запустить резервное копирование
           </button>
 
           <button
@@ -538,7 +538,7 @@ export default function BackupsSection({ cfg, doAction }) {
             disabled={isBusy}
             onClick={checkLatestBackup}
           >
-            Перевірити latest
+            Проверить latest
           </button>
 
           <button
@@ -550,17 +550,17 @@ export default function BackupsSection({ cfg, doAction }) {
               loadBackupList();
             }}
           >
-            Оновити
+            Обновить
           </button>
         </div>
       </FieldRow>
 
       <FieldRow
-        label="Архіви"
+        label="Архивы"
         hint={
           serverConfig?.archivesDir
-            ? `Резервні копії з ${serverConfig.archivesDir}.`
-            : "Резервні копії з каталогу архівів на сервері."
+            ? `Резервные копии из ${serverConfig.archivesDir}.`
+            : "Резервные копии из каталога архивов на сервере."
         }
       >
         {listError ? (
