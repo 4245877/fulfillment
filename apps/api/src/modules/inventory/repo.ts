@@ -11,8 +11,6 @@ import type {
   PrinterFilamentState,
 } from "./types";
 
-type DbLike = Knex | Knex.Transaction;
-
 // A single advisory lock serialises every inventory MUTATION (see
 // runInventoryMutation). It is the one place concurrency is arbitrated, which is
 // why the mutation path can read the few rows it needs, apply the change in

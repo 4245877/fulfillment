@@ -94,6 +94,7 @@ test("orchestrator flow: grams is accepted as an alias for quantityG", () => {
   assert.equal(result.duplicate, false);
   assert.equal(store.filamentStock[0].stockG, 1880);
   assert.equal(result.movement!.idempotencyKey, "a1:run-1:t0");
+  assert.equal(result.appliedG, 120, "the applied whole grams are echoed back");
 });
 
 test("lengthMm converts to grams via the resolved material's density", () => {
@@ -123,7 +124,9 @@ test("a redelivered idempotencyKey is a duplicate no-op, not a second deduction"
   const second = svc.applyConsume(store, input);
 
   assert.equal(first.duplicate, false);
+  assert.equal(first.appliedG, 100);
   assert.equal(second.duplicate, true);
+  assert.equal(second.appliedG, 0, "a duplicate applied nothing — carry reconciliation must see 0");
   assert.equal(second.movement!.id, first.movement!.id);
   assert.equal(store.filamentStock[0].stockG, 1900, "deducted exactly once");
 });

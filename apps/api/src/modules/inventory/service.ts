@@ -835,6 +835,10 @@ export function applyConsume(store: InventoryStore, input: ConsumeFilamentInput)
     if (existing) {
       return {
         duplicate: true,
+        // Nothing was deducted by THIS request — the original movement already
+        // holds the grams. Callers reconciling their carry must treat a
+        // duplicate as 0 applied, not as a second deduction.
+        appliedG: 0,
         movement: existing,
         stock:
           store.filamentStock.find((item) => item.id === existing.stockId) ||
@@ -891,6 +895,10 @@ export function applyConsume(store: InventoryStore, input: ConsumeFilamentInput)
 
   return {
     duplicate: false,
+    // The grams ACTUALLY deducted after normalization (whole grams). Part of
+    // the consume contract: a caller that accumulates sub-gram carry updates it
+    // against this value, so both sides agree on what left the shelf.
+    appliedG: quantityG,
     stock: toStockView(stock),
     movement,
     lowStockAlert: detectLowStockAlert(stock, beforeG, afterG),

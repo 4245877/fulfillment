@@ -26,11 +26,9 @@ if (DB_URL) {
 }
 
 type Service = typeof import("./service");
-type Repo = typeof import("./repo");
 type Knex = typeof import("../../infra/db/knex");
 
 let svc: Service;
-let repo: Repo;
 let knex: Knex;
 
 async function reset() {
@@ -43,7 +41,6 @@ async function reset() {
 describe("inventory point-query path (DB-backed)", { skip }, () => {
   before(async () => {
     svc = await import("./service");
-    repo = await import("./repo");
     knex = await import("../../infra/db/knex");
     await reset();
   });
