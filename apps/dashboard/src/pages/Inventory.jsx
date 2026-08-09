@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { inventoryApi } from "../api/inventoryApi.js";
-import { fetchPrinterStatuses } from "../api/printerFarmApi.js";
+import { fetchPrinterInventory } from "../api/printerFarmApi.js";
 import styles from "./Inventory.module.css";
 import {
   COLORS,
@@ -137,12 +137,25 @@ export default function Inventory() {
         inventoryApi.printerFilament(),
       ]);
 
-      // Best-effort: a printer-status outage must NOT fail the whole page — the
-      // movements table degrades to raw printer ids instead of crashing.
-      const statusPayload = await fetchPrinterStatuses().catch(() => null);
-      const nameMap = buildPrinterNameMap(statusPayload);
-      setPrinterNames(nameMap);
-      setPrinterList([...nameMap].map(([id, name]) => ({ id, name })));
+      // The CONFIGURED fleet from atelier — not the live-status feed. It is the
+      // right list for this page: it includes disabled printers (so history can
+      // still name them) and printers that are merely offline (which have no
+      // live status at all). Best-effort: an outage must NOT fail the whole page
+      // — the movements table degrades to raw printer ids instead of crashing.
+      const inventoryPayload = await fetchPrinterInventory().catch(() => null);
+      const printers = Array.isArray(inventoryPayload?.printers)
+        ? inventoryPayload.printers
+        : [];
+
+      setPrinterNames(buildPrinterNameMap(inventoryPayload));
+      // Only ENABLED printers may receive a reel: a disabled one takes no new
+      // work and the API refuses the binding, so offering it here would only
+      // produce an error the operator cannot act on.
+      setPrinterList(
+        printers
+          .filter((printer) => printer?.enabled)
+          .map((printer) => ({ id: printer.id, name: printer.name || printer.id }))
+      );
 
       setStock(Array.isArray(stockResult.items) ? stockResult.items : []);
       setMovements(Array.isArray(movementsResult.items) ? movementsResult.items : []);
@@ -662,8 +675,9 @@ export default function Inventory() {
                 ))}
               </select>
             ) : (
-              // Printer-status API unavailable: keep the form usable with a
-              // free-text id instead of an empty, unselectable dropdown.
+              // Printer inventory unavailable: keep the form usable with a
+              // free-text id instead of an empty, unselectable dropdown. The API
+              // still confirms the id against atelier before binding anything.
               <input
                 value={loadForm.printerId}
                 onChange={(event) => updateForm(setLoadForm, "printerId", event.target.value)}

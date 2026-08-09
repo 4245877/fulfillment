@@ -7,26 +7,38 @@ export function Card({ title, sub, children, right }) {
       <div className={styles.cardHeader}>
         <div className={styles.cardHeaderText}>
           <h2 className={styles.cardTitle}>{title}</h2>
-          {sub ? <div className={styles.cardSubtitle}>{sub}</div> : null}
+          {sub ? <p className={styles.cardSubtitle}>{sub}</p> : null}
         </div>
 
         {right ? <div className={styles.cardActions}>{right}</div> : null}
       </div>
 
-      <div className={styles.cardBody}>{children}</div>
+      {/* cardBody is the query container; cardGrid is what it sizes. Settings
+          pair up into two columns once the card is wide enough. */}
+      <div className={styles.cardBody}>
+        <div className={styles.cardGrid}>{children}</div>
+      </div>
     </section>
   );
 }
 
-export function FieldRow({ label, hint, children }) {
+/* `wide` opts a setting out of the two-column grid — for tables, trees and
+   other content that genuinely wants the full card width. */
+export function FieldRow({ label, hint, children, wide = false }) {
   return (
-    <div className={styles.fieldRow}>
-      <div className={styles.fieldLabel}>
-        <div className={styles.fieldLabelText}>{label}</div>
-        {hint ? <div className={styles.fieldHint}>{hint}</div> : null}
-      </div>
+    <div
+      className={
+        wide ? `${styles.fieldRow} ${styles.fieldRowWide}` : styles.fieldRow
+      }
+    >
+      <div className={styles.fieldGrid}>
+        <div className={styles.fieldLabel}>
+          <div className={styles.fieldLabelText}>{label}</div>
+          {hint ? <div className={styles.fieldHint}>{hint}</div> : null}
+        </div>
 
-      <div className={styles.fieldInput}>{children}</div>
+        <div className={styles.fieldInput}>{children}</div>
+      </div>
     </div>
   );
 }

@@ -88,6 +88,13 @@ export type UpdateFilamentInput = {
 
 export type LoadPrinterFilamentInput = {
   printerId: string;
+  /**
+   * The printer's name from the printer directory (atelier), snapshotted onto
+   * the binding so the row stays readable if the printer is later deleted
+   * there. Resolved by the route, not by this service — the warehouse logic
+   * stays free of cross-service I/O.
+   */
+  printerName?: string | null;
   /** AMS slot to bind the reel to (multi-slot printers); omit for the printer-level reel. */
   amsTray?: number | null;
   material: string;
@@ -103,6 +110,8 @@ export type LoadPrinterFilamentInput = {
  */
 export type SyncPrinterFilamentInput = {
   printerId: string;
+  /** Printer name from the directory, snapshotted onto the binding; see LoadPrinterFilamentInput. */
+  printerName?: string | null;
   /** AMS slot (multi-slot printers); omit/null for the printer-level reel. */
   amsTray?: number | null;
   material: string;
@@ -1070,6 +1079,13 @@ export async function updateFilamentStock(input: UpdateFilamentInput) {
   return runInventoryMutation(scope, (store) => applyUpdateFilament(store, input));
 }
 
+/** Printer-name snapshot: trimmed, bounded to the column, "" treated as absent. */
+function normalizePrinterName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, 200) : null;
+}
+
 function normalizeAmsTray(value: unknown): number | null {
   if (value == null || value === "") {
     return null;
@@ -1084,12 +1100,20 @@ function normalizeAmsTray(value: unknown): number | null {
   return tray;
 }
 
-/** Upserts the (printerId, amsTray) binding to point at a resolved stock. */
+/**
+ * Upserts the (printerId, amsTray) binding to point at a resolved stock.
+ *
+ * `printerName` is a snapshot for history: it is refreshed when the caller
+ * knows the current name and deliberately KEPT when it does not (the directory
+ * was unavailable, or an older client did not send one) — losing a name we
+ * already recorded would be a downgrade, not an update.
+ */
 function upsertPrinterFilamentState(
   store: InventoryStore,
   printerId: string,
   amsTray: number | null,
-  stock: FilamentStock
+  stock: FilamentStock,
+  printerName: string | null = null
 ): PrinterFilamentState {
   const existing = store.printerFilamentState.find(
     (item) => item.printerId === printerId && item.amsTray === amsTray
@@ -1099,6 +1123,7 @@ function upsertPrinterFilamentState(
     existing.stockId = stock.id;
     existing.material = stock.material;
     existing.color = stock.color;
+    existing.printerName = printerName ?? existing.printerName ?? null;
     existing.updatedAt = nowIso();
 
     return existing;
@@ -1107,6 +1132,7 @@ function upsertPrinterFilamentState(
   const state: PrinterFilamentState = {
     id: id("printer_filament"),
     printerId,
+    printerName,
     amsTray,
     stockId: stock.id,
     material: stock.material,
@@ -1140,7 +1166,13 @@ export function applyLoadPrinterFilament(
     colorName: input.colorName,
   });
 
-  return upsertPrinterFilamentState(store, printerId, amsTray, stock);
+  return upsertPrinterFilamentState(
+    store,
+    printerId,
+    amsTray,
+    stock,
+    normalizePrinterName(input.printerName)
+  );
 }
 
 export async function loadPrinterFilament(input: LoadPrinterFilamentInput) {
@@ -1216,7 +1248,13 @@ export function applySyncPrinterFilament(
       ? store.filamentStock.find((item) => item.id === previousBinding.stockId)
       : undefined;
 
-  const state = upsertPrinterFilamentState(store, printerId, amsTray, stock);
+  const state = upsertPrinterFilamentState(
+    store,
+    printerId,
+    amsTray,
+    stock,
+    normalizePrinterName(input.printerName)
+  );
 
   return {
     resolved: true,

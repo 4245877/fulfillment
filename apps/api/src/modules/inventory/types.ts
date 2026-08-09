@@ -66,6 +66,15 @@ export type PrinterFilamentState = {
   id: string;
   printerId: string;
   /**
+   * The printer's name as atelier reported it when this binding was last
+   * written. A deliberate snapshot: printers are configured in atelier and can
+   * be deleted there, and this row is a record of what was physically loaded —
+   * it must stay readable after the machine it names is gone. `null` on rows
+   * written before the snapshot existed, and on rows written while the printer
+   * directory was unavailable; those resolve through the live directory instead.
+   */
+  printerName: string | null;
+  /**
    * AMS slot this reel is loaded into, for multi-slot printers (Bambu AMS).
    * `null` is the printer-level reel — the only kind single-spool printers have.
    * At most one row per (printerId, amsTray), including the null slot.

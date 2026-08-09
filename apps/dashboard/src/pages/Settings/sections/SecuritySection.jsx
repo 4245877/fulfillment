@@ -5,12 +5,13 @@ import styles from "../../Settings.module.css";
 
 export default function SecuritySection({ cfg, patch }) {
   return (
-    <Card title="11) Безопасность и доступ" sub="RBAC для действий, журнал аудита изменений">
+    <Card title="Безопасность и доступ" sub="RBAC для действий, журнал аудита изменений">
       <FieldRow
         label="RBAC: кто может нажимать «опасные» кнопки"
         hint="Списки ролей для операционных действий."
+        wide
       >
-        <div className={`${styles.inputGroup} ${styles.max720}`}>
+        <div className={styles.nestedGrid}>
           {Object.entries(cfg.security.rbac).map(([k, roles]) => (
             <div key={k}>
               <div className={styles.inputLabel}>{k}</div>
@@ -28,6 +29,7 @@ export default function SecuritySection({ cfg, patch }) {
       <FieldRow
         label="Журнал аудита"
         hint="Заглушка. Позже можно подключить к /api/audit/recent."
+        wide
       >
         <div className={styles.tableWrap}>
           <table className={styles.table}>

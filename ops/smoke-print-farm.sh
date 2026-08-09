@@ -72,6 +72,38 @@ EOF
   fi
 fi
 
+echo "== printer inventory contract (live configuration feed) =="
+INVENTORY_JSON="$(in_api 'wget -qO- --timeout=8 http://print-orchestrator:3100/api/printers/inventory' || echo '')"
+if [ -z "$INVENTORY_JSON" ]; then
+  printf 'FAIL live GET /api/printers/inventory\n'; FAILED=1
+else
+  if ! INVENTORY_JSON="$INVENTORY_JSON" python3 <<'EOF'
+import json, os
+payload = json.loads(os.environ["INVENTORY_JSON"])
+assert isinstance(payload, dict), "expected an inventory envelope"
+assert payload.get("revision"), "inventory must carry a revision"
+printers = payload.get("printers")
+assert isinstance(printers, list) and printers, "expected a non-empty printer list"
+required = {"id", "name", "type", "protocol", "enabled", "position", "version"}
+# The configuration feed is read by another service, which has no business
+# knowing how to reach a device — so it must carry no wiring and no credentials.
+forbidden = {
+    "host", "port", "apiKey", "serial", "accessCode", "allowInsecureTls",
+    "snapshotUrl", "streamUrl", "interfaceUrl", "light", "secrets",
+}
+for p in printers:
+    missing = required - p.keys()
+    assert not missing, f"{p.get('id')}: missing {sorted(missing)}"
+    leaked = forbidden & p.keys()
+    assert not leaked, f"{p.get('id')}: leaked {sorted(leaked)}"
+    assert isinstance(p["enabled"], bool), f"{p.get('id')}: enabled must be boolean"
+print("ok   inventory DTO is complete and carries no wiring or credentials")
+EOF
+  then
+    printf 'FAIL live inventory DTO contract check\n'; FAILED=1
+  fi
+fi
+
 echo "== camera snapshot via orchestrator (ensureLight=1) =="
 SNAP_OK=0
 for ID in $(printf '%s' "$PRINTERS_JSON" | python3 -c 'import json,sys; print(" ".join(p["id"] for p in json.load(sys.stdin)))' 2>/dev/null); do
@@ -102,6 +134,15 @@ check "printers status proxy is admin-gated (401 without token)" \
   in_api 'wget -qO- --timeout=5 http://127.0.0.1:8080/api/printers/status 2>&1 | grep -q "401"'
 check "printers status proxy answers with the admin token" \
   in_api 'wget -qO- --timeout=10 --header "x-admin-token: $ADMIN_TOKEN" http://127.0.0.1:8080/api/printers/status | grep -q "\"printers\""'
+check "printer inventory proxy is admin-gated (401 without token)" \
+  in_api 'wget -qO- --timeout=5 http://127.0.0.1:8080/api/printers/inventory 2>&1 | grep -q "401"'
+check "printer inventory proxy serves the configured fleet" \
+  in_api 'wget -qO- --timeout=10 --header "x-admin-token: $ADMIN_TOKEN" http://127.0.0.1:8080/api/printers/inventory | grep -q "\"available\":true"'
+# The gate that keeps a reel from being bound to a printer atelier does not
+# have. A 400 unknown_printer proves the request reached the directory and was
+# refused there — nothing was written.
+check "reel binding refuses an unknown printer" \
+  in_api 'wget -qO- --timeout=10 --header "x-admin-token: $ADMIN_TOKEN" --header "content-type: application/json" --post-data "{\"printerId\":\"smoke-does-not-exist\",\"material\":\"PLA\",\"color\":\"black\"}" http://127.0.0.1:8080/api/inventory/printer-filament/load 2>&1 | grep -q "unknown_printer\|400"'
 
 if [ "${1:-}" = "--outage-drill" ]; then
   echo "== outage drill (orchestrator stops for ~20s) =="

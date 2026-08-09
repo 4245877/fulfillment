@@ -5,11 +5,16 @@
  */
 
 /* ============================================================================
-   LOCAL DERIVED TOKENS + LAYOUT */
+   LOCAL DERIVED TOKENS + LAYOUT
 
-.container {
+   The page is one full-width column: hero → sticky section rail → sections.
+   There is deliberately no second left-hand nav column — the app shell already
+   owns the left edge, and a second one pinned the whole (very long) page into
+   a narrow strip with dead space beside it. */
+
+.page {
   --settings-muted: var(--neutral-600);
-  --section-offset: 80px;
+  --section-offset: 104px;
 
   --settings-accent: var(--accent);
   --settings-accent-strong: var(--primary);
@@ -18,185 +23,172 @@
   --settings-accent-border: color-mix(in srgb, var(--accent) 22%, var(--border));
   --settings-accent-glow: color-mix(in srgb, var(--accent) 18%, transparent);
   --settings-ribbon-w: 3px;
+  /* Reading measure for prose. Controls may use the full width; sentences
+     must not — long lines are what makes a wide admin page tiring. */
+  --settings-measure: 72ch;
 
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  /* Wide enough that a card holds two comfortable columns of settings,
+     capped so text never runs the width of a 4K monitor. */
+  max-width: 1760px;
+  margin-inline: auto;
+  min-width: 0;
 }
 
 .content {
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
+  min-width: 0;
 }
 
 /* ============================================================================
-   SIDEBAR */
+   SECTION RAIL
 
-.sidebar {
+   Horizontal, sticky, costs zero horizontal space — it floats just under the
+   viewport top and follows the reader down the whole page. */
+
+.sectionRail {
   position: sticky;
-  top: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px 20px;
-  box-shadow: var(--shadow-md);
+  /* Flush with the viewport edge: a gap here would let card content slide
+     through the strip above the bar. The inner padding keeps the pills
+     visually clear of the edge. */
+  top: 0;
+  z-index: 30;
+  padding: 9px 8px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 10%, var(--border));
+  border-radius: 22px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    var(--shadow-md);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
 }
 
-.sidebarTitle {
-  margin: 0;
-  font-weight: 900;
-  font-size: 17px;
-  line-height: 1.2;
-  color: var(--text);
-  letter-spacing: -0.02em;
+.railTrack {
   display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.railTrack::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fades the trailing edge so a clipped pill reads as "there is more here"
+   rather than as a mistake. Applied only when the track actually overflows. */
+.sectionRailScrollable .railTrack {
+  justify-content: flex-start;
+  -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, #000 88%, transparent);
+}
+
+.railLink {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-}
-
-.sidebarTitle::before {
-  content: '';
-  display: inline-block;
-  flex-shrink: 0;
-  width: 4px;
-  height: 18px;
-  background: linear-gradient(180deg, var(--settings-accent) 0%, var(--settings-accent-strong) 100%);
-  border-radius: 2px;
-}
-
-.sidebarSubtitle {
-  margin: 8px 0 0 14px;
-  color: var(--settings-muted);
-  font-size: 12.5px;
-  line-height: 1.55;
-}
-
-.sidebarActions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 18px;
-}
-
-.sidebarDivider {
-  border: 0;
-  border-top: 1px solid var(--border);
-  margin: 18px 0;
-  position: relative;
-}
-
-.sidebarDivider::after {
-  content: '✦';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 8px;
-  letter-spacing: 6px;
-  color: color-mix(in srgb, var(--accent) 40%, var(--muted));
-  background: var(--surface);
-  padding: 0 8px;
-}
-
-/* ============================================================================
-   NAVIGATION */
-
-.navMenu {
-  display: grid;
-  gap: 3px;
-}
-
-.navLink {
-  display: block;
-  position: relative;
-  overflow: hidden;
-  padding: 9px 12px 9px 14px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
+  gap: 9px;
+  /* Content-sized: stretching five pills across a 1500px bar turns them into
+     blobs. `space-between` spreads them instead. */
+  flex: 0 0 auto;
+  justify-content: center;
+  min-height: 38px;
+  padding: 7px 18px;
   color: var(--neutral-600);
-  font-size: 13.5px;
-  font-weight: 500;
-  line-height: 1.35;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.25;
+  white-space: nowrap;
   text-decoration: none;
+  scroll-snap-align: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
   transition:
+    color var(--transition-fast),
     background-color var(--transition-fast),
     border-color var(--transition-fast),
-    color var(--transition-fast);
+    box-shadow var(--transition-base);
 }
 
-.navLink::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--primary) 10%, transparent) 0%,
-    color-mix(in srgb, var(--accent) 5%, transparent) 60%,
-    transparent 100%
-  );
-  opacity: 0;
-  transition: opacity 0.2s ease;
+.railIndex {
+  color: color-mix(in srgb, var(--yor-gold) 78%, var(--neutral-400));
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--transition-fast);
 }
 
-.navLink:hover {
+.railLink:hover {
   color: var(--text);
-  background: var(--settings-accent-soft);
-  border-color: var(--settings-accent-border);
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 12%, var(--border));
 }
 
-.navLink:hover::after {
-  opacity: 1;
-}
-
-.navLink:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+.railLink:focus-visible {
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
-.navLinkActive {
-  color: var(--accent);
-  background: var(--settings-accent-soft);
-  border-color: var(--settings-accent-border);
-  box-shadow: inset var(--settings-ribbon-w) 0 0 var(--settings-accent);
-  font-weight: 600;
+.railLinkActive,
+.railLinkActive:hover {
+  color: var(--primary);
+  font-weight: 650;
+  background: linear-gradient(
+    135deg,
+    var(--primary-light) 0%,
+    color-mix(in srgb, var(--yor-gold) 12%, var(--surface)) 100%
+  );
+  border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
-.navLinkActive::after {
-  opacity: 1;
+.railLinkActive .railIndex {
+  color: var(--primary);
 }
 
 /* ============================================================================
-   TOAST */
+   TOAST
 
-.toastWrapper {
-  margin-top: 16px;
+   Docked to the viewport corner so confirmations are visible from anywhere on
+   a page this tall, instead of scrolling away with a nav card. */
+
+.toastDock {
+  position: fixed;
+  right: clamp(14px, 2vw, 28px);
+  bottom: clamp(14px, 2vw, 28px);
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+  max-width: min(380px, calc(100vw - 28px));
+  pointer-events: none;
 }
 
 .toast {
-  padding: 11px 14px;
+  padding: 12px 16px;
   border: 1px solid;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: 12.5px;
   line-height: 1.5;
-  animation: toastReveal 0.28s cubic-bezier(0.4, 0, 0.2, 1) both;
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: toastReveal 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes toastReveal {
   from {
     opacity: 0;
-    transform: translateY(5px);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -301,8 +293,29 @@
   align-items: center;
 }
 
+/* Query container for the settings grid below. */
 .cardBody {
+  container-type: inline-size;
   margin-top: 16px;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  /* Tiles size to their own content — stretching a short setting to match a
+     tall neighbour just manufactures empty space inside it. */
+  align-items: start;
+  gap: 12px;
+}
+
+/* Two columns of settings once the card can host them comfortably. Capped at
+   two on purpose: three would shrink each control past the point where the
+   page still reads calmly. */
+@container (min-width: 1020px) {
+  .cardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 18px;
+  }
 }
 
 /* ============================================================================
@@ -322,25 +335,51 @@
 /* ============================================================================
    FORM LAYOUT */
 
+/* Each setting is a self-contained tile: side-by-side cells never need their
+   separators to line up, so the two-column grid can stay ragged without
+   looking broken. Also the query container for .fieldGrid below. */
 .fieldRow {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 20px;
-  padding: 16px 14px;
-  margin: 0 -14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  border-radius: 10px;
+  container-type: inline-size;
+  min-width: 0;
+  padding: 16px;
+  background: color-mix(in srgb, var(--bg) 45%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+  border-radius: 14px;
   transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast);
+    background-color var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
 }
 
-.fieldRow:last-child {
-  border-bottom: none;
+.fieldRowWide {
+  grid-column: 1 / -1;
 }
 
-.fieldRow:hover {
-  background: color-mix(in srgb, var(--accent) 3%, var(--bg));
+.fieldRow:hover,
+.fieldRow:focus-within {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--primary) 16%, var(--border));
+  box-shadow: var(--shadow-xs);
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+/* Label beside the control only when the tile can spare ~220px for it and
+   still leave the control room to breathe. Below that they stack, so the
+   control keeps the tile's full width instead of being squeezed into a
+   half-column. */
+/* In practice this resolves to a clean rule: full-width settings get their
+   label in a side column, settings sharing a row put it on top so the control
+   keeps the whole tile width. */
+@container (min-width: 900px) {
+  .fieldGrid {
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+    gap: 20px;
+  }
 }
 
 .fieldLabel {
@@ -348,6 +387,7 @@
   flex-direction: column;
   gap: 4px;
   padding-top: 2px;
+  min-width: 0;
 }
 
 .fieldLabelText {
@@ -392,6 +432,21 @@
 .fieldInput :global(textarea) {
   max-width: 100%;
   min-width: 0;
+}
+
+/* A button is not a form field: stop flex/grid stretch from smearing single
+   buttons across the whole control column. */
+.fieldInput > :global(.btn),
+.inputGroup > :global(.btn) {
+  align-self: start;
+  justify-self: start;
+  width: auto;
+}
+
+/* Free-standing text inside a control column (statuses, empty states, notes)
+   stays inside a readable measure. */
+.fieldInput > :global(.text-muted) {
+  max-width: var(--settings-measure, 72ch);
 }
 
 .max320 {
@@ -442,6 +497,22 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+/* Long lists of on/off switches: flow into columns instead of one tall
+   single-file stack. */
+.toggleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px 18px;
+}
+
+/* Sibling groups of nested cards side by side when there is room for them. */
+.nestedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+  align-items: start;
 }
 
 .inputLabel {
@@ -881,34 +952,7 @@
 /* ============================================================================
    RESPONSIVE */
 
-@media (max-width: 1024px) {
-  .container {
-    grid-template-columns: 280px minmax(0, 1fr);
-    padding: 16px;
-  }
-
-  .fieldRow {
-    grid-template-columns: 220px minmax(0, 1fr);
-    gap: 14px;
-  }
-}
-
 @media (max-width: 768px) {
-  .container {
-    grid-template-columns: 1fr;
-    padding: 12px;
-    gap: 12px;
-  }
-
-  .sidebar {
-    position: static;
-  }
-
-  .fieldRow {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
   .inputGrid2,
   .inputGrid3 {
     grid-template-columns: 1fr;
@@ -939,13 +983,12 @@
     padding: 8px 10px;
   }
 
-  .container {
+  .page {
     width: 100%;
     max-width: 100%;
   }
 
   .content,
-  .sidebar,
   .card,
   .fieldInput,
   .inputGroup,
@@ -959,11 +1002,6 @@
 
   .card {
     padding: 16px 14px;
-  }
-
-  .fieldRow {
-    margin: 0;
-    padding: 14px 0;
   }
 
   .cardSubtitle,
@@ -988,9 +1026,9 @@
    ACCESSIBILITY */
 
 @media (prefers-reduced-motion: reduce) {
-  .container *,
-  .container *::before,
-  .container *::after {
+  .page *,
+  .page *::before,
+  .page *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -1002,24 +1040,27 @@
    PRINT */
 
 @media print {
-  .sidebar,
-  .toastWrapper {
+  .sectionRail,
+  .toastDock {
     display: none !important;
   }
 
-  .container {
-    grid-template-columns: 1fr;
+  .page {
     max-width: none;
     padding: 0;
   }
 
-  .container button {
+  .cardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .page button {
     display: none !important;
   }
 
-  .container input,
-  .container select,
-  .container textarea {
+  .page input,
+  .page select,
+  .page textarea {
     border: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
@@ -1205,133 +1246,6 @@
    Refined settings workspace
    ============================================================ */
 
-.container {
-  grid-template-columns: 248px minmax(0, 1fr);
-  gap: 24px;
-  max-width: 1480px;
-  padding: 0;
-}
-
-.content {
-  gap: 18px;
-}
-
-.sidebar {
-  top: 24px;
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-  padding: 20px 18px 18px;
-  background:
-    radial-gradient(circle at 110% -10%, rgba(159, 40, 66, 0.08), transparent 10rem),
-    linear-gradient(180deg, var(--surface) 0%, var(--surface-soft) 100%);
-  border-color: color-mix(in srgb, var(--primary) 10%, var(--border));
-  border-radius: 20px;
-  box-shadow: var(--shadow-md);
-  scrollbar-width: thin;
-}
-
-.sidebarTitle {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.035em;
-}
-
-.sidebarTitle::before {
-  display: none;
-}
-
-.sidebarTitle::after {
-  content: "";
-  display: block;
-  width: 38px;
-  height: 2px;
-  margin-top: 10px;
-  background: linear-gradient(90deg, var(--primary), var(--yor-gold));
-  border-radius: 999px;
-}
-
-.sidebarSubtitle {
-  margin: 10px 0 0;
-  font-size: 12px;
-  line-height: 1.55;
-}
-
-.sidebarActions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-  margin-top: 16px;
-}
-
-.sidebarActions :global(.btn) {
-  min-width: 0;
-  padding-inline: 9px;
-  font-size: 11.5px;
-}
-
-.sidebarActions :global(.btn-danger) {
-  grid-column: 1 / -1;
-  color: var(--danger-text);
-  background: color-mix(in srgb, var(--error) 6%, var(--surface));
-  border-color: color-mix(in srgb, var(--error) 22%, var(--border));
-  box-shadow: none;
-}
-
-.sidebarActions :global(.btn-danger):hover {
-  color: #fff;
-  background: var(--danger-text);
-}
-
-.sidebarDivider {
-  margin: 16px 0 13px;
-}
-
-.sidebarDivider::after {
-  content: "";
-  width: 5px;
-  height: 5px;
-  padding: 0;
-  background: var(--yor-gold);
-  border-radius: 50%;
-  box-shadow: 0 0 0 5px var(--surface);
-}
-
-.navMenu {
-  gap: 2px;
-}
-
-.navLink {
-  z-index: 0;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 37px;
-  padding: 7px 10px;
-  font-size: 12.5px;
-  border-radius: 10px;
-}
-
-.navLink::after {
-  display: none;
-}
-
-.navIndex {
-  flex: 0 0 22px;
-  color: color-mix(in srgb, var(--yor-gold) 76%, var(--neutral-600));
-  font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0.08em;
-}
-
-.navLinkActive {
-  color: var(--primary);
-  background: linear-gradient(90deg, var(--primary-light), color-mix(in srgb, var(--surface) 88%, transparent));
-  border-color: color-mix(in srgb, var(--primary) 16%, var(--border));
-  box-shadow: inset 3px 0 0 var(--primary);
-}
-
 .pageIntro {
   position: relative;
   display: flex;
@@ -1396,12 +1310,64 @@
   letter-spacing: -0.045em;
 }
 
+.pageIntroText {
+  min-width: 0;
+}
+
 .pageDescription {
-  max-width: 630px;
+  max-width: 62ch;
   margin: 10px 0 0;
   color: rgba(255, 250, 247, 0.62);
   font-size: 13.5px;
   line-height: 1.6;
+}
+
+/* Page-level actions live with the title — the top of the hierarchy, not
+   buried in a nav column halfway down the left edge. */
+.pageIntroAside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.pageActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.introButton {
+  color: rgba(255, 250, 247, 0.9);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.introButton:not(:disabled):hover {
+  color: #fffaf7;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(226, 199, 131, 0.55);
+  transform: translateY(-1px);
+}
+
+.introButton:focus-visible {
+  outline: 2px solid rgba(226, 199, 131, 0.9);
+  outline-offset: 2px;
+}
+
+.introButtonDanger {
+  color: #f7c9d1;
+  border-color: rgba(231, 137, 155, 0.34);
+}
+
+.introButtonDanger:not(:disabled):hover {
+  color: #fff;
+  background: var(--danger-text);
+  border-color: var(--danger-text);
 }
 
 .localStatus {
@@ -1425,6 +1391,18 @@
   background: #d8b86f;
   border-radius: 50%;
   box-shadow: 0 0 0 4px rgba(216, 184, 111, 0.1);
+  /* A slow, warm heartbeat — the page is watched over, not idle. */
+  animation: statusPulse 3.2s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgba(216, 184, 111, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(216, 184, 111, 0.03);
+  }
 }
 
 .card {
@@ -1469,25 +1447,13 @@
 }
 
 .cardSubtitle {
-  max-width: 720px;
+  max-width: var(--settings-measure, 72ch);
   margin-top: 6px;
   font-size: 12.5px;
 }
 
 .cardBody {
-  margin-top: 6px;
-}
-
-.fieldRow {
-  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
-  gap: 24px;
-  margin: 0;
-  padding: 18px 8px;
-  border-radius: 12px;
-}
-
-.fieldRow:hover {
-  background: color-mix(in srgb, var(--primary) 2.5%, var(--surface));
+  margin-top: 10px;
 }
 
 .fieldLabelText {
@@ -1496,6 +1462,7 @@
 }
 
 .fieldHint {
+  max-width: 46ch;
   font-size: 11.5px;
 }
 
@@ -1596,62 +1563,16 @@
 }
 
 .footerNote {
+  max-width: var(--settings-measure, 72ch);
   padding-inline: 6px;
 }
 
-@media (max-width: 1180px) {
-  .container {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    position: static;
-    max-height: none;
-  }
-
-  .sidebarActions {
-    display: flex;
-  }
-
-  .sidebarActions :global(.btn-danger) {
-    grid-column: auto;
-  }
-
-  .navMenu {
-    display: flex;
-    gap: 5px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    scrollbar-width: thin;
-    /* Fade the right edge to signal the nav scrolls horizontally
-       (touch devices hide the scrollbar). */
-    -webkit-mask-image: linear-gradient(90deg, #000 87%, transparent);
-    mask-image: linear-gradient(90deg, #000 87%, transparent);
-  }
-
-  .navLink {
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
-
-  .toastWrapper {
-    margin-top: 10px;
-  }
-}
-
-@media (max-width: 768px) {
-  .container {
-    padding: 0;
+/* Small laptops and below: the hero stacks and the rail starts to scroll
+   sideways. Keyed high because the app shell already takes ~230px off the
+   viewport before this page gets any. */
+@media (max-width: 1100px) {
+  .page {
     gap: 14px;
-  }
-
-  .sidebar {
-    padding: 17px 15px 14px;
-    border-radius: 17px;
-  }
-
-  .sidebarSubtitle {
-    max-width: 52ch;
   }
 
   .pageIntro {
@@ -1662,12 +1583,34 @@
     border-radius: 20px;
   }
 
+  .pageIntroAside {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .pageActions {
+    justify-content: flex-start;
+  }
+
   .pageTitle {
-    font-size: 30px;
+    font-size: clamp(26px, 5vw, 34px);
   }
 
   .localStatus {
     align-self: flex-start;
+  }
+
+  .railLink {
+    /* Stop the pills sharing width evenly once they no longer fit — they
+       become a scrollable strip instead of five cramped slivers. */
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .sectionRail {
+    top: 8px;
+    padding: 5px;
   }
 
   .card {
@@ -1676,9 +1619,8 @@
   }
 
   .fieldRow {
-    grid-template-columns: 1fr;
-    gap: 9px;
-    padding: 16px 0;
+    padding: 14px;
+    border-radius: 12px;
   }
 
   .cardTitle {
@@ -1687,25 +1629,27 @@
 }
 
 @media (max-width: 480px) {
-  .sidebarActions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .sidebarActions :global(.btn-danger) {
-    grid-column: 1 / -1;
-  }
-
-  .navLink {
-    min-height: 40px;
-  }
-
   .pageIntro {
     padding: 22px 18px;
   }
 
   .pageDescription {
     font-size: 12.5px;
+  }
+
+  .pageActions :global(.btn) {
+    flex: 1 1 auto;
+  }
+
+  .railLink {
+    min-height: 40px;
+    padding-inline: 13px;
+  }
+
+  .toastDock {
+    left: 12px;
+    right: 12px;
+    max-width: none;
   }
 }
 

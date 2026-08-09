@@ -494,7 +494,7 @@ export default function BackupsSection({ cfg, doAction }) {
 
   return (
     <Card
-      title="2) Резервные копии"
+      title="Резервные копии"
       sub="Ручной запуск, проверка, статус и список архивов Lite Forest"
     >
       <FieldRow
@@ -514,6 +514,7 @@ export default function BackupsSection({ cfg, doAction }) {
       <FieldRow
         label="Текущий статус"
         hint="Считывается из status-файла резервного копирования через API."
+        wide
       >
         <BackupProgressPanel progress={progress} />
       </FieldRow>
@@ -557,6 +558,7 @@ export default function BackupsSection({ cfg, doAction }) {
 
       <FieldRow
         label="Архивы"
+        wide
         hint={
           serverConfig?.archivesDir
             ? `Резервные копии из ${serverConfig.archivesDir}.`

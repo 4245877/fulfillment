@@ -55,14 +55,20 @@ run_in_api "pnpm --filter @drukarnya/fulfillment-api test" || {
   exit 1
 }
 
-step "contract fixture: fulfillment copy == atelier copy"
-if [ -f "$ATELIER_DIR/apps/print-orchestrator/contracts/printer-view.contract.json" ]; then
-  cmp "$FULFILLMENT_DIR/apps/api/src/infra/integrations/orchestrator/printer-view.contract.json" \
-      "$ATELIER_DIR/apps/print-orchestrator/contracts/printer-view.contract.json"
-  echo ok
-else
-  echo "SKIP: atelier checkout not found at $ATELIER_DIR"
-fi
+step "contract fixtures: fulfillment copies == atelier copies"
+# Two independent contracts: the live PrinterView (GET /api/printers, what the
+# printers are DOING) and the printer inventory (GET /api/printers/inventory,
+# what the printers ARE). They version separately and must both stay in sync.
+for contract in printer-view printer-inventory; do
+  atelier_copy="$ATELIER_DIR/apps/print-orchestrator/contracts/$contract.contract.json"
+  if [ -f "$atelier_copy" ]; then
+    cmp "$FULFILLMENT_DIR/apps/api/src/infra/integrations/orchestrator/$contract.contract.json" \
+        "$atelier_copy"
+    echo "ok: $contract"
+  else
+    echo "SKIP: $contract — atelier checkout not found at $ATELIER_DIR"
+  fi
+done
 
 step "dashboard: production build"
 docker build -q -f "$FULFILLMENT_DIR/infra/docker/dashboard.Dockerfile" "$FULFILLMENT_DIR" >/dev/null

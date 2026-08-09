@@ -172,3 +172,179 @@ test("with compat mode OFF a token-less inter-service call is refused (401)", as
   const res = await post("/api/inventory/filament/consume", {}, {});
   assert.equal(res.statusCode, 401);
 });
+
+// ── The printer-assignment gate ──────────────────────────────────────────────
+//
+// Binding a reel to a printer decides which stock a later print deducts from,
+// so it is an assignment: the printer is confirmed against atelier's fleet
+// BEFORE the warehouse is touched. Every case below returns before the database
+// is reached, which is why these run without Postgres.
+
+import { PrinterDirectory } from "../printers/directory";
+import type {
+  OrchestratorClient,
+  OrchestratorPrinterConfig,
+  OrchestratorPrinterInventory,
+} from "../../infra/integrations/orchestrator/client";
+
+function configuredPrinter(
+  overrides: Partial<OrchestratorPrinterConfig> = {}
+): OrchestratorPrinterConfig {
+  return {
+    id: "k2",
+    name: "Creality K2",
+    model: "K2 Plus",
+    type: "FDM",
+    printerClass: "k2",
+    protocol: "moonraker",
+    enabled: true,
+    position: 10,
+    material: "PETG",
+    swatch: "#4c4f55",
+    nozzleDiameterMm: 0.4,
+    nozzleType: "hardened_steel",
+    buildVolume: { x: 350, y: 350, z: 350 },
+    createdAt: "2026-07-12T12:00:00.000Z",
+    updatedAt: "2026-07-12T12:00:00.000Z",
+    version: 1,
+    ...overrides,
+  };
+}
+
+/** An app whose printer directory answers with a fixed fleet (or fails). */
+async function appWithFleet(
+  answer: () => Promise<OrchestratorPrinterInventory>
+): Promise<FastifyInstance> {
+  const routes = await loadRoutes();
+  const client = { listPrinterInventory: answer } as unknown as OrchestratorClient;
+  const gated = Fastify();
+  await gated.register(routes, {
+    prefix: "/api/inventory",
+    directory: new PrinterDirectory({ client }),
+  });
+  await gated.ready();
+  return gated;
+}
+
+function loadBody(printerId: string) {
+  return { printerId, material: "PLA", color: "black" };
+}
+
+test("a reel cannot be bound to a printer atelier does not have", async () => {
+  const gated = await appWithFleet(async () => ({
+    revision: "r1",
+    updatedAt: null,
+    printers: [configuredPrinter()],
+  }));
+
+  const res = await gated.inject({
+    method: "POST",
+    url: "/api/inventory/printer-filament/load",
+    headers: { "content-type": "application/json", ...ADMIN },
+    payload: JSON.stringify(loadBody("deleted-printer")),
+  });
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.json().code, "unknown_printer");
+  await gated.close();
+});
+
+test("a reel cannot be bound to a DISABLED printer", async () => {
+  const gated = await appWithFleet(async () => ({
+    revision: "r1",
+    updatedAt: null,
+    printers: [configuredPrinter({ enabled: false })],
+  }));
+
+  const res = await gated.inject({
+    method: "POST",
+    url: "/api/inventory/printer-filament/load",
+    headers: { "content-type": "application/json", ...ADMIN },
+    payload: JSON.stringify(loadBody("k2")),
+  });
+
+  // 409, not 404: the printer exists — its state is what refuses the binding.
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().code, "printer_disabled");
+  await gated.close();
+});
+
+test("an atelier outage refuses the binding instead of guessing", async () => {
+  const gated = await appWithFleet(async () => {
+    throw new Error("connect ECONNREFUSED");
+  });
+
+  const res = await gated.inject({
+    method: "POST",
+    url: "/api/inventory/printer-filament/load",
+    headers: { "content-type": "application/json", ...ADMIN },
+    payload: JSON.stringify(loadBody("k2")),
+  });
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.json().code, "printer_directory_unavailable");
+  await gated.close();
+});
+
+test("an invalid inventory answer never becomes an accepted binding", async () => {
+  const gated = await appWithFleet(async () => {
+    // What the client throws for a malformed payload; the gate must treat it as
+    // "fleet unknown", not as an empty fleet.
+    const { OrchestratorError } = await import(
+      "../../infra/integrations/orchestrator/client"
+    );
+    throw new OrchestratorError("invalid_response", "not the inventory contract");
+  });
+
+  const res = await gated.inject({
+    method: "POST",
+    url: "/api/inventory/printer-filament/load",
+    headers: { "content-type": "application/json", ...ADMIN },
+    payload: JSON.stringify(loadBody("k2")),
+  });
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.json().code, "printer_directory_unavailable");
+  await gated.close();
+});
+
+test("the device-driven sync is gated the same way as a manual load", async () => {
+  const gated = await appWithFleet(async () => ({
+    revision: "r1",
+    updatedAt: null,
+    printers: [configuredPrinter({ enabled: false })],
+  }));
+
+  const res = await gated.inject({
+    method: "POST",
+    url: "/api/inventory/printer-filament/sync",
+    headers: { "content-type": "application/json", ...SERVICE },
+    payload: JSON.stringify({ printerId: "k2", material: "PLA" }),
+  });
+
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().code, "printer_disabled");
+  await gated.close();
+});
+
+test("the gate never echoes anything but the printer id and name", async () => {
+  const gated = await appWithFleet(async () => ({
+    revision: "r1",
+    updatedAt: null,
+    printers: [configuredPrinter({ enabled: false })],
+  }));
+
+  const res = await gated.inject({
+    method: "POST",
+    url: "/api/inventory/printer-filament/load",
+    headers: { "content-type": "application/json", ...ADMIN },
+    payload: JSON.stringify(loadBody("k2")),
+  });
+
+  const body = res.body;
+  assert.match(body, /Creality K2/);
+  for (const leak of ["moonraker", "10.0.0", "apiKey", "accessCode", "serial"]) {
+    assert.ok(!body.includes(leak), `"${leak}" must not appear in a gate refusal`);
+  }
+  await gated.close();
+});

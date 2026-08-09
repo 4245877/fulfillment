@@ -408,3 +408,159 @@ test("normalizeOrchestratorPrinter derives online from status when absent", () =
     "unknown"
   );
 });
+
+// ── Printer inventory (configuration) ───────────────────────────────────────
+//
+// This is the read that decides where work may be sent, so its failure modes
+// matter as much as its happy path: it must never yield a fleet with a hole in
+// it, and never a printer whose usability had to be guessed.
+
+const inventoryPayload = {
+  revision: "abc123def4567890",
+  updatedAt: "2026-07-12T12:00:00.000Z",
+  count: 2,
+  printers: [
+    {
+      id: "k2",
+      name: "Creality K2",
+      model: "K2 Plus",
+      type: "FDM",
+      printerClass: "k2",
+      protocol: "moonraker",
+      enabled: true,
+      position: 20,
+      material: "PETG",
+      swatch: "#4c4f55",
+      nozzleDiameterMm: 0.4,
+      nozzleType: "hardened_steel",
+      buildVolume: { x: 350, y: 350, z: 350 },
+      createdAt: "2026-07-12T12:00:00.000Z",
+      updatedAt: "2026-07-12T12:00:00.000Z",
+      version: 3,
+    },
+    {
+      id: "a1",
+      name: "Bambu A1",
+      model: null,
+      type: "FDM",
+      printerClass: null,
+      protocol: "bambu",
+      enabled: false,
+      position: 10,
+      material: null,
+      swatch: null,
+      nozzleDiameterMm: null,
+      nozzleType: null,
+      buildVolume: null,
+      createdAt: "2026-07-12T12:00:00.000Z",
+      updatedAt: "2026-07-12T12:00:00.000Z",
+      version: 1,
+    },
+  ],
+};
+
+test("listPrinterInventory reads the configured fleet, disabled printers included", async () => {
+  let requestedUrl = "";
+  const client = clientWith(async (url) => {
+    requestedUrl = String(url);
+    return jsonResponse(inventoryPayload);
+  });
+
+  const inventory = await client.listPrinterInventory();
+
+  assert.equal(requestedUrl, "http://orchestrator:3100/api/printers/inventory");
+  assert.equal(inventory.revision, "abc123def4567890");
+  // Sorted by position, then id — the order lists should render in.
+  assert.deepEqual(
+    inventory.printers.map((printer) => printer.id),
+    ["a1", "k2"]
+  );
+  assert.equal(inventory.printers[0].enabled, false);
+  assert.equal(inventory.printers[1].nozzleDiameterMm, 0.4);
+  assert.deepEqual(inventory.printers[1].buildVolume, { x: 350, y: 350, z: 350 });
+});
+
+test("listPrinterInventory rejects a printer whose `enabled` is not a boolean", async () => {
+  const client = clientWith(async () =>
+    jsonResponse({
+      revision: "r",
+      printers: [{ id: "k2", name: "K2" }],
+    })
+  );
+
+  const error = await rejects(client.listPrinterInventory());
+  assert.equal(error.kind, "invalid_response");
+  // Defaulting to "enabled" here would silently send work to a printer nobody
+  // said was usable — the one thing this read must never do.
+  assert.match(error.message, /enabled/);
+});
+
+test("listPrinterInventory rejects the whole payload when one entry is bad", async () => {
+  const client = clientWith(async () =>
+    jsonResponse({
+      revision: "r",
+      printers: [
+        { id: "k2", name: "K2", enabled: true },
+        { name: "nameless", enabled: true },
+      ],
+    })
+  );
+
+  // Dropping the bad entry would be indistinguishable from that printer having
+  // been deleted in atelier, so the read fails instead.
+  const error = await rejects(client.listPrinterInventory());
+  assert.equal(error.kind, "invalid_response");
+});
+
+test("listPrinterInventory rejects duplicate printer ids", async () => {
+  const client = clientWith(async () =>
+    jsonResponse({
+      revision: "r",
+      printers: [
+        { id: "k2", name: "K2", enabled: true },
+        { id: "k2", name: "K2 again", enabled: false },
+      ],
+    })
+  );
+
+  const error = await rejects(client.listPrinterInventory());
+  assert.equal(error.kind, "invalid_response");
+  assert.match(error.message, /duplicate/);
+});
+
+test("listPrinterInventory rejects a payload that is not the inventory contract", async () => {
+  for (const body of [[], { printers: {} }, { printers: [], revision: "" }, "nope"]) {
+    const client = clientWith(async () => jsonResponse(body));
+    const error = await rejects(client.listPrinterInventory());
+    assert.equal(error.kind, "invalid_response");
+  }
+});
+
+test("listPrinterInventory surfaces transport failures as typed errors", async () => {
+  const down = clientWith(async () => {
+    throw new TypeError("fetch failed");
+  });
+  assert.equal((await rejects(down.listPrinterInventory())).kind, "network");
+
+  const broken = clientWith(async () => jsonResponse({}, { status: 500 }));
+  assert.equal((await rejects(broken.listPrinterInventory())).kind, "http");
+});
+
+test("an unknown protocol or type passes through instead of failing the fleet", async () => {
+  // Forward compatibility: atelier may learn a new device dialect before this
+  // service does. That must not take the assignment path down — the value is
+  // only displayed here, so it is carried verbatim.
+  const client = clientWith(async () =>
+    jsonResponse({
+      revision: "r",
+      printers: [
+        { id: "new", name: "New", enabled: true, protocol: "prusalink", type: "SLS" },
+      ],
+    })
+  );
+
+  const [printer] = (await client.listPrinterInventory()).printers;
+  assert.equal(printer.protocol, "prusalink");
+  assert.equal(printer.type, "SLS");
+  assert.equal(printer.enabled, true);
+});

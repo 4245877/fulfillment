@@ -56,6 +56,7 @@ type FilamentMovementViewRow = FilamentMovementRow & {
 type PrinterFilamentStateRow = {
   id: string;
   printer_id: string;
+  printer_name: string | null;
   ams_tray: number | null;
   stock_id: string;
   material: string;
@@ -117,6 +118,7 @@ function printerStateFromRow(row: PrinterFilamentStateRow): PrinterFilamentState
   return {
     id: row.id,
     printerId: row.printer_id,
+    printerName: row.printer_name,
     amsTray: row.ams_tray == null ? null : Number(row.ams_tray),
     stockId: row.stock_id,
     material: row.material,
@@ -175,6 +177,7 @@ function printerStateToRow(item: PrinterFilamentState): PrinterFilamentStateRow 
   return {
     id: item.id,
     printer_id: item.printerId,
+    printer_name: item.printerName,
     ams_tray: item.amsTray,
     stock_id: item.stockId,
     material: item.material,
@@ -186,6 +189,7 @@ function printerStateToRow(item: PrinterFilamentState): PrinterFilamentStateRow 
 function printerStateUpdateRow(item: PrinterFilamentState) {
   return {
     printer_id: item.printerId,
+    printer_name: item.printerName,
     ams_tray: item.amsTray,
     stock_id: item.stockId,
     material: item.material,

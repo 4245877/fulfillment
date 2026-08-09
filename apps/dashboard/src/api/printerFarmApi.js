@@ -58,3 +58,14 @@ async function requestJson(path, options = {}) {
 export async function fetchPrinterStatuses() {
   return requestJson("/api/printers/status");
 }
+
+/**
+ * The CONFIGURED fleet as atelier defines it, including printers that are
+ * currently disabled (`enabled: false`). Use this — not the status feed — to
+ * populate lists and forms: statuses exist only for ENABLED printers and only
+ * once the farm has polled them, so a picker built from statuses cannot offer a
+ * printer that is merely offline, and cannot name a disabled one in history.
+ */
+export async function fetchPrinterInventory() {
+  return requestJson("/api/printers/inventory");
+}

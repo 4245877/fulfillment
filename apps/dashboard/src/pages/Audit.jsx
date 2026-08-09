@@ -12,10 +12,19 @@ export default function Audit() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h2 className={styles.title}>
-          Журнал событий
-          <span className={styles.badge}>{events.length}</span>
-        </h2>
+        <div>
+          <div className={styles.eyebrow}>Система</div>
+
+          <h2 className={styles.title}>
+            Журнал событий
+            <span className={styles.badge}>{events.length}</span>
+          </h2>
+
+          <p className={styles.subtitle}>
+            Живая лента событий заказов, печати и отправлений — я слушаю её
+            непрерывно и записываю всё сюда.
+          </p>
+        </div>
       </div>
 
       {events.length === 0 ? (
@@ -43,7 +52,10 @@ export default function Audit() {
               >
                 <div className={styles.eventHeader}>
                   <strong className={styles.eventType}>{type || "event"}</strong>
-                  <span className={styles.eventTime}>{time}</span>
+                  {/* An empty timestamp would render as a bare grey pill. */}
+                  {time ? (
+                    <span className={styles.eventTime}>{time}</span>
+                  ) : null}
                 </div>
 
                 <div className={styles.eventMeta}>

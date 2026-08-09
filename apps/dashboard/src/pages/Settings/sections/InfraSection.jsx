@@ -177,12 +177,13 @@ export default function InfraSection({ cfg, patch }) {
 
   return (
     <Card
-      title="3) Инфраструктура"
+      title="Инфраструктура"
       sub="Узлы, входящий трафик, отказоустойчивость, репликация, хранилище, воркеры, поиск, ресурсы и режим технических работ"
     >
       <FieldRow
         label="Узлы"
         hint="Физические или виртуальные серверы. Назначение сервера хранится отдельно от технических ролей."
+        wide
       >
         <div className={styles.inputGroup}>
           <div className={styles.tableWrap}>

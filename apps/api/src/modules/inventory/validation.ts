@@ -338,6 +338,12 @@ export function parseUpdateFilamentBody(body: unknown): UpdateFilamentInput {
   };
 }
 
+/**
+ * Note what is deliberately NOT parsed here (nor in the sync body):
+ * `printerName`. The name snapshot stored on a binding is resolved from the
+ * printer directory by the route — a caller must never be able to label a
+ * binding with a name of its own choosing.
+ */
 export function parseLoadPrinterFilamentBody(
   body: unknown
 ): LoadPrinterFilamentInput {

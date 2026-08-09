@@ -771,6 +771,7 @@ export default function PricingSection({ showToast }) {
       <FieldRow
         label="Файл"
         hint="Сохраняется на 192.168.0.135 через защищённое SSH-соединение бэкенда."
+        wide
       >
         <div className={styles.pricingMeta}>
           <code className={styles.pricingPath}>{meta.path || "—"}</code>
@@ -854,6 +855,7 @@ export default function PricingSection({ showToast }) {
       <FieldRow
         label="Переменные"
         hint="✎ — переименовать ключ; × — удалить значение; «Добавить поле» — создать новое (текст, число, да/нет, вложенная группа или массив)."
+        wide
       >
         {loading ? (
           <div className="text-muted">Минутку, пожалуйста… я открываю pricing.yml.</div>
@@ -903,6 +905,7 @@ export default function PricingSection({ showToast }) {
       <FieldRow
         label="Просмотр YAML"
         hint="Версия файла с сервера на момент загрузки (только для чтения)."
+        wide
       >
         <div className={styles.inputGroup}>
           <button

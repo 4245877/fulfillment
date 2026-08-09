@@ -6,12 +6,15 @@
 import { getColorName } from "./inventoryVocab.js";
 
 /**
- * Builds a printerId → friendly-name map from whatever the printer-status API
- * returned. Tolerant of the API being unavailable or shaped differently: a
+ * Builds a printerId → friendly-name map from whatever the printer API
+ * returned. Fed from GET /api/printers/inventory (the CONFIGURED fleet, which
+ * includes disabled printers, so a switched-off machine still gets its name in
+ * the history) rather than from the live-status feed, which only lists enabled
+ * printers. Tolerant of the API being unavailable or shaped differently: a
  * missing/degraded response yields an empty map (the UI then falls back to the
  * raw id) and never throws.
  *
- * @param {unknown} statusPayload  the GET /api/printers/status body, or null
+ * @param {unknown} statusPayload  the GET /api/printers/inventory body, or null
  * @returns {Map<string, string>}
  */
 export function buildPrinterNameMap(statusPayload) {

@@ -9,7 +9,8 @@ import PricingSection from "./sections/PricingSection";
 import InfraSection from "./sections/InfraSection";
 import SecuritySection from "./sections/SecuritySection";
 
-const SECTION_OFFSET_PX = 80;
+/* Clears the sticky section rail when jumping to an anchor. */
+const SECTION_OFFSET_PX = 104;
 const OBSERVER_THRESHOLDS = [0, 0.1, 0.25, 0.5, 0.75, 1];
 
 const SECTIONS = [
@@ -99,7 +100,9 @@ export default function SettingsPage() {
   } = useSettingsConfig();
 
   const fileInputRef = useRef(null);
+  const railTrackRef = useRef(null);
   const [activeSection, setActiveSection] = useState(getInitialActiveSection);
+  const [railScrolls, setRailScrolls] = useState(false);
 
   useEffect(() => {
     let frameId = 0;
@@ -146,6 +149,37 @@ export default function SettingsPage() {
     };
   }, []);
 
+  // The rail only fades its edge when it genuinely has more pills than fit —
+  // a permanent fade would read as a rendering fault on wide screens.
+  useEffect(() => {
+    const track = railTrackRef.current;
+
+    if (!track) return;
+
+    const measure = () =>
+      setRailScrolls(track.scrollWidth > track.clientWidth + 1);
+
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(track);
+
+    return () => observer.disconnect();
+  }, []);
+
+  // On narrow screens the rail scrolls sideways — keep the active pill in view.
+  useEffect(() => {
+    const track = railTrackRef.current;
+
+    if (!track || track.scrollWidth <= track.clientWidth) {
+      return;
+    }
+
+    const link = track.querySelector(`[data-section="${activeSection}"]`);
+
+    link?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [activeSection]);
+
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
@@ -172,49 +206,74 @@ export default function SettingsPage() {
 
   return (
     <div
-      className={styles.container}
+      className={styles.page}
       style={{ "--section-offset": `${SECTION_OFFSET_PX}px` }}
     >
-      <aside className={styles.sidebar} aria-label="Панель навигации и действий">
-        <div>
-          <h1 className={styles.sidebarTitle}>Центр управления</h1>
-          <p className={styles.sidebarSubtitle}>
-            Интерфейс, сервисы и операции — я собрала все настройки здесь,
-            чтобы вам было удобно.
+      <header className={styles.pageIntro}>
+        <div className={styles.pageIntroText}>
+          <div className={styles.pageEyebrow}>Администрирование</div>
+          <h1 className={styles.pageTitle}>Настройки системы</h1>
+          <p className={styles.pageDescription}>
+            Интерфейс, инфраструктура, интеграции и правила безопасности —
+            я собрала всё в одном рабочем пространстве, чтобы вам было удобно.
           </p>
         </div>
 
-        <div className={styles.sidebarActions}>
-          <button className="btn btn-secondary" type="button" onClick={exportJson}>
-            Экспорт JSON
-          </button>
+        <div className={styles.pageIntroAside}>
+          <div className={styles.localStatus}>
+            <span aria-hidden="true" />
+            {activeSection === "pricing"
+              ? "Сохраняется на сервере"
+              : "Локальные изменения"}
+          </div>
 
-          <button
-            className="btn btn-secondary"
-            type="button"
-            onClick={handleImportClick}
-            aria-label="Импорт настроек из JSON"
-          >
-            Импорт JSON
-          </button>
+          <div className={styles.pageActions}>
+            <button
+              className={`btn btn-sm ${styles.introButton}`}
+              type="button"
+              onClick={exportJson}
+            >
+              Экспорт JSON
+            </button>
 
-          <input
-            ref={fileInputRef}
-            className={styles.visuallyHiddenInput}
-            type="file"
-            accept=".json,application/json"
-            tabIndex={-1}
-            onChange={handleImportChange}
-          />
+            <button
+              className={`btn btn-sm ${styles.introButton}`}
+              type="button"
+              onClick={handleImportClick}
+              aria-label="Импорт настроек из JSON"
+            >
+              Импорт JSON
+            </button>
 
-          <button className="btn btn-danger" type="button" onClick={handleResetClick}>
-            Сбросить
-          </button>
+            <input
+              ref={fileInputRef}
+              className={styles.visuallyHiddenInput}
+              type="file"
+              accept=".json,application/json"
+              tabIndex={-1}
+              onChange={handleImportChange}
+            />
+
+            <button
+              className={`btn btn-sm ${styles.introButton} ${styles.introButtonDanger}`}
+              type="button"
+              onClick={handleResetClick}
+            >
+              Сбросить
+            </button>
+          </div>
         </div>
+      </header>
 
-        <hr className={styles.sidebarDivider} />
-
-        <nav className={styles.navMenu} aria-label="Разделы настроек">
+      <nav
+        className={
+          railScrolls
+            ? `${styles.sectionRail} ${styles.sectionRailScrollable}`
+            : styles.sectionRail
+        }
+        aria-label="Разделы настроек"
+      >
+        <div className={styles.railTrack} ref={railTrackRef}>
           {SECTIONS.map((section, index) => {
             const isActive = activeSection === section.id;
 
@@ -222,57 +281,25 @@ export default function SettingsPage() {
               <a
                 key={section.id}
                 href={`#${section.id}`}
+                data-section={section.id}
                 className={
                   isActive
-                    ? `${styles.navLink} ${styles.navLinkActive}`
-                    : styles.navLink
+                    ? `${styles.railLink} ${styles.railLinkActive}`
+                    : styles.railLink
                 }
                 aria-current={isActive ? "location" : undefined}
               >
-                <span className={styles.navIndex}>
+                <span className={styles.railIndex} aria-hidden="true">
                   {String(index + 1).padStart(2, "0")}
                 </span>
-                <span>{section.navTitle}</span>
+                <span className={styles.railText}>{section.navTitle}</span>
               </a>
             );
           })}
-        </nav>
+        </div>
+      </nav>
 
-        {toast ? (
-          <div className={styles.toastWrapper}>
-            <div
-              className={`${styles.toast} ${
-                toast.kind === "error"
-                  ? styles.toastError
-                  : styles.toastSuccess
-              }`}
-              role={toast.kind === "error" ? "alert" : "status"}
-            >
-              {toast.text}
-            </div>
-          </div>
-        ) : null}
-      </aside>
-
-      <main className={styles.content}>
-        <header className={styles.pageIntro}>
-          <div>
-            <div className={styles.pageEyebrow}>Администрирование</div>
-            <h2 className={styles.pageTitle}>Настройки системы</h2>
-            <p className={styles.pageDescription}>
-              Управляйте интерфейсом, инфраструктурой, интеграциями и правилами
-              безопасности из единого рабочего пространства.
-            </p>
-          </div>
-
-          <div className={styles.localStatus}>
-            <span aria-hidden="true" />
-            {activeSection === "pricing"
-              ? "Сохраняется на сервере"
-              : "Локальные изменения"}
-          </div>
-        </header>
-
+      <div className={styles.content}>
         {SECTIONS.map((section) => (
           <section
             key={section.id}
@@ -282,14 +309,27 @@ export default function SettingsPage() {
             {section.render({ cfg, patch, doAction, showToast })}
           </section>
         ))}
+      </div>
 
-        <p className={styles.footerNote}>
-          Примечание: большинство настроек сохраняются локально в браузере —
-          синхронизация с сервером и применение к Board/Ops будут добавлены
-          позже. Исключение — раздел «Ценообразование», который сохраняется
-          непосредственно в файл pricing.yml на сервере.
-        </p>
-      </main>
+      <p className={styles.footerNote}>
+        Примечание: большинство настроек сохраняются локально в браузере —
+        синхронизация с сервером и применение к Board/Ops будут добавлены
+        позже. Исключение — раздел «Ценообразование», который сохраняется
+        непосредственно в файл pricing.yml на сервере.
+      </p>
+
+      <div className={styles.toastDock}>
+        {toast ? (
+          <div
+            className={`${styles.toast} ${
+              toast.kind === "error" ? styles.toastError : styles.toastSuccess
+            }`}
+            role={toast.kind === "error" ? "alert" : "status"}
+          >
+            {toast.text}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -62,6 +62,55 @@ export type OrchestratorPrinterStatus = {
   error: string | null;
 };
 
+/**
+ * One printer's **configuration** as published by the orchestrator's
+ * `GET /api/printers/inventory` — what the printer *is*, as an operator
+ * configured it in atelier. Deliberately separate from
+ * {@link OrchestratorPrinterStatus}, which is what the printer is *doing*:
+ *
+ *  - configuration changes only when someone edits it, live state every 10 s;
+ *  - the inventory contains DISABLED printers (`enabled: false`), the status
+ *    endpoint does not — which is the only way this service can tell a printer
+ *    that was switched off from one that was deleted.
+ *
+ * Never carries a host, port, credential or camera URL: the orchestrator owns
+ * the devices, this service only needs to know the fleet.
+ */
+export type OrchestratorPrinterConfig = {
+  /** Permanent identifier, immutable in atelier; the key of every reference here. */
+  id: string;
+  name: string;
+  model: string | null;
+  /** "FDM" | "Resin" today; an unrecognized value is passed through verbatim. */
+  type: string;
+  /** Interchangeability class used by atelier's slicing; null when unset. */
+  printerClass: string | null;
+  /** Device dialect ("moonraker" | "bambu" | "creality"); passed through verbatim. */
+  protocol: string;
+  /** False = configured but switched off in atelier: no new work may go to it. */
+  enabled: boolean;
+  /** Operator-facing ordering from atelier; the order lists should use. */
+  position: number;
+  /** Declared loaded material from the configuration (NOT live telemetry). */
+  material: string | null;
+  swatch: string | null;
+  nozzleDiameterMm: number | null;
+  nozzleType: string | null;
+  buildVolume: { x: number; y: number; z: number } | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  /** Bumped by atelier on every stored change. */
+  version: number | null;
+};
+
+/** The whole printer fleet as one snapshot, with a fingerprint of the set. */
+export type OrchestratorPrinterInventory = {
+  /** Changes on any add, edit or delete — including deletions, which no timestamp shows. */
+  revision: string;
+  updatedAt: string | null;
+  printers: OrchestratorPrinterConfig[];
+};
+
 /** One operator queue job from the orchestrator's `GET /api/queue`. */
 export type OrchestratorQueueJob = {
   id: string;
@@ -186,6 +235,125 @@ export function normalizeOrchestratorPrinter(
     stateMessage: toText(value.stateMessage),
     updatedAt: toText(value.updatedAt),
     error: toText(value.error),
+  };
+}
+
+function toBuildVolume(value: unknown): { x: number; y: number; z: number } | null {
+  if (!isObject(value)) return null;
+
+  const x = toFiniteNumber(value.x);
+  const y = toFiniteNumber(value.y);
+  const z = toFiniteNumber(value.z);
+
+  return x === null || y === null || z === null ? null : { x, y, z };
+}
+
+/**
+ * Validates one printer-configuration entry. Throws — it never returns a
+ * partial entry and never silently drops one, because a dropped entry is
+ * indistinguishable from a deleted printer, and "the printer disappeared" is
+ * exactly the conclusion that must not be reached from a malformed response.
+ *
+ * Strict where a wrong value would be acted on (`id`, `enabled`), tolerant
+ * where it would only be displayed (`type`, `protocol` are passed through
+ * verbatim, so atelier can add a device dialect without taking this service's
+ * assignment path down mid-rollout).
+ */
+export function normalizeOrchestratorPrinterConfig(
+  value: unknown
+): OrchestratorPrinterConfig {
+  if (!isObject(value)) {
+    throw new OrchestratorError(
+      "invalid_response",
+      "Printer inventory entry is not an object"
+    );
+  }
+
+  const id = toText(value.id);
+  if (!id) {
+    throw new OrchestratorError(
+      "invalid_response",
+      "Printer inventory entry has no id"
+    );
+  }
+
+  // `enabled` decides whether work may be sent to this printer. A missing or
+  // non-boolean value must never default to "usable".
+  if (typeof value.enabled !== "boolean") {
+    throw new OrchestratorError(
+      "invalid_response",
+      `Printer "${id}" has no boolean "enabled" flag`
+    );
+  }
+
+  return {
+    id,
+    name: toText(value.name) ?? id,
+    model: toText(value.model),
+    type: toText(value.type) ?? "unknown",
+    printerClass: toText(value.printerClass),
+    protocol: toText(value.protocol) ?? "unknown",
+    enabled: value.enabled,
+    position: toFiniteNumber(value.position) ?? 0,
+    material: toText(value.material),
+    swatch: toText(value.swatch),
+    nozzleDiameterMm: toFiniteNumber(value.nozzleDiameterMm),
+    nozzleType: toText(value.nozzleType),
+    buildVolume: toBuildVolume(value.buildVolume),
+    createdAt: toText(value.createdAt),
+    updatedAt: toText(value.updatedAt),
+    version: toFiniteNumber(value.version),
+  };
+}
+
+/**
+ * Validates a whole `GET /api/printers/inventory` payload. Rejects the payload
+ * as a unit: a snapshot of the fleet is only useful if it is complete, so one
+ * bad entry fails the read (the caller then keeps its previous snapshot and
+ * reports the failure) rather than yielding a fleet with a hole in it.
+ *
+ * Duplicate ids are rejected too — with an ambiguous key, "is this printer
+ * enabled?" has two answers.
+ */
+export function normalizeOrchestratorPrinterInventory(
+  value: unknown
+): OrchestratorPrinterInventory {
+  if (!isObject(value) || !Array.isArray(value.printers)) {
+    throw new OrchestratorError(
+      "invalid_response",
+      "Print orchestrator returned an unexpected printer-inventory shape"
+    );
+  }
+
+  const printers = value.printers.map(normalizeOrchestratorPrinterConfig);
+
+  const seen = new Set<string>();
+  for (const printer of printers) {
+    if (seen.has(printer.id)) {
+      throw new OrchestratorError(
+        "invalid_response",
+        `Printer inventory contains duplicate id "${printer.id}"`
+      );
+    }
+    seen.add(printer.id);
+  }
+
+  // The revision is what lets a consumer detect a changed fleet cheaply; a
+  // payload without one is from something that is not this contract.
+  const revision = toText(value.revision);
+  if (!revision) {
+    throw new OrchestratorError(
+      "invalid_response",
+      "Printer inventory has no revision"
+    );
+  }
+
+  return {
+    revision,
+    updatedAt: toText(value.updatedAt),
+    printers: printers.sort(
+      (a, b) => a.position - b.position || a.id.localeCompare(b.id)
+    ),
   };
 }
 
@@ -464,6 +632,18 @@ export class OrchestratorClient {
     return list
       .map(normalizeOrchestratorPrinter)
       .filter((printer): printer is OrchestratorPrinterStatus => Boolean(printer));
+  }
+
+  /**
+   * The printer fleet's CONFIGURATION via `GET /api/printers/inventory` — the
+   * inter-service contract, including printers that are currently disabled.
+   * Throws a typed {@link OrchestratorError} on an unreachable orchestrator or
+   * a payload that fails validation; it never returns a partial fleet.
+   */
+  async listPrinterInventory(): Promise<OrchestratorPrinterInventory> {
+    return normalizeOrchestratorPrinterInventory(
+      await this.requestJson("/api/printers/inventory")
+    );
   }
 
   /** Operator print queue via `GET /api/queue`; unusable entries are dropped. */

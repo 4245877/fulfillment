@@ -6,7 +6,7 @@ import styles from "../../Settings.module.css";
 export default function UiSection({ cfg, patch }) {
   return (
     <Card
-      title="1) Общее (UI/Wallboard)"
+      title="Общее (UI / Wallboard)"
       sub="SSE/опрос, переключатели разделов, пороги подсветки, локаль/время/валюта"
     >
       <FieldRow
@@ -81,8 +81,9 @@ export default function UiSection({ cfg, patch }) {
       <FieldRow
         label="Board: показывать разделы"
         hint="Переключатели функций для главной доски (Board)."
+        wide
       >
-        <div className={styles.inputGroup}>
+        <div className={styles.toggleGrid}>
           {Object.entries(cfg.ui.boardSections).map(([k, v]) => (
             <Toggle
               key={k}
@@ -97,8 +98,9 @@ export default function UiSection({ cfg, patch }) {
       <FieldRow
         label="Пороги подсветки (предупреждение/опасность)"
         hint="Используются для KPI, lag, backlog и низких запасов."
+        wide
       >
-        <div className={styles.inputGroup}>
+        <div className={styles.nestedGrid}>
           <div className={styles.nestedCard}>
             <div className={styles.nestedCardTitle}>Задержка очередей (lag), мс</div>
             <div className={styles.inputGrid2}>
