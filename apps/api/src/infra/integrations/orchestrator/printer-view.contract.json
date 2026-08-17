@@ -10,6 +10,8 @@
     "online": true,
     "stateText": "printing",
     "stateMessage": null,
+    "faults": [],
+    "mediaPresent": null,
     "updatedAt": "2026-07-12T12:00:00.000Z",
     "job": "benchy.gcode",
     "progress": 42.5,
@@ -47,6 +49,8 @@
     "latestSnapshotUrl": "/api/printers/contract-printer/snapshots/snap-1",
     "filesSupported": true,
     "remoteStartSupported": true,
+    "setupRequired": false,
+    "setupMissing": [],
     "interfaceUrl": "http://printer.internal.example:4408"
   },
   "completed": {
@@ -60,6 +64,8 @@
     "online": true,
     "stateText": "complete",
     "stateMessage": null,
+    "faults": [],
+    "mediaPresent": null,
     "updatedAt": "2026-07-12T12:00:00.000Z",
     "job": "benchy.gcode",
     "progress": 100,
@@ -97,6 +103,8 @@
     "latestSnapshotUrl": null,
     "filesSupported": true,
     "remoteStartSupported": true,
+    "setupRequired": false,
+    "setupMissing": [],
     "interfaceUrl": "http://printer.internal.example:4408"
   },
   "errored": {
@@ -110,6 +118,8 @@
     "online": true,
     "stateText": "error",
     "stateMessage": "Nozzle thermal runaway",
+    "faults": [],
+    "mediaPresent": null,
     "updatedAt": "2026-07-12T12:00:00.000Z",
     "job": "benchy.gcode",
     "progress": 42.5,
@@ -147,6 +157,8 @@
     "latestSnapshotUrl": null,
     "filesSupported": true,
     "remoteStartSupported": true,
+    "setupRequired": false,
+    "setupMissing": [],
     "interfaceUrl": "http://printer.internal.example:4408",
     "error": "Nozzle thermal runaway"
   },
@@ -161,6 +173,8 @@
     "online": false,
     "stateText": null,
     "stateMessage": null,
+    "faults": [],
+    "mediaPresent": null,
     "updatedAt": null,
     "job": null,
     "progress": null,
@@ -192,6 +206,8 @@
     "latestSnapshotUrl": null,
     "filesSupported": true,
     "remoteStartSupported": true,
+    "setupRequired": false,
+    "setupMissing": [],
     "interfaceUrl": "http://printer.internal.example:4408"
   }
 }
