@@ -831,3 +831,51 @@ test("unresolved sync → stock added → re-sync binds → consume deducts exac
   assert.equal(redelivered.duplicate, true);
   assert.equal(store.filamentStock[0].stockG, balanceAfter, "no double deduction");
 });
+
+test("a printer's own colour hint can never pick a stock behind the reel binding", () => {
+  // The device sends a raw hex colour; a stock position may legitimately be
+  // keyed on a hex too. Matching those directly bypassed the binding and drained
+  // a position the printer does not have loaded.
+  const loose = stock({ id: "stock_petg_hex", color: "#00ae42", colorName: "Зелений", stockG: 900 });
+  const store = storeWith({ filamentStock: [stock(), loose] });
+  loadReel(store, "bambu-a1-combo", "PETG", "black");
+
+  svc.applyConsume(store, {
+    printerId: "bambu-a1-combo",
+    grams: 100,
+    material: "PETG",
+    color: "#00AE42",
+    source: "printer",
+    idempotencyKey: "a1:run-77:t0",
+  });
+
+  assert.equal(loose.stockG, 900, "the hinted position must be untouched");
+  assert.equal(store.filamentStock[0].stockG, 1900, "the BOUND reel is what a print draws from");
+});
+
+test("the dashboard's explicit material+color path is unaffected by that gate", () => {
+  const loose = stock({ id: "stock_petg_hex", color: "#00ae42", colorName: "Зелений", stockG: 900 });
+  const store = storeWith({ filamentStock: [stock(), loose] });
+
+  // No source (or any non-printer source) is an operator naming the position.
+  svc.applyConsume(store, { material: "PETG", color: "#00ae42", quantityG: 50 });
+
+  assert.equal(loose.stockG, 850);
+  assert.equal(store.filamentStock[0].stockG, 2000, "the other position is untouched");
+});
+
+test("a hint-only consume with no printer still resolves directly", () => {
+  const store = storeWith();
+
+  // `source: "printer"` with no printerId cannot use a binding — there is none
+  // to use — so the hints stay the only way to resolve it.
+  const result = svc.applyConsume(store, {
+    material: "PETG",
+    color: "black",
+    grams: 10,
+    source: "printer",
+  });
+
+  assert.equal(result.duplicate, false);
+  assert.equal(store.filamentStock[0].stockG, 1990);
+});

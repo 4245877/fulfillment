@@ -744,7 +744,7 @@ export async function addFilament(input: AddFilamentInput) {
  * Resolves which stock a consumption should be drawn from, in priority order:
  *
  *  1. Explicit material+color that matches an existing stock — the dashboard's
- *     manual flow, unchanged.
+ *     manual flow. Deliberately NOT open to printer-originated calls: see below.
  *  2. The reel loaded on the printer: the per-slot row (printerId, amsTray)
  *     when a tray is named, falling back to the printer-level row (amsTray
  *     null). Printer-originated calls land here — their material/color are
@@ -754,6 +754,13 @@ export async function addFilament(input: AddFilamentInput) {
  *     deducting the wrong spool.
  *  3. Otherwise the old errors: unknown explicit stock without a printer to
  *     fall back to, no loaded reel, or no way to resolve at all.
+ *
+ * Why step 1 is gated on the source: a printer sends its colour as a raw device
+ * hex (`#00ae42`), and a stock position may legitimately be keyed on a hex too.
+ * With step 1 open to everyone, such a pair matched DIRECTLY and the deduction
+ * bypassed the reel binding entirely — silently draining a position the printer
+ * does not have loaded, which is the exact outcome the doc above promises
+ * cannot happen. The binding is the authority for anything a device reports.
  */
 function resolveConsumeStock(
   store: InventoryStore,
@@ -763,8 +770,10 @@ function resolveConsumeStock(
   // mismatch guard compares like with like (loaded "PETG" vs a "PETG HF" hint).
   const material = input.material ? normalizeDeviceMaterial(input.material) : "";
   const color = input.color ? normalizeColor(input.color) : "";
+  // A device never picks its own stock: with a printer named, the binding decides.
+  const hintsMayResolve = input.source !== "printer" || !input.printerId;
 
-  if (material && color) {
+  if (material && color && hintsMayResolve) {
     const direct = findStock(store, material, color);
     if (direct) {
       return direct;
