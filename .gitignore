@@ -40,6 +40,9 @@ test-results/
 # It also used to hold printers.json with printer hosts and access codes —
 # that config now lives in apps/atelier and must never be committed here again.
 apps/api/data/
+# Incident memory of the shop watchdog lives in apps/shop-watchdog/state/ —
+# ignored by that directory's own .gitignore, which also keeps the directory in
+# the checkout (owned by the checkout user, not created by Docker as root).
 
 # --- Logs ---
 logs/

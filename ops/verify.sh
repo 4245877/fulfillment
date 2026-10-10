@@ -70,6 +70,12 @@ for contract in printer-view printer-inventory; do
   fi
 done
 
+step "shop-watchdog: unit + integration tests"
+# No install step and no node_modules: the service is plain Node by design, so
+# its tests run in a clean throwaway container with a read-only source mount.
+docker run --rm -v "$FULFILLMENT_DIR/apps/shop-watchdog":/app:ro -w /app "$NODE_IMAGE" \
+  node --test --test-timeout=60000 'test/*.test.mjs' | tail -9
+
 step "dashboard: production build"
 docker build -q -f "$FULFILLMENT_DIR/infra/docker/dashboard.Dockerfile" "$FULFILLMENT_DIR" >/dev/null
 echo ok

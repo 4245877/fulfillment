@@ -104,6 +104,79 @@ services:
     depends_on:
       - api
 
+  # Independent external observer of the Lite Forest shop (another server).
+  # If that server, its Prometheus or its Alertmanager dies, its own monitoring
+  # cannot say so — this service can: it probes the shop's public entry, is the
+  # dead-man switch for the shop's Alertmanager (POST /heartbeat), and notifies
+  # through Telegram directly from this host. See apps/shop-watchdog/README.md.
+  #
+  # Deliberately NOT a module of `api`:
+  #   • no install step — plain Node, no node_modules, no apk/pnpm at start, so
+  #     it comes up after a power cut even when this host has no internet yet;
+  #   • no shared process, database or deploy: restarting or breaking the API
+  #     does not stop the watchdog, and rolling the watchdog out never restarts
+  #     the API (`docker compose up -d shop-watchdog` touches only this service);
+  #   • no depends_on, for the same reason.
+  shop-watchdog:
+    image: node:22-alpine
+    container_name: fulfillment-shop-watchdog
+    working_dir: /app
+    # always, not unless-stopped: a container stopped by hand once (or signalled
+    # through `docker kill`) is NOT brought back by unless-stopped after a
+    # reboot — exactly the silent failure a watchdog exists to catch.
+    restart: always
+    init: true
+    # The host user that owns ./apps/shop-watchdog/state (uid 1000 = `node` in
+    # the image). Nothing in this container needs root.
+    user: "${SHOP_WATCHDOG_UID:-1000}:${SHOP_WATCHDOG_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Telegram settings are the API's own (same bot, same chat, the
+    # "critical errors" topic) — one place to rotate them. The watchdog reads
+    # only TELEGRAM_* and SHOP_WATCHDOG_* from its environment.
+    env_file:
+      - apps/api/.env
+    environment:
+      PORT: 8090
+      HOST: 0.0.0.0
+      SHOP_WATCHDOG_STATE_FILE: /state/state.json
+      # Required: the shop's public entry, e.g. http://192.168.0.135. Empty =
+      # the watchdog starts, probes nothing and reports itself as not working.
+      SHOP_WATCHDOG_BASE_URL: ${SHOP_WATCHDOG_BASE_URL:-}
+      # Shared secret of the heartbeat webhook (the shop's Alertmanager sends it
+      # as a Bearer token). Empty = the dead-man track is off.
+      SHOP_WATCHDOG_HEARTBEAT_TOKEN: ${SHOP_WATCHDOG_HEARTBEAT_TOKEN:-}
+      SHOP_WATCHDOG_HEARTBEAT_MAX_AGE_MS: ${SHOP_WATCHDOG_HEARTBEAT_MAX_AGE_MS:-900000}
+      SHOP_WATCHDOG_SERVICE_NAME: ${SHOP_WATCHDOG_SERVICE_NAME:-}
+      SHOP_WATCHDOG_RUNBOOK: ${SHOP_WATCHDOG_RUNBOOK:-}
+      SHOP_WATCHDOG_INTERVAL_MS: ${SHOP_WATCHDOG_INTERVAL_MS:-30000}
+      SHOP_WATCHDOG_TIMEOUT_MS: ${SHOP_WATCHDOG_TIMEOUT_MS:-5000}
+      SHOP_WATCHDOG_DOWN_AFTER: ${SHOP_WATCHDOG_DOWN_AFTER:-3}
+      SHOP_WATCHDOG_UP_AFTER: ${SHOP_WATCHDOG_UP_AFTER:-2}
+      SHOP_WATCHDOG_EMPTY_CATALOG_AFTER: ${SHOP_WATCHDOG_EMPTY_CATALOG_AFTER:-30}
+      SHOP_WATCHDOG_REMINDER_MS: ${SHOP_WATCHDOG_REMINDER_MS:-3600000}
+    volumes:
+      - ./apps/shop-watchdog:/app:ro
+      # Incident memory: what was already reported, what is queued for delivery.
+      - ./apps/shop-watchdog/state:/state
+    command: ["node", "watchdog.mjs"]
+    ports:
+      # LAN only by network position. Unauthenticated endpoints expose nothing
+      # secret: /health, /status, /metrics (for the shop's Prometheus);
+      # /heartbeat requires the token.
+      - "3002:8090"
+    healthcheck:
+      # Liveness only. Whether the watchdog is actually WORKING (probing,
+      # persisting, able to notify) is /metrics → 200/503, watched from the shop.
+      test: ["CMD", "wget", "-qO-", "--timeout=3", "http://127.0.0.1:8090/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   api_node_modules:
   api_api_node_modules:
