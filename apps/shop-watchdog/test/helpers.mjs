@@ -74,7 +74,7 @@ export async function fakeShop(initialMode = "ok") {
   return shop;
 }
 
-/** Fake Telegram Bot API. `mode`: ok | fail500 | reject400 | down. */
+/** Fake Telegram Bot API. `mode`: ok | fail500 | reject400 | rate429 | hang | down. */
 export async function fakeTelegram() {
   const telegram = { mode: "ok", messages: [], attempts: 0, port: 0, server: null, url: "" };
   telegram.server = http.createServer((req, res) => {
@@ -89,6 +89,10 @@ export async function fakeTelegram() {
       if (req.url !== `/bot${BOT_TOKEN}/sendMessage`) return json(404, { ok: false, description: "Not Found" });
       if (telegram.mode === "fail500") return json(500, { ok: false, description: "Internal Server Error" });
       if (telegram.mode === "reject400") return json(400, { ok: false, description: "Bad Request: message thread not found" });
+      if (telegram.mode === "rate429") {
+        return json(429, { ok: false, error_code: 429, description: "Too Many Requests: retry after 5", parameters: { retry_after: 5 } });
+      }
+      if (telegram.mode === "hang") return; // accepts the request and never answers
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       telegram.messages.push(body);
       return json(200, { ok: true, result: { message_id: telegram.messages.length } });

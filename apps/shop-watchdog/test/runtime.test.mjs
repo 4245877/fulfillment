@@ -184,6 +184,57 @@ test("Telegram is down during the outage: nothing is lost, messages arrive later
   assert.equal(watchdog.snapshot().outbox.pending, 0);
 });
 
+test("a rate limit (429) and a Telegram that never answers are failures, not deliveries: the alert waits and arrives once", async () => {
+  const watchdog = boot();
+  telegram.mode = "rate429";
+  await shop.down();
+  await cycles(watchdog, 3);
+  assert.equal(telegram.messages.length, 0);
+  let snapshot = watchdog.snapshot();
+  assert.equal(snapshot.outbox.pending, 1, "queued, not dropped and not counted as sent");
+  assert.equal(snapshot.counters.notificationsSent, 0);
+  assert.match(snapshot.outbox.lastError, /Too Many Requests/);
+
+  // Telegram accepts the connection and goes silent: the request deadline ends
+  // the attempt, the probe loop goes on, the message is still queued.
+  telegram.mode = "hang";
+  clock.advance(20 * 60_000); // past any backoff
+  const attemptsBefore = telegram.attempts;
+  await cycles(watchdog, 1);
+  assert.equal(telegram.attempts, attemptsBefore + 1, "one attempt, bounded by the request timeout");
+  snapshot = watchdog.snapshot();
+  assert.equal(snapshot.outbox.pending, 1);
+  assert.equal(snapshot.counters.notificationsSent, 0);
+  assert.match(snapshot.outbox.lastError, /unreachable/);
+  assert.equal(snapshot.shop.status, "unreachable", "the shop is still being watched while Telegram hangs");
+
+  telegram.mode = "ok";
+  clock.advance(20 * 60_000);
+  await cycles(watchdog, 2);
+  assert.equal(telegram.messages.length, 1, "delivered exactly once");
+  assert.match(telegram.messages[0].text, /сервер не отвечает/);
+  assert.equal(watchdog.snapshot().outbox.pending, 0);
+  const everything = `${JSON.stringify(watchdog.snapshot())}\n${logs.join("\n")}`;
+  assert.ok(!everything.includes(BOT_TOKEN), "a failed request does not leak the token through its error");
+});
+
+test("a pinned destination: the alert goes to the watchdog's own chat and topic, not to the API's", async () => {
+  const watchdog = boot({ SHOP_WATCHDOG_TELEGRAM_CHAT_ID: "-1009876543210", SHOP_WATCHDOG_TELEGRAM_THREAD_ID: "7", TELEGRAM_TOPIC_CRITICAL_ERRORS_ID: "42" });
+  await shop.down();
+  await cycles(watchdog, 3);
+  assert.equal(telegram.messages.length, 1);
+  assert.equal(telegram.messages[0].chat_id, "-1009876543210");
+  assert.equal(telegram.messages[0].message_thread_id, 7);
+  assert.deepEqual(watchdog.snapshot().config.telegram, { enabled: true, chatConfigured: true, chatSource: "watchdog", thread: 7 });
+
+  // The chat pinned without a topic: the API's topic id (42) belongs to another chat and is not used.
+  const plain = boot({ SHOP_WATCHDOG_TELEGRAM_CHAT_ID: "-1009876543210", TELEGRAM_TOPIC_CRITICAL_ERRORS_ID: "42", SHOP_WATCHDOG_STATE_FILE: `${store.file}.second` });
+  await cycles(plain, 3);
+  assert.equal(telegram.messages.length, 2);
+  assert.equal(telegram.messages[1].chat_id, "-1009876543210");
+  assert.equal("message_thread_id" in telegram.messages[1], false);
+});
+
 test("the queue survives a restart: an undelivered alert is sent by the next process", async () => {
   let watchdog = boot();
   telegram.mode = "fail500";
