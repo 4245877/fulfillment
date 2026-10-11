@@ -49,7 +49,12 @@ what the heartbeat track is for.
   (1 h; `0` turns reminders off).
 - **Monitoring is silent** — no valid heartbeat for `HEARTBEAT_MAX_AGE_MS`
   (15 min). Not sent while the shop host itself is confirmed `unreachable`: that
-  outage already explains the silence. A returning heartbeat sends one recovery.
+  outage already explains the silence. When the host answers again, the silence
+  is counted from that moment: the shop's monitoring was down with its server
+  and needs a minute to boot, so "recovered" is not followed by a false
+  "monitoring is silent" on every power-on — and monitoring that really did not
+  come back is reported once that grace runs out. A returning heartbeat sends
+  one recovery.
 
 A flapping link (ok, fail, ok, fail…) opens nothing and closes nothing. Every
 message has a deterministic key; a key that was queued or delivered is never
@@ -65,7 +70,8 @@ JSON file in `apps/shop-watchdog/state/`, written atomically. Therefore:
 - a message Telegram did not accept stays queued (across restarts) and is
   delivered later, in order — "recovered" never overtakes its own "down";
 - after a restart the heartbeat gets a fresh grace period: the watchdog could
-  not receive heartbeats while it was down;
+  not receive heartbeats while it was down (the same grace starts when a
+  confirmed "server does not answer" ends);
 - consecutive-failure counters older than a few cycles are dropped on start:
   three failures spread over a night are not "three in a row".
 
@@ -80,7 +86,7 @@ a host reboot even if it was once stopped by hand. Do not signal it through
   watchdog must come up after a power cut even when this host has no internet.
 - **No shared fate.** Its own process, no database, no `depends_on`. A broken or
   restarting API does not stop it; rolling it out never restarts the API.
-- **Small enough to read.** ~700 lines, every side effect injected, 47 tests.
+- **Small enough to read.** ~700 lines, every side effect injected, 53 tests.
 
 It still *uses* fulfillment: this repository, this host, this compose project
 and the API's Telegram settings.

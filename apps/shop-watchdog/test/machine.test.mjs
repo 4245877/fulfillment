@@ -191,10 +191,64 @@ test("heartbeat silence is not a second incident while the host itself is confir
   run(state, cfg, ["unreachable", "unreachable", "unreachable"]);
   assert.deepEqual(checkHeartbeat(state, cfg, T0 + 30 * 60_000, T0), [], "the outage already explains the silence");
 
-  // The host is back, the monitoring is still silent → now it is reported.
-  run(state, cfg, ["ok", "ok"], T0 + 31 * 60_000);
+  // The host is back. Its monitoring was down with it and needs a moment to
+  // boot: "recovered" must not come with "monitoring is silent" in the same
+  // breath — that would be a false alarm on every power-on.
+  const backAt = T0 + 31 * 60_000;
+  run(state, cfg, ["ok", "ok"], backAt);
   assert.equal(state.shop.incident, null);
-  assert.equal(checkHeartbeat(state, cfg, T0 + 33 * 60_000, T0).length, 1);
+  assert.deepEqual(checkHeartbeat(state, cfg, backAt + 2 * 60_000, T0), [], "no alarm while the monitoring is still booting");
+  assert.deepEqual(checkHeartbeat(state, cfg, backAt + 14 * 60_000, T0), [], "the grace is the usual silence limit");
+
+  // The monitoring did not come back with the server → reported when the grace runs out.
+  const silent = checkHeartbeat(state, cfg, backAt + 17 * 60_000, T0);
+  assert.equal(silent.length, 1);
+  assert.match(silent[0].text, /мониторинг молчит/);
+  assert.match(silent[0].text, /Последний сигнал: 2026-10-10 12:00:00 UTC/, "the last real heartbeat, not the moment the host came back");
+});
+
+test("a server switched off for the night: 'recovered' in the morning, and nothing about the monitoring when its heartbeat follows", () => {
+  const cfg = config();
+  const state = initialState();
+  observeHeartbeat(state, cfg, T0);
+  const down = run(state, cfg, ["unreachable", "unreachable", "unreachable"], T0 + 60_000);
+  assert.equal(down.filter((n) => /:down$/.test(n.key)).length, 1);
+
+  const morning = T0 + 9 * 3_600_000;
+  const back = run(state, cfg, ["ok", "ok"], morning);
+  assert.equal(back.filter((n) => /:recovered$/.test(n.key)).length, 1);
+  assert.deepEqual(checkHeartbeat(state, cfg, morning + STEP, T0), [], "nine hours of silence are explained by the outage");
+  // Prometheus and Alertmanager booted: the heartbeat is simply back, with no incident to close.
+  assert.deepEqual(observeHeartbeat(state, cfg, morning + 2 * 60_000), []);
+  assert.equal(state.monitoring.incident, null);
+  assert.deepEqual(checkHeartbeat(state, cfg, morning + 10 * 60_000, T0), []);
+});
+
+test("the server answers again but something else is broken: the heartbeat grace starts when the host came back", () => {
+  const cfg = config();
+  const state = initialState();
+  observeHeartbeat(state, cfg, T0);
+  run(state, cfg, ["unreachable", "unreachable", "unreachable"], T0 + 60_000);
+  // An hour later nginx answers, the API does not: a confirmed change of the picture.
+  const changedAt = T0 + 3_600_000;
+  const changed = run(state, cfg, ["backend_down", "backend_down", "backend_down"], changedAt);
+  assert.equal(changed.filter((n) => /:changed:1$/.test(n.key)).length, 1);
+  assert.equal(state.shop.incident.status, "backend_down");
+  const hostBack = Date.parse(state.monitoring.hostBackAt);
+  assert.ok(hostBack >= changedAt, "the moment the host was confirmed reachable again");
+  assert.deepEqual(checkHeartbeat(state, cfg, hostBack + 5 * 60_000, T0), [], "the monitoring on that host is given time to start");
+  assert.equal(checkHeartbeat(state, cfg, hostBack + 16 * 60_000, T0).length, 1, "and reported if it did not");
+});
+
+test("a short blip of the link is not an outage and grants no heartbeat grace", () => {
+  const cfg = config();
+  const state = initialState();
+  observeHeartbeat(state, cfg, T0);
+  // Unconfirmed failures every few minutes must not keep postponing "monitoring is silent".
+  for (let minute = 2; minute <= 14; minute += 4) run(state, cfg, ["unreachable", "ok", "ok"], T0 + minute * 60_000);
+  assert.equal(state.shop.incident, null);
+  assert.equal(state.monitoring.hostBackAt, null);
+  assert.equal(checkHeartbeat(state, cfg, T0 + 16 * 60_000, T0).length, 1);
 });
 
 test("the dead-man track is off without a token", () => {

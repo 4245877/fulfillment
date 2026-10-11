@@ -62,7 +62,9 @@ export function initialState() {
       firstBadAt: null,
       incident: null,
     },
-    monitoring: { lastHeartbeatAt: null, heartbeats: 0, incident: null },
+    // hostBackAt: when a confirmed "server does not answer" ended. The shop's
+    // monitoring lives on that server, so until then no heartbeat could come.
+    monitoring: { lastHeartbeatAt: null, heartbeats: 0, incident: null, hostBackAt: null },
     outbox: [],
     sent: [],
     counters: { cycles: 0, notificationsSent: 0, notificationsFailed: 0, heartbeatsRejected: 0 },
@@ -144,6 +146,7 @@ export function observeShop(state, observation, config, nowMs) {
           ...footer(config),
         ]),
       );
+      if (incident.status === "unreachable") state.monitoring.hostBackAt = iso(nowMs);
       shop.incident = null;
     }
     return out;
@@ -195,6 +198,9 @@ export function observeShop(state, observation, config, nowMs) {
       incident.status = status;
       incident.changes += 1;
       incident.changeRun = null;
+      // The server answers again (something else is broken now): from here on
+      // its monitoring can be expected to send heartbeats.
+      if (previous === "unreachable") state.monitoring.hostBackAt = iso(nowMs);
       enqueue(
         out,
         `${incident.id}:changed:${incident.changes}`,
@@ -260,16 +266,27 @@ export function observeHeartbeat(state, config, nowMs) {
 /**
  * Check the dead-man switch.
  *
- * `processStartedMs` gives a restart its own grace: while the watchdog was
- * down it could not receive heartbeats, so silence is measured from whichever
- * is later — the last heartbeat or this process start.
+ * Silence counts only from the moment a heartbeat could have come, so it is
+ * measured from whichever is latest:
+ *
+ *   • the last heartbeat;
+ *   • this process start — while the watchdog was down it could not receive
+ *     any (`processStartedMs` gives a restart its own grace);
+ *   • the end of a confirmed "server does not answer" — the shop's monitoring
+ *     runs on that server and was down with it. Without this, the cycle that
+ *     announces "recovered" after a long outage (a night with the server
+ *     switched off) would announce "monitoring is silent" in the same breath,
+ *     a minute before Prometheus and Alertmanager have booted — a false alarm
+ *     on every power-on. Monitoring that really did not come back with the
+ *     server is still reported: when this grace runs out.
  */
 export function checkHeartbeat(state, config, nowMs, processStartedMs) {
   const out = [];
   if (!config.heartbeatEnabled) return out;
   const monitoring = state.monitoring;
   const last = monitoring.lastHeartbeatAt ? Date.parse(monitoring.lastHeartbeatAt) : null;
-  const reference = Math.max(last ?? 0, processStartedMs);
+  const hostBack = monitoring.hostBackAt ? Date.parse(monitoring.hostBackAt) : 0;
+  const reference = Math.max(last ?? 0, processStartedMs, hostBack);
   const silentMs = nowMs - reference;
 
   if (!monitoring.incident) {
