@@ -143,6 +143,11 @@ services:
       PORT: 8090
       HOST: 0.0.0.0
       SHOP_WATCHDOG_STATE_FILE: /state/state.json
+      # Optional pin of the destination (root .env). Empty = the API's chat and
+      # its "critical errors" topic. Set the chat and the topic together: a
+      # pinned chat never inherits the API's topic id.
+      SHOP_WATCHDOG_TELEGRAM_CHAT_ID: ${SHOP_WATCHDOG_TELEGRAM_CHAT_ID:-}
+      SHOP_WATCHDOG_TELEGRAM_THREAD_ID: ${SHOP_WATCHDOG_TELEGRAM_THREAD_ID:-}
       # Required: the shop's public entry, e.g. http://192.168.0.135. Empty =
       # the watchdog starts, probes nothing and reports itself as not working.
       SHOP_WATCHDOG_BASE_URL: ${SHOP_WATCHDOG_BASE_URL:-}

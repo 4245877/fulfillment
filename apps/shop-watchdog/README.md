@@ -98,6 +98,7 @@ Everything else is in the root `.env` — see `.env.example`:
 |---|---|---|
 | `SHOP_WATCHDOG_BASE_URL` | — (required) | the shop's public entry, e.g. `http://192.168.0.135` |
 | `SHOP_WATCHDOG_HEARTBEAT_TOKEN` | empty = dead-man track off | shared secret of `POST /heartbeat`, ≥ 24 characters |
+| `SHOP_WATCHDOG_TELEGRAM_CHAT_ID` / `_THREAD_ID` | empty = the API's chat and its "critical errors" topic | pin the watchdog to a chat and topic of its own; set both — a pinned chat never inherits the API's topic id |
 | `SHOP_WATCHDOG_RUNBOOK` | empty | free text appended to messages as "what to do" |
 | `SHOP_WATCHDOG_SERVICE_NAME` | `Lite Forest (магазин)` | how the service is named in messages |
 | `SHOP_WATCHDOG_INTERVAL_MS` / `_TIMEOUT_MS` | `30000` / `5000` | probe cadence and per-request deadline |

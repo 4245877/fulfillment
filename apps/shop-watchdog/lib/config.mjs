@@ -74,9 +74,16 @@ export function loadConfig(env = process.env) {
   if (telegramEnabled === null) errors.push('TELEGRAM_ENABLED must be "true" or "false"');
 
   const botToken = text(env.TELEGRAM_BOT_TOKEN);
-  const chatId = text(env.SHOP_WATCHDOG_TELEGRAM_CHAT_ID) || text(env.TELEGRAM_CHAT_ID);
+  // Destination: the API's chat and its "critical errors" topic, unless the
+  // watchdog is pinned to its own (SHOP_WATCHDOG_TELEGRAM_*). A topic id means
+  // something only inside its own chat, so a pinned chat never inherits the
+  // API's topic: with a chat of another group Telegram would refuse every
+  // message ("message thread not found") — at the moment an outage has to be
+  // reported.
+  const pinnedChatId = text(env.SHOP_WATCHDOG_TELEGRAM_CHAT_ID);
+  const chatId = pinnedChatId || text(env.TELEGRAM_CHAT_ID);
   const threadRaw =
-    text(env.SHOP_WATCHDOG_TELEGRAM_THREAD_ID) || text(env.TELEGRAM_TOPIC_CRITICAL_ERRORS_ID);
+    text(env.SHOP_WATCHDOG_TELEGRAM_THREAD_ID) || (pinnedChatId ? "" : text(env.TELEGRAM_TOPIC_CRITICAL_ERRORS_ID));
   let messageThreadId = null;
   if (threadRaw !== "") {
     const value = Number(threadRaw);
@@ -124,6 +131,7 @@ export function loadConfig(env = process.env) {
       enabled: telegramEnabled === true,
       botToken,
       chatId,
+      chatSource: pinnedChatId ? "watchdog" : "api",
       messageThreadId,
       apiBaseUrl: (text(env.SHOP_WATCHDOG_TELEGRAM_API_BASE_URL) || DEFAULTS.telegramApiBaseUrl).replace(/\/+$/, ""),
       timeoutMs: integer(env, "TELEGRAM_REQUEST_TIMEOUT_MS", DEFAULTS.telegramTimeoutMs, { min: 500, max: 120_000 }, errors),
@@ -153,6 +161,9 @@ export function describeConfig(config) {
     telegram: {
       enabled: config.telegram.enabled,
       chatConfigured: Boolean(config.telegram.chatId),
+      // Whose chat it is, not which: "watchdog" = pinned by SHOP_WATCHDOG_TELEGRAM_CHAT_ID,
+      // "api" = the fulfillment API's own chat.
+      chatSource: config.telegram.chatSource,
       thread: config.telegram.messageThreadId,
     },
   };
