@@ -22,6 +22,8 @@ test("a complete environment gives a usable configuration with the documented de
   assert.equal(config.reminderMs, 3_600_000);
   assert.equal(config.heartbeatEnabled, true);
   assert.equal(config.heartbeatMaxAgeMs, 900_000);
+  assert.equal(config.channelCheckMs, 300_000, "the notification channel is checked every five minutes");
+  assert.equal(loadConfig({ ...valid, SHOP_WATCHDOG_CHANNEL_CHECK_MS: "0" }).config.channelCheckMs, 0, "0 turns the check off");
   assert.equal(config.telegram.enabled, true);
   assert.equal(config.telegram.messageThreadId, 42, "the critical-errors topic of the fulfillment chat");
 });
@@ -39,6 +41,7 @@ test("invalid values are reported, never silently replaced", () => {
     SHOP_WATCHDOG_INTERVAL_MS: "soon",
     SHOP_WATCHDOG_DOWN_AFTER: "0",
     SHOP_WATCHDOG_HEARTBEAT_TOKEN: "short",
+    SHOP_WATCHDOG_CHANNEL_CHECK_MS: "often",
     TELEGRAM_ENABLED: "maybe",
     TELEGRAM_TOPIC_CRITICAL_ERRORS_ID: "-3",
   };

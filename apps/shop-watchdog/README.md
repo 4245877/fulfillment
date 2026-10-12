@@ -16,6 +16,7 @@ dies, nothing there can say so. This service closes that gap from the outside.
 | **Names what is broken**, not just "down" | see the table below |
 | **Is the dead-man switch** for the shop's monitoring | the shop's Alertmanager must `POST /heartbeat` every few minutes; silence is reported |
 | **Notifies the owner** through Telegram directly from this host | its own bot token, chat and topic — `apps/shop-watchdog/.env` |
+| **Checks that it can still notify** — without sending anything | asks Telegram every 5 min whether its bot may use the chat; a revoked token or a removed bot makes it report itself as not working |
 | **Can be watched itself** | `GET /metrics` — scraped by the shop's Prometheus; `503` when it is not working |
 
 ### Statuses
@@ -90,7 +91,7 @@ a host reboot even if it was once stopped by hand. Do not signal it through
   the API (printer orchestrator, atelier), and the API's Telegram settings —
   changed, switched off or broken — do not change where, or whether, an outage
   of the shop is reported.
-- **Small enough to read.** ~700 lines, every side effect injected, 53 tests.
+- **Small enough to read.** ~1300 lines with comments, every side effect injected, 56 tests.
 
 It still *uses* fulfillment: this repository, this host and this compose
 project.
@@ -116,6 +117,7 @@ reads nothing from `apps/api/.env` and interpolates nothing from the root
 | `SHOP_WATCHDOG_EMPTY_CATALOG_AFTER` | `30` (≈ 15 min) | `0` = an empty catalog is a healthy answer |
 | `SHOP_WATCHDOG_REMINDER_MS` | `3600000` | `0` = no reminders |
 | `SHOP_WATCHDOG_HEARTBEAT_MAX_AGE_MS` | `900000` | reported silence of the shop's monitoring |
+| `SHOP_WATCHDOG_CHANNEL_CHECK_MS` | `300000` | how often Telegram is asked whether the bot may still use the chat; `0` = never |
 
 An invalid or missing value is a configuration **error**, not a default: the
 service stays up, probes nothing, explains why on `/status`, and answers
@@ -128,18 +130,37 @@ case: the service starts unconfigured and says so.
 are still understood when the `SHOP_WATCHDOG_TELEGRAM_*` pair is absent;
 `/status` then shows `chatSource: "api"`.)
 
+### Can it still notify?
+
+A watchdog with a revoked token probes happily and can tell nobody — and
+nothing shows it until the first alert has to go out. So the watchdog asks
+Telegram itself, without sending a message: `getChat` for the configured chat,
+at the first cycle and then every `SHOP_WATCHDOG_CHANNEL_CHECK_MS`.
+
+- Telegram **refuses** (`401` — the token was regenerated in BotFather; `403` /
+  `400` — the bot was removed from the chat, or the chat id is wrong): after
+  three refusals in a row (about a minute) `/metrics` answers `503
+  notifications cannot be delivered: …`, `/status` shows `channel.refused`. The
+  shop is still probed; the shop's own Prometheus sees its watcher as down.
+- Telegram is **unreachable, busy or rate-limiting**: no verdict — that says
+  nothing about the credentials. A message that cannot be delivered is covered
+  by the age of the queue (10 minutes → `503`).
+- A repaired channel is noticed at the next cycle.
+
+What this cannot check is the **topic**: only a real message proves that it
+exists. After changing the destination, send one.
+
 **Rotating the bot token.** A token regenerated in BotFather invalidates the old
 one immediately, for every holder. Replace it in `apps/shop-watchdog/.env`,
-recreate the service (below) and confirm with `/status` and a test message: a
-watchdog with a revoked token probes happily and can tell nobody.
+recreate the service (below) and look at `/status` → `channel`.
 
 ## HTTP surface (port 3002 on the host)
 
 | | |
 |---|---|
 | `GET /health` | liveness (Docker healthcheck) |
-| `GET /status` | JSON: status, last checks, incidents, queue — no secrets |
-| `GET /metrics` | Prometheus exposition; **`503` with the reason** when the watchdog must not be trusted: configuration error, probe loop stalled, state not persistable, notifications undelivered for 10+ minutes |
+| `GET /status` | JSON: status, last checks, incidents, queue, what Telegram last said about the channel — no secrets |
+| `GET /metrics` | Prometheus exposition; **`503` with the reason** when the watchdog must not be trusted: configuration error, probe loop stalled, state not persistable, Telegram refuses the bot or the chat, notifications undelivered for 10+ minutes |
 | `POST /heartbeat` | `Authorization: Bearer <token>`, body — Alertmanager webhook; counts only a *firing* `Watchdog` alert (`401` / `422` otherwise) |
 
 Nothing here needs or grants access to the shop: the probes are public GETs,

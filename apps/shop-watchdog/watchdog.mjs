@@ -16,7 +16,7 @@
 
 import { loadConfig } from "./lib/config.mjs";
 import { createWatchdog } from "./lib/runtime.mjs";
-import { createTelegramSender } from "./lib/telegram.mjs";
+import { createTelegramChannelCheck, createTelegramSender } from "./lib/telegram.mjs";
 
 function log(level, msg, fields = {}) {
   process.stdout.write(`${JSON.stringify({ level, time: new Date().toISOString(), msg, ...fields })}\n`);
@@ -24,7 +24,8 @@ function log(level, msg, fields = {}) {
 
 const { config, errors } = loadConfig(process.env);
 const send = errors.length ? null : createTelegramSender(config.telegram);
-const watchdog = createWatchdog({ config, errors, send, log });
+const checkChannel = errors.length ? null : createTelegramChannelCheck(config.telegram);
+const watchdog = createWatchdog({ config, errors, send, checkChannel, log });
 
 let stopping = false;
 async function shutdown(signal) {

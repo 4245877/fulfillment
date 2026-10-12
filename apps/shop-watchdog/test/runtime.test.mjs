@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import { createWatchdog } from "../lib/runtime.mjs";
-import { createTelegramSender } from "../lib/telegram.mjs";
+import { createTelegramChannelCheck, createTelegramSender } from "../lib/telegram.mjs";
 import { BOT_TOKEN, HEARTBEAT_TOKEN, fakeClock, fakeShop, fakeTelegram, tempStateFile, testConfig, watchdogWebhook } from "./helpers.mjs";
 
 const STEP = 30_000;
@@ -32,13 +32,19 @@ afterEach(async () => {
   store.cleanup();
 });
 
-function boot(overrides = {}) {
+/**
+ * `channel: true` wires the notification-channel check the way the entry point
+ * does. It is opt-in here: the other tests count what is sent, and a check that
+ * fires on the fake clock would only add noise to them.
+ */
+function boot(overrides = {}, { channel = false } = {}) {
   const { config, errors } = testConfig({ shopUrl: shop.url, telegramUrl: telegram.url, stateFile: store.file, overrides });
   const watchdog = createWatchdog({
     config,
     errors,
     now: clock,
     send: errors.length ? null : createTelegramSender(config.telegram),
+    checkChannel: channel && !errors.length ? createTelegramChannelCheck(config.telegram) : null,
     log: (level, msg, fields) => logs.push(JSON.stringify({ level, msg, ...fields })),
   });
   running.push(watchdog);
@@ -336,6 +342,88 @@ test("/metrics: exposition when the watchdog works, 503 with the reason when it 
   const mute = await request(watchdog, "GET", "/metrics");
   assert.equal(mute.status, 503);
   assert.match(mute.text, /notifications are not being delivered/);
+});
+
+test("a revoked bot token is noticed without waiting for an outage: 503 with the reason; a repaired channel clears it", async () => {
+  const watchdog = boot({}, { channel: true });
+  await watchdog.start();
+  await cycles(watchdog, 1);
+  assert.equal(telegram.checks, 1, "asked at the first cycle");
+  assert.equal((await request(watchdog, "GET", "/metrics")).status, 200);
+  let status = JSON.parse((await request(watchdog, "GET", "/status")).text);
+  assert.equal(status.channel.checkEnabled, true);
+  assert.ok(status.channel.lastOkAt, "Telegram confirmed the bot and the chat");
+  assert.equal(status.channel.refused, false);
+
+  // The bot's token is regenerated in BotFather: every holder of the old one
+  // now gets 401. The shop is fine, so there is nothing to send — and nothing
+  // would reveal that an alert could not go out.
+  telegram.auth = "revoked";
+  await cycles(watchdog, 9);
+  assert.equal(telegram.checks, 1, "a working channel is asked once per interval, not every cycle");
+  await cycles(watchdog, 2);
+  assert.equal((await request(watchdog, "GET", "/metrics")).status, 200, "one or two refusals are not yet a verdict");
+  await cycles(watchdog, 1);
+  const mute = await request(watchdog, "GET", "/metrics");
+  assert.equal(mute.status, 503);
+  assert.match(mute.text, /notifications cannot be delivered: Telegram refuses the bot or the chat: Unauthorized/);
+  status = JSON.parse((await request(watchdog, "GET", "/status")).text);
+  assert.equal(status.ok, false);
+  assert.equal(status.channel.refused, true);
+  assert.equal(status.shop.status, "ok", "the shop is still being watched");
+  assert.equal(telegram.attempts, 0, "the check itself sends nothing");
+  assert.ok(logs.some((line) => line.includes("notification channel is refused")), "said once in the log");
+  assert.equal(logs.filter((line) => line.includes("notification channel is refused")).length, 1);
+  assert.ok(!`${JSON.stringify(status)}\n${logs.join("\n")}\n${mute.text}`.includes(BOT_TOKEN), "the refusal does not leak the token");
+
+  // The valid token is back: noticed at the next cycle, not after another interval.
+  telegram.auth = "ok";
+  await cycles(watchdog, 1);
+  assert.equal((await request(watchdog, "GET", "/metrics")).status, 200);
+  assert.equal(JSON.parse((await request(watchdog, "GET", "/status")).text).channel.refused, false);
+  assert.ok(logs.some((line) => line.includes("notification channel works again")));
+});
+
+test("a bot removed from the chat is a verdict too; a Telegram that is unreachable or busy is not", async () => {
+  const watchdog = boot({}, { channel: true });
+  for (const mode of ["fail500", "rate429", "hang"]) {
+    telegram.mode = mode;
+    clock.advance(10 * 60_000);
+    await cycles(watchdog, 4);
+    assert.equal(watchdog.healthProblem(), null, `${mode} says nothing about the credentials`);
+    assert.equal(watchdog.snapshot().channel.refused, false, mode);
+  }
+  assert.ok(telegram.checks >= 3, "it kept asking");
+
+  telegram.mode = "ok";
+  telegram.auth = "kicked";
+  clock.advance(10 * 60_000);
+  await cycles(watchdog, 3);
+  assert.match(String(watchdog.healthProblem()), /notifications cannot be delivered: .*bot was kicked/);
+
+  // A single refusal in passing (three were needed) leaves no trace.
+  telegram.auth = "ok";
+  await cycles(watchdog, 1);
+  assert.equal(watchdog.healthProblem(), null);
+  telegram.auth = "revoked";
+  clock.advance(10 * 60_000);
+  await cycles(watchdog, 2);
+  telegram.auth = "ok";
+  await cycles(watchdog, 3);
+  assert.equal(watchdog.healthProblem(), null, "two refusals followed by an acceptance: no verdict");
+});
+
+test("the channel check can be turned off, and is off when the watchdog is not configured", async () => {
+  telegram.auth = "revoked";
+  const off = boot({ SHOP_WATCHDOG_CHANNEL_CHECK_MS: "0" }, { channel: true });
+  await cycles(off, 12);
+  assert.equal(telegram.checks, 0);
+  assert.equal(off.healthProblem(), null);
+  assert.equal(off.snapshot().channel.checkEnabled, false);
+
+  const broken = boot({ TELEGRAM_ENABLED: "false", SHOP_WATCHDOG_STATE_FILE: `${store.file}.second` }, { channel: true });
+  await cycles(broken, 3);
+  assert.equal(telegram.checks, 0, "a configuration error is reported as such, not probed around");
 });
 
 test("a misconfigured watchdog does not pretend: it probes nothing and reports why", async () => {

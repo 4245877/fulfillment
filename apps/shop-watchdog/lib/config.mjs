@@ -14,6 +14,7 @@ const DEFAULTS = Object.freeze({
   emptyCatalogAfter: 30,
   reminderMs: 60 * 60_000,
   heartbeatMaxAgeMs: 15 * 60_000,
+  channelCheckMs: 5 * 60_000,
   stateFile: "/state/state.json",
   port: 8090,
   host: "0.0.0.0",
@@ -122,6 +123,9 @@ export function loadConfig(env = process.env) {
     // nobody can send a heartbeat, and "silence" would mean nothing.
     heartbeatEnabled: Boolean(heartbeatToken),
     heartbeatMaxAgeMs: integer(env, "SHOP_WATCHDOG_HEARTBEAT_MAX_AGE_MS", DEFAULTS.heartbeatMaxAgeMs, { min: 60_000, max: 86_400_000 }, errors),
+    // How often the notification channel itself is checked while it is fine
+    // (lib/telegram.mjs → getChat, nothing is sent). 0 turns the check off.
+    channelCheckMs: integer(env, "SHOP_WATCHDOG_CHANNEL_CHECK_MS", DEFAULTS.channelCheckMs, { min: 0, max: 86_400_000 }, errors),
     stateFile: text(env.SHOP_WATCHDOG_STATE_FILE) || DEFAULTS.stateFile,
     runbook: text(env.SHOP_WATCHDOG_RUNBOOK),
     // 0 = any free port (tests); the compose service sets it explicitly.
@@ -158,6 +162,7 @@ export function describeConfig(config) {
     reminderMs: config.reminderMs,
     heartbeatEnabled: config.heartbeatEnabled,
     heartbeatMaxAgeMs: config.heartbeatMaxAgeMs,
+    channelCheckMs: config.channelCheckMs,
     telegram: {
       enabled: config.telegram.enabled,
       chatConfigured: Boolean(config.telegram.chatId),

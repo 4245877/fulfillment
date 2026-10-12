@@ -22,6 +22,14 @@ import { loadState, saveState } from "./store.mjs";
 const HEARTBEAT_BODY_LIMIT = 256 * 1024;
 /** Notifications undelivered for longer than this make the watchdog "not working". */
 const DELIVERY_STUCK_MS = 10 * 60_000;
+/**
+ * Consecutive definitive refusals of the notification channel (wrong token,
+ * bot removed from the chat) before the watchdog calls itself "not working".
+ * While a refusal is unconfirmed or stands, the channel is re-checked every
+ * cycle — so the verdict takes about a minute, and a repaired channel is
+ * noticed at once.
+ */
+const CHANNEL_REFUSALS_TO_CONFIRM = 3;
 
 function safeEqual(a, b) {
   const left = Buffer.from(String(a));
@@ -49,7 +57,7 @@ export function resumeState(state, config, nowMs) {
   return state;
 }
 
-export function createWatchdog({ config, errors = [], fetchImpl = fetch, now = () => Date.now(), send, log = () => {} }) {
+export function createWatchdog({ config, errors = [], fetchImpl = fetch, now = () => Date.now(), send, checkChannel = null, log = () => {} }) {
   const startedMs = now();
   const loaded = errors.length ? { state: initialState(), restored: false, problem: null } : loadState(config.stateFile);
   const state = resumeState(loaded.state, config, startedMs);
@@ -63,6 +71,11 @@ export function createWatchdog({ config, errors = [], fetchImpl = fetch, now = (
     timer: null,
     server: null,
   };
+
+  // The notification channel as Telegram itself last described it. Not part of
+  // the persisted state: it is a fact about now, re-established at every start.
+  const channel = { checkedMs: null, okMs: null, refusals: 0, error: null };
+  const channelCheckOn = Boolean(checkChannel) && !errors.length && config.channelCheckMs > 0;
 
   if (loaded.problem) log("warn", "state was not restored", { problem: loaded.problem });
   if (loaded.restored) {
@@ -95,6 +108,40 @@ export function createWatchdog({ config, errors = [], fetchImpl = fetch, now = (
     return delivered;
   }
 
+  /**
+   * Ask Telegram whether this bot may still use the configured chat. Never throws.
+   *
+   * Without it a watchdog whose token was regenerated elsewhere (or whose bot was
+   * removed from the group) probes happily, answers /metrics with 200 — and can
+   * tell nobody about the outage it exists to report: the failure would surface
+   * only with the first alert, as a message stuck in the queue.
+   *
+   * Only a definitive answer is a verdict. A Telegram that is unreachable, busy
+   * or rate-limiting says nothing about the credentials: the previous verdict
+   * stands, and undelivered messages are covered by the age of the queue.
+   */
+  async function verifyChannel() {
+    if (!channelCheckOn) return;
+    const startedAt = now();
+    const due = channel.checkedMs === null || channel.refusals > 0 || startedAt - channel.checkedMs >= config.channelCheckMs;
+    if (!due) return;
+    channel.checkedMs = startedAt;
+    try {
+      await checkChannel();
+      if (channel.refusals >= CHANNEL_REFUSALS_TO_CONFIRM) log("info", "notification channel works again", {});
+      channel.okMs = now();
+      channel.refusals = 0;
+      channel.error = null;
+    } catch (error) {
+      if (error?.retryable !== false) return;
+      channel.refusals += 1;
+      channel.error = String(error?.message ?? error).slice(0, 300);
+      if (channel.refusals === CHANNEL_REFUSALS_TO_CONFIRM) {
+        log("error", "notification channel is refused: an outage could not be reported", { error: channel.error });
+      }
+    }
+  }
+
   /** One full iteration. Never runs concurrently with itself; never throws. */
   async function cycle() {
     if (errors.length) return { skipped: "configuration" };
@@ -117,6 +164,7 @@ export function createWatchdog({ config, errors = [], fetchImpl = fetch, now = (
         // queue instead of forgetting the incident.
         persist();
         if ((await deliver()) > 0 || queued > 0) persist();
+        await verifyChannel();
         return { status: state.shop.status, queued };
       } catch (error) {
         log("error", "cycle failed", { error: String(error?.message ?? error) });
@@ -141,6 +189,7 @@ export function createWatchdog({ config, errors = [], fetchImpl = fetch, now = (
     // successful save. A watchdog that cannot remember what it reported would
     // repeat itself after every restart.
     if (runtime.saveProblem) return runtime.saveProblem;
+    if (channel.refusals >= CHANNEL_REFUSALS_TO_CONFIRM) return `notifications cannot be delivered: ${channel.error}`;
     if (outboxAgeMs(state, nowMs) > DELIVERY_STUCK_MS) return "notifications are not being delivered";
     return null;
   }
@@ -169,6 +218,14 @@ export function createWatchdog({ config, errors = [], fetchImpl = fetch, now = (
         incident: state.monitoring.incident ? { id: state.monitoring.incident.id, silentSince: state.monitoring.incident.silentSince } : null,
       },
       outbox: { pending: state.outbox.length, oldestAgeMs: outboxAgeMs(state, nowMs), lastError: state.outbox[0]?.lastError ?? null },
+      // What Telegram last said about the bot and the chat (no message is sent to find out).
+      channel: {
+        checkEnabled: channelCheckOn,
+        checkedAt: channel.checkedMs ? new Date(channel.checkedMs).toISOString() : null,
+        lastOkAt: channel.okMs ? new Date(channel.okMs).toISOString() : null,
+        refused: channel.refusals >= CHANNEL_REFUSALS_TO_CONFIRM,
+        error: channel.error,
+      },
       counters: { ...state.counters },
       stateRestored: loaded.restored,
     };
@@ -199,6 +256,9 @@ export function createWatchdog({ config, errors = [], fetchImpl = fetch, now = (
       "# HELP shop_watchdog_last_heartbeat_timestamp_seconds When the shop's Alertmanager last delivered its heartbeat (0 = never)",
       "# TYPE shop_watchdog_last_heartbeat_timestamp_seconds gauge",
       `shop_watchdog_last_heartbeat_timestamp_seconds ${seconds(state.monitoring.lastHeartbeatAt)}`,
+      "# HELP shop_watchdog_channel_last_ok_timestamp_seconds When Telegram last confirmed that the bot may use the configured chat (0 = not yet, or the check is off)",
+      "# TYPE shop_watchdog_channel_last_ok_timestamp_seconds gauge",
+      `shop_watchdog_channel_last_ok_timestamp_seconds ${channel.okMs ? Math.floor(channel.okMs / 1000) : 0}`,
       "# HELP shop_watchdog_outbox_pending Notifications waiting for delivery",
       "# TYPE shop_watchdog_outbox_pending gauge",
       `shop_watchdog_outbox_pending ${state.outbox.length}`,

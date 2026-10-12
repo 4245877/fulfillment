@@ -74,25 +74,49 @@ export async function fakeShop(initialMode = "ok") {
   return shop;
 }
 
-/** Fake Telegram Bot API. `mode`: ok | fail500 | reject400 | rate429 | hang | down. */
+/**
+ * Fake Telegram Bot API.
+ *
+ * `mode` (how it treats a request): ok | fail500 | reject400 | rate429 | hang.
+ * `auth` (what it thinks of the bot): ok | revoked — 401 to every method, as
+ * after the token was regenerated in BotFather | kicked — 403, the bot was
+ * removed from the chat.
+ * `attempts` counts sendMessage requests, `checks` — getChat requests.
+ */
 export async function fakeTelegram() {
-  const telegram = { mode: "ok", messages: [], attempts: 0, port: 0, server: null, url: "" };
+  const telegram = { mode: "ok", auth: "ok", messages: [], attempts: 0, checks: 0, port: 0, server: null, url: "" };
   telegram.server = http.createServer((req, res) => {
     const chunks = [];
     req.on("data", (chunk) => chunks.push(chunk));
     req.on("end", () => {
-      telegram.attempts += 1;
       const json = (status, body) => {
         res.writeHead(status, { "content-type": "application/json" });
         res.end(JSON.stringify(body));
       };
-      if (req.url !== `/bot${BOT_TOKEN}/sendMessage`) return json(404, { ok: false, description: "Not Found" });
-      if (telegram.mode === "fail500") return json(500, { ok: false, description: "Internal Server Error" });
-      if (telegram.mode === "reject400") return json(400, { ok: false, description: "Bad Request: message thread not found" });
-      if (telegram.mode === "rate429") {
+      const refused = () => {
+        if (telegram.auth === "revoked") return json(401, { ok: false, error_code: 401, description: "Unauthorized" });
+        return json(403, { ok: false, error_code: 403, description: "Forbidden: bot was kicked from the supergroup chat" });
+      };
+      const busy = () => {
+        if (telegram.mode === "fail500") return json(500, { ok: false, description: "Internal Server Error" });
         return json(429, { ok: false, error_code: 429, description: "Too Many Requests: retry after 5", parameters: { retry_after: 5 } });
+      };
+
+      if (req.url === `/bot${BOT_TOKEN}/getChat`) {
+        telegram.checks += 1;
+        if (telegram.mode === "hang") return; // accepts the request and never answers
+        if (telegram.auth !== "ok") return refused();
+        if (telegram.mode === "fail500" || telegram.mode === "rate429") return busy();
+        const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        return json(200, { ok: true, result: { id: Number(body.chat_id), type: "supergroup", is_forum: true } });
       }
+
+      telegram.attempts += 1;
+      if (req.url !== `/bot${BOT_TOKEN}/sendMessage`) return json(404, { ok: false, description: "Not Found" });
       if (telegram.mode === "hang") return; // accepts the request and never answers
+      if (telegram.auth !== "ok") return refused();
+      if (telegram.mode === "fail500" || telegram.mode === "rate429") return busy();
+      if (telegram.mode === "reject400") return json(400, { ok: false, description: "Bad Request: message thread not found" });
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       telegram.messages.push(body);
       return json(200, { ok: true, result: { message_id: telegram.messages.length } });
