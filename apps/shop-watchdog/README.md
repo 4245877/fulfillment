@@ -15,7 +15,7 @@ dies, nothing there can say so. This service closes that gap from the outside.
 | **Probes the shop** every 30 s through its public entry — the same one a buyer uses | `GET /nginx-healthz`, `GET /api/health`, `GET /api/products?limit=1`, `GET /` |
 | **Names what is broken**, not just "down" | see the table below |
 | **Is the dead-man switch** for the shop's monitoring | the shop's Alertmanager must `POST /heartbeat` every few minutes; silence is reported |
-| **Notifies the owner** through Telegram directly from this host | same bot, chat and "critical errors" topic as the fulfillment API |
+| **Notifies the owner** through Telegram directly from this host | its own bot token, chat and topic — `apps/shop-watchdog/.env` |
 | **Can be watched itself** | `GET /metrics` — scraped by the shop's Prometheus; `503` when it is not working |
 
 ### Statuses
@@ -86,25 +86,29 @@ a host reboot even if it was once stopped by hand. Do not signal it through
   watchdog must come up after a power cut even when this host has no internet.
 - **No shared fate.** Its own process, no database, no `depends_on`. A broken or
   restarting API does not stop it; rolling it out never restarts the API.
+- **No shared secrets or settings.** Its own env file. It holds no credential of
+  the API (printer orchestrator, atelier), and the API's Telegram settings —
+  changed, switched off or broken — do not change where, or whether, an outage
+  of the shop is reported.
 - **Small enough to read.** ~700 lines, every side effect injected, 53 tests.
 
-It still *uses* fulfillment: this repository, this host, this compose project
-and the API's Telegram settings.
+It still *uses* fulfillment: this repository, this host and this compose
+project.
 
 ## Configuration
 
-Telegram settings come from `apps/api/.env` (the service gets that file as
-`env_file` and reads only `TELEGRAM_*` and `SHOP_WATCHDOG_*`):
-`TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
-`TELEGRAM_TOPIC_CRITICAL_ERRORS_ID`.
-
-Everything else is in the root `.env` — see `.env.example`:
+Everything — settings and both secrets — is in **one file of its own**,
+`apps/shop-watchdog/.env` (ignored by git; `chmod 600`). The compose service
+reads nothing from `apps/api/.env` and interpolates nothing from the root
+`.env`. Start from `.env.example` in this directory:
 
 | Variable | Default | |
 |---|---|---|
+| `TELEGRAM_ENABLED` | — (required, `true`) | anything else is a configuration error |
+| `TELEGRAM_BOT_TOKEN` | — (required) | the bot that writes; it must be a member of the chat below |
+| `SHOP_WATCHDOG_TELEGRAM_CHAT_ID` / `_THREAD_ID` | — (required) | the chat and the topic inside it; set both — a topic id means something only inside its own chat |
 | `SHOP_WATCHDOG_BASE_URL` | — (required) | the shop's public entry, e.g. `http://192.168.0.135` |
 | `SHOP_WATCHDOG_HEARTBEAT_TOKEN` | empty = dead-man track off | shared secret of `POST /heartbeat`, ≥ 24 characters |
-| `SHOP_WATCHDOG_TELEGRAM_CHAT_ID` / `_THREAD_ID` | empty = the API's chat and its "critical errors" topic | pin the watchdog to a chat and topic of its own; set both — a pinned chat never inherits the API's topic id |
 | `SHOP_WATCHDOG_RUNBOOK` | empty | free text appended to messages as "what to do" |
 | `SHOP_WATCHDOG_SERVICE_NAME` | `Lite Forest (магазин)` | how the service is named in messages |
 | `SHOP_WATCHDOG_INTERVAL_MS` / `_TIMEOUT_MS` | `30000` / `5000` | probe cadence and per-request deadline |
@@ -117,7 +121,17 @@ An invalid or missing value is a configuration **error**, not a default: the
 service stays up, probes nothing, explains why on `/status`, and answers
 `/metrics` with `503` — the shop sees its watcher as down instead of trusting a
 half-configured one. `TELEGRAM_ENABLED` other than `true` is such an error: a
-watchdog that cannot notify is not a watchdog.
+watchdog that cannot notify is not a watchdog. A missing `.env` is the same
+case: the service starts unconfigured and says so.
+
+(`TELEGRAM_CHAT_ID` and `TELEGRAM_TOPIC_CRITICAL_ERRORS_ID` — the API's names —
+are still understood when the `SHOP_WATCHDOG_TELEGRAM_*` pair is absent;
+`/status` then shows `chatSource: "api"`.)
+
+**Rotating the bot token.** A token regenerated in BotFather invalidates the old
+one immediately, for every holder. Replace it in `apps/shop-watchdog/.env`,
+recreate the service (below) and confirm with `/status` and a test message: a
+watchdog with a revoked token probes happily and can tell nobody.
 
 ## HTTP surface (port 3002 on the host)
 
@@ -139,12 +153,15 @@ docker run --rm -v "$PWD/apps/shop-watchdog":/app:ro -w /app node:22-alpine \
   node --test 'test/*.test.mjs'
 
 # roll out: creates ONLY this service — api, postgres and dashboard are not touched
-docker compose up -d shop-watchdog
+# (--no-deps and the service name are the point: a bare `docker compose up -d`
+# also recreates every other service whose definition changed since it started)
+install -m 600 apps/shop-watchdog/.env.example apps/shop-watchdog/.env   # then fill it in
+docker compose up -d --no-deps shop-watchdog
 curl -s http://127.0.0.1:3002/status          # "ok": true, "shop": {"status": "ok"}
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3002/metrics   # 200
 
-# after changing .env or the code: recreate only this service
-docker compose up -d --force-recreate shop-watchdog
+# after changing apps/shop-watchdog/.env or the code: recreate only this service
+docker compose up -d --no-deps --force-recreate shop-watchdog
 
 # roll back: remove the service; the state directory stays
 docker compose rm -sf shop-watchdog

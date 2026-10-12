@@ -24,3 +24,7 @@
 # Logs and package-manager leftovers
 **/*.log
 **/package-lock.json
+
+# The shop watchdog is not part of any image: plain Node, bind-mounted by its
+# compose service. Keeps its .env (secrets) and state out of the build context.
+apps/shop-watchdog
