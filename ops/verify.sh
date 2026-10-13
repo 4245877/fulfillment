@@ -77,7 +77,12 @@ docker run --rm -v "$FULFILLMENT_DIR/apps/shop-watchdog":/app:ro -w /app "$NODE_
   node --test --test-timeout=60000 'test/*.test.mjs' | tail -9
 
 step "dashboard: production build"
-docker build -q -f "$FULFILLMENT_DIR/infra/docker/dashboard.Dockerfile" "$FULFILLMENT_DIR" >/dev/null
+# Tagged on purpose. An untagged `docker build` orphans the image it produces:
+# every verify run left another <none> image of a full dashboard behind, and
+# nothing ever collected them. Reusing one throwaway tag means each run
+# REPLACES the previous result instead of accumulating.
+docker build -q -t fulfillment-dashboard:verify \
+  -f "$FULFILLMENT_DIR/infra/docker/dashboard.Dockerfile" "$FULFILLMENT_DIR" >/dev/null
 echo ok
 
 step "atelier orchestrator: typecheck + tests"

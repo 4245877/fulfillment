@@ -75,3 +75,10 @@ test("routes Telegram topic tests only to known topics", () => {
     /Unsupported notification topic/
   );
 });
+
+
+test("routes print start and progress to the printing topic", () => {
+  for (const eventType of [NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_STARTED, NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_PROGRESS]) {
+    assert.equal(routeNotificationToTopic(eventType, {} as any), "prints");
+  }
+});

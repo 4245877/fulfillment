@@ -189,7 +189,15 @@ export class TelegramClient {
         );
       }
 
-      if (!body?.ok) {
+      if (body?.ok !== true) {
+        // A truncated/proxy response is no definitive Telegram rejection.
+        // Preserve the queued event when no valid error envelope was received.
+        if (body?.ok !== false || !Number.isInteger(body?.error_code) || body.error_code <= 0) {
+          throw new TelegramApiError("Telegram returned an invalid response", {
+            statusCode: response.status,
+            retryable: true,
+          });
+        }
         throw new TelegramApiError(
           `Telegram API error: ${toTelegramErrorMessage(body, "unknown error")}`,
           {
@@ -202,6 +210,14 @@ export class TelegramClient {
         );
       }
 
+      // sendMessage/sendPhoto confirm acceptance by returning a Message.
+      // An ok flag without that result must not mark the outbox as delivered.
+      if (!Number.isInteger(body.result?.message_id) || body.result.message_id < 0) {
+        throw new TelegramApiError("Telegram returned an invalid message response", {
+          statusCode: response.status,
+          retryable: true,
+        });
+      }
       return body.result as TelegramSendMessageResult;
     } catch (error) {
       if (error instanceof TelegramApiError) {
@@ -240,7 +256,7 @@ export class TelegramClient {
     } catch {
       throw new TelegramApiError("Telegram returned invalid JSON", {
         statusCode: response.status,
-        retryable: response.status >= 500,
+        retryable: response.ok || response.status === 429 || response.status >= 500,
       });
     }
   }

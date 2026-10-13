@@ -115,6 +115,14 @@ app.get("/api/ops/overview", async () => {
   };
 });
 
+const activeEventStreams = new Set<() => void>();
+
+// SSE responses stay open indefinitely. Release them before Fastify waits for
+// HTTP connections so its worker onClose hooks can drain acknowledged events.
+app.addHook("preClose", async () => {
+  for (const closeStream of [...activeEventStreams]) closeStream();
+});
+
 app.get("/api/events/stream", async (req, reply) => {
   reply.raw.writeHead(200, {
     "Content-Type": "text/event-stream; charset=utf-8",
@@ -126,7 +134,9 @@ app.get("/api/events/stream", async (req, reply) => {
   reply.hijack();
   reply.raw.write(`: connected ${new Date().toISOString()}\n\n`);
 
+  let closed = false;
   const send = (event: unknown) => {
+    if (closed) return;
     // Writes can throw if the socket is already gone between the close event and
     // the next tick; swallow so a disconnect never crashes the emitter loop.
     try {
@@ -145,10 +155,20 @@ app.get("/api/events/stream", async (req, reply) => {
     send({ domain: "ops", type: "heartbeat", ts: new Date().toISOString(), payload: {} });
   }, 5000);
 
-  req.raw.on("close", () => {
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
     clearInterval(timer);
     unsubscribe();
-  });
+    activeEventStreams.delete(closeStream);
+  };
+  const closeStream = () => {
+    cleanup();
+    if (!reply.raw.writableEnded && !reply.raw.destroyed) reply.raw.end();
+  };
+  activeEventStreams.add(closeStream);
+  reply.raw.once("close", cleanup);
+  req.raw.once("aborted", cleanup);
 });
 
 app.register(printersRoutes, { prefix: "/api/printers" });

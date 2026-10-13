@@ -222,7 +222,7 @@ test("classifyTransition reports a cancelled print", async () => {
   );
 });
 
-test("classifyTransition reports completion by raw state or progress", async () => {
+test("classifyTransition requires an explicit success marker for completion", async () => {
   const { classifyTransition } = await loadMonitor();
 
   assert.equal(
@@ -238,7 +238,7 @@ test("classifyTransition reports completion by raw state or progress", async () 
       status({ status: "printing", progressPct: 99 }),
       status({ status: "idle", progressPct: 100 })
     ),
-    "completed"
+    null
   );
 });
 
@@ -348,9 +348,10 @@ test("pollPrintersOnce reports transitions for cancel, pause, error and runout",
 
   for (const testCase of cases) {
     resetPrinterMonitorState();
+    const baseline = status({ status: "printing" });
     const client = fakeClient([
-      [status({ status: "printing" })],
-      [testCase.next],
+      [baseline],
+      [{ ...testCase.next, updatedAt: baseline.updatedAt }],
     ]);
     const c = collectors();
     await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
@@ -522,40 +523,15 @@ test("a monitor restart re-baselines and does not resend the already-sent event"
   );
 });
 
-test("the dedupe key is deterministic for one transition and differs across jobs/times", async () => {
+test("event dedupe uses committed version and ignores changing upstream timestamps", async () => {
   const { buildPrinterEventDedupeKey } = await loadMonitor();
-
-  const snap = status({
-    id: "k2",
-    status: "idle",
-    stateText: "complete",
-    currentFile: "vase.gcode",
-    updatedAt: "2026-07-12T10:00:00.000Z",
-  });
-
-  const key1 = buildPrinterEventDedupeKey(snap, "completed");
-  const key2 = buildPrinterEventDedupeKey({ ...snap }, "completed");
-  assert.equal(key1, key2, "same orchestrator snapshot -> same key");
-  assert.match(key1, /^notification:printer:k2:completed:/);
-
-  // A later re-print of the same file is a different event.
-  const rerun = { ...snap, updatedAt: "2026-07-12T18:00:00.000Z" };
-  assert.notEqual(buildPrinterEventDedupeKey(rerun, "completed"), key1);
-
-  // Another kind or another job never collides.
-  assert.notEqual(buildPrinterEventDedupeKey(snap, "cancelled"), key1);
-  assert.notEqual(
-    buildPrinterEventDedupeKey({ ...snap, currentFile: "boat.gcode" }, "completed"),
-    key1
-  );
-
-  // No updatedAt (older orchestrator): falls back to a time bucket, still
-  // deterministic within the same minute.
-  const legacy = { ...snap, updatedAt: null };
-  assert.equal(
-    buildPrinterEventDedupeKey(legacy, "completed", 1_000_000),
-    buildPrinterEventDedupeKey(legacy, "completed", 1_000_001)
-  );
+  const snap = status({ id: "k2", currentFile: "vase.gcode" });
+  const key = buildPrinterEventDedupeKey(snap, "completed", 3);
+  assert.equal(key, "notification:printer:k2:completed:v3");
+  assert.equal(buildPrinterEventDedupeKey({ ...snap, updatedAt: "2030-01-01T00:00:00Z" }, "completed", 3), key);
+  assert.notEqual(buildPrinterEventDedupeKey(snap, "completed", 4), key);
+  assert.notEqual(buildPrinterEventDedupeKey(snap, "cancelled", 3), key);
+  assert.notEqual(buildPrinterEventDedupeKey({ ...snap, id: "p2" }, "completed", 3), key);
 });
 
 test("pollPrintersOnce passes the dedupe key to the outbox enqueue", async () => {
@@ -694,4 +670,393 @@ test("pollPrintersOnce degrades to text-only when no snapshot is available", asy
 
   assert.equal(c.printerPayloads.length, 1);
   assert.equal(c.printerPayloads[0].photo, null);
+});
+
+test("start detection distinguishes a new run from pause/error recovery", async () => {
+  const { classifyTransition } = await loadMonitor();
+  assert.equal(classifyTransition(status(), status({ status: "printing" })), "started");
+  assert.equal(classifyTransition(status({ status: "paused" }), status({ status: "printing" })), null);
+  assert.equal(classifyTransition(status({ status: "error" }), status({ status: "printing" })), null);
+  assert.equal(classifyTransition(status({ status: "printing", currentFile: "a.gcode" }),
+    status({ status: "printing", currentFile: "b.gcode" })), "started");
+  assert.equal(classifyTransition(status({ status: "printing", activeRunId: "old" }),
+    status({ status: "printing", activeRunId: "new" })), "started");
+});
+
+test("completion requires success evidence and cancellation takes precedence", async () => {
+  const { classifyTransition } = await loadMonitor();
+  const active = status({ status: "printing", progressPct: 99 });
+  assert.equal(classifyTransition(active, status({ progressPct: 99 })), null);
+  assert.equal(classifyTransition(active, status({ stateMessage: "Print completed", progressPct: null })), "completed");
+  assert.equal(classifyTransition(active, status({ stateText: "complete", stateMessage: "cancelled", progressPct: 100 })), "cancelled");
+  assert.equal(classifyTransition(status({ status: "error" }), status({ progressPct: 100 })), null);
+  assert.equal(classifyTransition(status({ status: "error" }), status({ stateText: "complete" })), "completed");
+});
+
+test("printing milestones send current progress once without a premature 100% event", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const polls = [status(), ...[0, 29, 30, 20, 61, 61, 81, 100].map((progressPct) =>
+    status({ status: "printing", currentFile: "part.gcode", progressPct, remainingMinutes: 12, elapsedSeconds: 90 })),
+  status({ stateText: "complete", currentFile: null, progressPct: null, elapsedSeconds: 100 })];
+  const client = fakeClient(polls.map((entry) => [entry]));
+  const c = collectors();
+  for (const _entry of polls) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads.map((payload) => [payload.kind, payload.progressPct]),
+    [["started", 0], ["progress", 29], ["progress", 61], ["progress", 81], ["completed", 100]]);
+  assert.equal(c.printerPayloads[1].remainingMinutes, 12);
+  assert.equal(c.printerPayloads[1].elapsedSeconds, 90);
+  assert.equal(c.printerPayloads.at(-1)?.currentFile, "part.gcode");
+  assert.equal(c.printerPayloads.at(-1)?.elapsedSeconds, 100);
+  assert.equal(new Set(c.dedupeKeys).size, c.dedupeKeys.length);
+});
+
+test("a large progress jump sends only the highest crossed milestone", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const client = fakeClient([[status({ status: "printing", progressPct: 1 })],
+    [status({ status: "printing", progressPct: 82 })], [status({ status: "printing", progressPct: 84 })]]);
+  const c = collectors();
+  for (let i = 0; i < 3; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads.map((payload) => [payload.kind, payload.progressPct]), [["progress", 82]]);
+});
+
+test("a failed enqueue preserves the transition and event identity on a newer snapshot", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const base = Date.now();
+  const client = fakeClient([[status({ status: "printing", updatedAt: new Date(base).toISOString() })],
+    [status({ stateText: "complete", updatedAt: new Date(base + 1).toISOString() })],
+    [status({ stateText: "complete", updatedAt: new Date(base + 2).toISOString() })],
+    [status({ stateText: "complete", updatedAt: new Date(base + 3).toISOString() })]]);
+  const c = collectors();
+  const keys: Array<string | null | undefined> = [];
+  let attempts = 0;
+  const enqueue = async (payload: PrinterNotificationPayload, key?: string | null) => {
+    keys.push(key);
+    if (attempts++ === 0) throw new Error("temporary database failure");
+    return c.enqueue(payload, key);
+  };
+  const options = { client, enqueue, enqueueCritical: c.enqueueCritical, snapshotEnabled: false };
+  assert.equal(await pollPrintersOnce(options), 0);
+  assert.equal(await pollPrintersOnce(options), 0);
+  assert.equal(await pollPrintersOnce(options), 1);
+  assert.equal(await pollPrintersOnce(options), 0);
+  assert.equal(c.printerPayloads.length, 1);
+  assert.equal(keys.length, 2);
+  assert.equal(keys[0], keys[1]);
+});
+
+test("missing, offline and unknown observations preserve a print until reconnect completion", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  for (const gap of [[], [status({ status: "offline", online: false })], [status({ status: "unknown" })]]) {
+    resetPrinterMonitorState();
+    const client = fakeClient([[status({ status: "printing", currentFile: "job.gcode" })], gap,
+      [status({ stateText: "complete", currentFile: null, progressPct: null })]]);
+    const c = collectors();
+    for (let i = 0; i < 3; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+    assert.equal(c.printerPayloads.length, 1);
+    assert.equal(c.printerPayloads[0].kind, "completed");
+    assert.equal(c.printerPayloads[0].currentFile, "job.gcode");
+  }
+});
+
+test("a transient ambiguous idle cannot swallow a delayed terminal marker", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const client = fakeClient([[status({ status: "printing", currentFile: "job.gcode", progressPct: 95 })],
+    [status({ progressPct: null })], [status({ stateText: "complete", progressPct: null })],
+    [status({ stateText: "complete", progressPct: null })]]);
+  const c = collectors();
+  for (let i = 0; i < 4; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads.map((payload) => payload.kind), ["completed"]);
+  assert.equal(c.printerPayloads[0].currentFile, "job.gcode");
+});
+
+test("persisted state survives restarts without repeating start or progress and catches completion", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  const { createMemoryPrinterMonitorStateStore } = await import("./monitorState");
+  const store = createMemoryPrinterMonitorStateStore();
+  resetPrinterMonitorState();
+  const client = fakeClient([[status()], [status({ status: "printing", activeRunId: "run1", progressPct: 0 })],
+    [status({ status: "printing", activeRunId: "run1", progressPct: 51 })],
+    [status({ status: "printing", activeRunId: "run1", progressPct: 52 })],
+    [status({ stateText: "complete", progressPct: 100 })], [status({ stateText: "complete", progressPct: 100 })]]);
+  const c = collectors();
+  for (let i = 0; i < 3; i += 1) await pollPrintersOnce({ client, store, snapshotEnabled: false, ...c });
+  resetPrinterMonitorState();
+  assert.equal(await pollPrintersOnce({ client, store, snapshotEnabled: false, ...c }), 0);
+  resetPrinterMonitorState();
+  assert.equal(await pollPrintersOnce({ client, store, snapshotEnabled: false, ...c }), 1);
+  resetPrinterMonitorState();
+  assert.equal(await pollPrintersOnce({ client, store, snapshotEnabled: false, ...c }), 0);
+  assert.deepEqual(c.printerPayloads.map((payload) => payload.kind), ["started", "progress", "completed"]);
+});
+
+test("an older delayed snapshot cannot regress a completed baseline", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const base = Date.now();
+  const client = fakeClient([[status({ status: "printing", updatedAt: new Date(base).toISOString() })],
+    [status({ stateText: "complete", updatedAt: new Date(base + 2).toISOString() })],
+    [status({ status: "printing", updatedAt: new Date(base + 1).toISOString() })],
+    [status({ stateText: "complete", updatedAt: new Date(base + 3).toISOString() })]]);
+  const c = collectors();
+  for (let i = 0; i < 4; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads.map((payload) => payload.kind), ["completed"]);
+});
+
+test("reprinting the same file gets distinct durable event versions", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const client = fakeClient([status(), status({ status: "printing", currentFile: "same.gcode", progressPct: 0 }),
+    status({ stateText: "complete" }), status({ status: "printing", currentFile: "same.gcode", progressPct: 0 }),
+    status({ stateText: "complete" })].map((entry) => [entry]));
+  const c = collectors();
+  for (let i = 0; i < 5; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads.map((payload) => payload.kind), ["started", "completed", "started", "completed"]);
+  assert.equal(new Set(c.dedupeKeys).size, 4);
+});
+
+test("snapshot errors degrade to text without losing the event", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const client = fakeClient([[status({ status: "printing" })], [status({ stateText: "complete" })]]);
+  client.fetchSnapshot = async () => { throw new Error("snapshot timed out"); };
+  const c = collectors();
+  await pollPrintersOnce({ client, ...c });
+  assert.equal(await pollPrintersOnce({ client, ...c }), 1);
+  assert.equal(c.printerPayloads[0].photo, null);
+});
+
+test("negative completion text and free-text error never prove a successful print", async () => {
+  const { classifyTransition } = await loadMonitor();
+  const prev = status({ status: "printing", progressPct: 80 });
+  for (const next of [status({ stateMessage: "print not completed" }),
+    status({ stateText: "not completed" }), status({ error: "failed to complete print" }),
+    status({ stateMessage: "Unable to complete print" })]) {
+    assert.equal(classifyTransition(prev, next), null);
+    assert.equal(classifyTransition(prev, { ...next, progressPct: 100 }), null,
+      "100% cannot override explicit failure evidence");
+  }
+});
+
+test("a runout changing from pause to error is reported once and resume does not restart the run", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const client = fakeClient([status(), status({ status: "printing", progressPct: 1 }),
+    status({ status: "paused", stateMessage: "Filament runout" }),
+    status({ status: "error", error: "Filament runout" }),
+    status({ status: "printing", progressPct: 26 }), status({ stateText: "complete" })].map((entry) => [entry]));
+  const c = collectors();
+  for (let i = 0; i < 6; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads.map((payload) => payload.kind), ["started", "filament_runout", "progress", "completed"]);
+});
+
+test("cancellation requires a terminal marker rather than unrelated stop prose", async () => {
+  const { classifyTransition } = await loadMonitor();
+  const prev = status({ status: "printing" });
+  assert.equal(classifyTransition(prev, status({ stateText: "complete", stateMessage: "Job stopped after successful completion", progressPct: 100 })), "completed");
+  assert.equal(classifyTransition(prev, status({ stateMessage: "Print cancelled by user", progressPct: 100 })), "cancelled");
+  assert.equal(classifyTransition(prev, status({ stateMessage: "Print not cancelled", progressPct: 80 })), null);
+  assert.equal(classifyTransition(prev, status({ error: "Stop command failed", progressPct: 80 })), null);
+});
+
+test("failed outage and recovery enqueues remain armed for the next poll", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const outage = new OrchestratorError("network", "down");
+  const client = fakeClient([outage, outage, outage, outage, [status()], [status()], [status()], [status()]]);
+  const c = collectors();
+  const attempts = new Map<string, number>();
+  const enqueueCritical = async (payload: CriticalErrorNotificationPayload) => {
+    const count = attempts.get(payload.name ?? "") ?? 0;
+    attempts.set(payload.name ?? "", count + 1);
+    if (count === 0) throw new Error("critical outbox unavailable");
+    return c.enqueueCritical(payload);
+  };
+  const options = { client, snapshotEnabled: false, enqueue: c.enqueue, enqueueCritical };
+  await pollPrintersOnce(options);
+  await pollPrintersOnce(options);
+  assert.equal(await pollPrintersOnce(options), 0);
+  await pollPrintersOnce(options);
+  await pollPrintersOnce(options);
+  assert.equal(await pollPrintersOnce(options), 0);
+  await pollPrintersOnce(options);
+  await pollPrintersOnce(options);
+  assert.deepEqual(c.criticalPayloads.map((payload) => payload.name), ["PrinterOrchestratorUnavailable", "PrinterOrchestratorRecovered"]);
+  assert.equal(attempts.get("PrinterOrchestratorUnavailable"), 2);
+  assert.equal(attempts.get("PrinterOrchestratorRecovered"), 2);
+});
+
+
+test("ambiguous idle survives restart and permits a new same-file run with reset progress", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  const { createMemoryPrinterMonitorStateStore } = await import("./monitorState");
+  const store = createMemoryPrinterMonitorStateStore();
+  resetPrinterMonitorState();
+  const client = fakeClient([status({ status: "printing", currentFile: "same.gcode", progressPct: 80 }),
+    status(), status({ status: "printing", currentFile: "same.gcode", progressPct: 0 }),
+    status({ status: "printing", currentFile: "same.gcode", progressPct: 30 }),
+    status({ stateText: "complete" })].map((entry) => [entry]));
+  const c = collectors();
+  const options = { client, store, snapshotEnabled: false, ...c };
+  await pollPrintersOnce(options);
+  await pollPrintersOnce(options);
+  resetPrinterMonitorState();
+  for (let i = 0; i < 3; i += 1) await pollPrintersOnce(options);
+  assert.deepEqual(c.printerPayloads.map((payload) => payload.kind), ["started", "progress", "completed"]);
+  assert.equal(new Set(c.dedupeKeys).size, 3);
+});
+
+test("ambiguous idle followed by continuing progress does not invent a new run", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const client = fakeClient([status({ status: "printing", currentFile: "same.gcode", progressPct: 30 }),
+    status(), status({ status: "printing", currentFile: "same.gcode", progressPct: 31 }),
+    status({ stateText: "complete" })].map((entry) => [entry]));
+  const c = collectors();
+  for (let i = 0; i < 4; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads.map((payload) => payload.kind), ["completed"]);
+});
+
+test("newer ambiguous idle prevents delayed printing snapshots from consuming its restart evidence", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const base = Date.now();
+  const client = fakeClient([
+    status({ status: "printing", currentFile: "same.gcode", progressPct: 80, updatedAt: new Date(base).toISOString() }),
+    status({ updatedAt: new Date(base + 2).toISOString() }),
+    status({ status: "printing", currentFile: "same.gcode", progressPct: 0, updatedAt: new Date(base + 1).toISOString() }),
+    status({ status: "printing", currentFile: "same.gcode", progressPct: 1, updatedAt: new Date(base + 3).toISOString() }),
+  ].map((entry) => [entry]));
+  const c = collectors();
+  for (let i = 0; i < 4; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads.map((payload) => [payload.kind, payload.progressPct]), [["started", 1]]);
+});
+
+test("canonical run identity prevents filename enrichment and idle metric jitter from repeating a start", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState, classifyTransition } = await loadMonitor();
+  assert.equal(classifyTransition(status({ status: "printing", activeRunId: "run1", currentFile: "plate.gcode" }),
+    status({ status: "printing", activeRunId: "run1", currentFile: "Plate title" })), null);
+  resetPrinterMonitorState();
+  const client = fakeClient([status(),
+    status({ status: "printing", activeRunId: "run1", currentFile: "plate.gcode", progressPct: 10 }),
+    status({ status: "printing", activeRunId: "run1", currentFile: "Plate title", progressPct: 30 }),
+    status(), status({ status: "printing", activeRunId: "run1", currentFile: "Plate title", progressPct: 20 }),
+  ].map((entry) => [entry]));
+  const c = collectors();
+  for (let i = 0; i < 5; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads.map((payload) => payload.kind), ["started", "progress"]);
+});
+
+test("failed recovery alert enqueue cannot suppress a printer's short-lived terminal marker", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const outage = new OrchestratorError("network", "down");
+  const client = fakeClient([outage, outage, outage,
+    [status({ status: "printing", currentFile: "job.gcode", progressPct: 80 })],
+    [status({ stateText: "complete", currentFile: null, progressPct: null })],
+    [status()],
+  ]);
+  const c = collectors();
+  const options = { client, snapshotEnabled: false, enqueue: c.enqueue,
+    enqueueCritical: async (payload: CriticalErrorNotificationPayload) => {
+      if (payload.name === "PrinterOrchestratorRecovered") throw new Error("critical outbox unavailable");
+      return c.enqueueCritical(payload);
+    },
+  };
+  for (let i = 0; i < 6; i += 1) await pollPrintersOnce(options);
+  assert.deepEqual(c.printerPayloads.map((payload) => payload.kind), ["completed"]);
+  assert.equal(c.printerPayloads[0].currentFile, "job.gcode");
+});
+
+test("a standalone user cancellation marker wins over a lingering 100 percent value", async () => {
+  const { classifyTransition } = await loadMonitor();
+  const prev = status({ status: "printing" });
+  for (const marker of ["stopped by user", "cancelled by the operator", "aborted by user"]) {
+    assert.equal(classifyTransition(prev, status({ stateText: marker, progressPct: 100 })), "cancelled");
+  }
+});
+
+
+test("printer monitor worker aborts device reads and drains the active poll before shutdown", async () => {
+  const { registerPrinterMonitorWorker } = await loadMonitor();
+  const { env } = await import("../../shared/env");
+  const { default: Fastify } = await import("fastify");
+  const originalEnv = { ...env };
+  Object.assign(env, { PRINTER_MONITOR_ENABLED: true, PRINTER_ORCHESTRATOR_URL: "http://test.invalid",
+    TELEGRAM_ENABLED: true, TELEGRAM_BOT_TOKEN: "test", TELEGRAM_CHAT_ID: "test",
+    TELEGRAM_TOPIC_ORDERS_ID: 1, TELEGRAM_TOPIC_PRODUCT_REPORTS_ID: 2,
+    TELEGRAM_TOPIC_PRINTS_ID: 3, TELEGRAM_TOPIC_CRITICAL_ERRORS_ID: 4,
+  });
+  let finish: () => void = () => {};
+  const release = new Promise<void>((resolve) => { finish = resolve; });
+  let polls = 0;
+  let clientClosed = false;
+  const app = Fastify();
+  registerPrinterMonitorWorker(app, {
+    client: { close: () => { clientClosed = true; } } as unknown as OrchestratorClient,
+    poll: async () => { polls += 1; await release; return 1; },
+  });
+  await app.ready();
+  let closed = false;
+  const close = app.close().then(() => { closed = true; });
+  try {
+    await new Promise<void>((resolve) => { setImmediate(resolve); });
+    assert.equal(polls, 1);
+    assert.equal(clientClosed, true, "orchestrator reads abort as shutdown begins");
+    assert.equal(closed, false, "the database may close only after the active poll commits");
+  } finally {
+    finish();
+    await close;
+    Object.assign(env, originalEnv);
+  }
+  assert.equal(closed, true);
+  assert.equal(polls, 1);
+});
+
+
+test("monotonic elapsed time overrides progress recalculation across an ambiguous idle", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const client = fakeClient([status({ status: "printing", currentFile: "job.gcode", progressPct: 80, elapsedSeconds: 900 }),
+    status(), status({ status: "printing", currentFile: "job.gcode", progressPct: 70, elapsedSeconds: 910 }),
+  ].map((entry) => [entry]));
+  const c = collectors();
+  for (let i = 0; i < 3; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads, []);
+});
+
+test("elapsed time reset identifies a same-file restart even when progress is unavailable", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  resetPrinterMonitorState();
+  const client = fakeClient([status({ status: "printing", currentFile: "job.gcode", elapsedSeconds: 900 }),
+    status(), status({ status: "printing", currentFile: "job.gcode", elapsedSeconds: 5 }),
+  ].map((entry) => [entry]));
+  const c = collectors();
+  for (let i = 0; i < 3; i += 1) await pollPrintersOnce({ client, snapshotEnabled: false, ...c });
+  assert.deepEqual(c.printerPayloads.map((payload) => payload.kind), ["started"]);
+});
+
+
+test("100 percent idle stays ambiguous until an explicit completion marker arrives", async () => {
+  const { pollPrintersOnce, resetPrinterMonitorState } = await loadMonitor();
+  const { createMemoryPrinterMonitorStateStore } = await import("./monitorState");
+  const store = createMemoryPrinterMonitorStateStore();
+  resetPrinterMonitorState();
+  const client = fakeClient([status({ status: "printing", currentFile: "job.gcode", progressPct: 99 }),
+    status({ stateText: "standby", progressPct: 100 }), status({ progressPct: null }),
+    status({ stateText: "complete", progressPct: null }), status({ stateText: "complete" }),
+  ].map((entry) => [entry]));
+  const c = collectors();
+  const options = { client, store, snapshotEnabled: false, ...c };
+  assert.equal(await pollPrintersOnce(options), 0);
+  assert.equal(await pollPrintersOnce(options), 0, "a leftover percentage cannot announce success");
+  assert.equal(await pollPrintersOnce(options), 0);
+  resetPrinterMonitorState();
+  assert.equal(await pollPrintersOnce(options), 1, "a delayed explicit success remains reportable after restart");
+  assert.equal(await pollPrintersOnce(options), 0);
+  assert.deepEqual(c.printerPayloads.map((payload) => [payload.kind, payload.progressPct, payload.currentFile]),
+    [["completed", 100, "job.gcode"]]);
 });

@@ -27,6 +27,7 @@ export type OutboxEvent = {
   attempts: number;
   next_attempt_at: string;
   locked_at: string | null;
+  claim_token: string | null;
   delivered_at: string | null;
   last_error: string | null;
   created_at: string;
@@ -41,6 +42,7 @@ export type EnqueueOutboxEventInput = {
 
 export type ClaimOutboxEventsInput = {
   eventTypes: readonly string[];
+  eventIds?: readonly string[];
   limit?: number;
   lockTimeoutMs?: number;
 };
@@ -90,6 +92,7 @@ function toOutboxEvent(row: any): OutboxEvent {
     attempts: Number(row.attempts || 0),
     next_attempt_at: toIso(row.next_attempt_at) || "",
     locked_at: toIso(row.locked_at),
+    claim_token: row.claim_token ?? null,
     delivered_at: toIso(row.delivered_at),
     last_error: row.last_error ?? null,
     created_at: toIso(row.created_at) || "",
@@ -149,20 +152,24 @@ export async function enqueueOutboxEvent(
 }
 
 export async function claimOutboxEvents(
-  input: ClaimOutboxEventsInput
+  input: ClaimOutboxEventsInput,
+  connection: DbLike = db
 ): Promise<OutboxEvent[]> {
   const limit = Math.max(1, Math.min(input.limit ?? 10, 100));
   const lockTimeoutMs = input.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS;
   const staleBefore = new Date(Date.now() - lockTimeoutMs);
 
-  if (input.eventTypes.length === 0) {
+  if (input.eventTypes.length === 0 || input.eventIds?.length === 0) {
     return [];
   }
 
-  return db.transaction(async (trx) => {
+  return connection.transaction(async (trx) => {
     const rows = await trx(OUTBOX_TABLE)
       .select("*")
       .whereIn("event_type", input.eventTypes)
+      .modify((builder) => {
+        if (input.eventIds) builder.whereIn("id", input.eventIds);
+      })
       .andWhere((builder) => {
         builder
           .where((pending) => {
@@ -192,6 +199,7 @@ export async function claimOutboxEvents(
       .update({
         status: "processing",
         locked_at: trx.fn.now(),
+        claim_token: randomUUID(),
         updated_at: trx.fn.now(),
       });
 
@@ -204,23 +212,31 @@ export async function claimOutboxEvents(
   });
 }
 
-export async function markOutboxEventSent(id: string): Promise<void> {
-  await db(OUTBOX_TABLE)
-    .where({ id })
+export async function markOutboxEventSent(
+  event: OutboxEvent,
+  connection: DbLike = db
+): Promise<boolean> {
+  if (!event.claim_token) return false;
+  const changed = await connection(OUTBOX_TABLE)
+    .where({ id: event.id, status: "processing", claim_token: event.claim_token })
     .update({
       status: "sent",
-      delivered_at: db.fn.now(),
+      delivered_at: connection.fn.now(),
       locked_at: null,
+      claim_token: null,
       last_error: null,
-      updated_at: db.fn.now(),
+      updated_at: connection.fn.now(),
     });
+  return changed > 0;
 }
 
 export async function markOutboxEventFailed(
   event: OutboxEvent,
   error: unknown,
-  options: MarkOutboxEventFailedOptions = {}
-): Promise<void> {
+  options: MarkOutboxEventFailedOptions = {},
+  connection: DbLike = db
+): Promise<boolean> {
+  if (!event.claim_token) return false;
   const attempts = event.attempts + 1;
   const retryable = shouldRetryOutboxEvent(
     attempts,
@@ -229,14 +245,38 @@ export async function markOutboxEventFailed(
   );
   const backoffMs = calculateOutboxBackoffMs(attempts, options.retryAfterMs);
 
-  await db(OUTBOX_TABLE)
-    .where({ id: event.id })
+  const changed = await connection(OUTBOX_TABLE)
+    .where({ id: event.id, status: "processing", claim_token: event.claim_token })
     .update({
       status: retryable ? "pending" : "failed",
-      attempts: db.raw("attempts + 1"),
-      next_attempt_at: retryable ? new Date(Date.now() + backoffMs) : db.fn.now(),
+      attempts: connection.raw("attempts + 1"),
+      next_attempt_at: retryable ? new Date(Date.now() + backoffMs) : connection.fn.now(),
       locked_at: null,
+      claim_token: null,
       last_error: truncateError(error),
-      updated_at: db.fn.now(),
+      updated_at: connection.fn.now(),
     });
+  return changed > 0;
+}
+
+/** System-wide failures (e.g. expired bot credentials) must not consume a
+ * notification's retry budget while the operator repairs the integration. */
+export async function deferOutboxEvent(
+  event: OutboxEvent,
+  error: unknown,
+  delayMs: number = 60_000,
+  connection: DbLike = db
+): Promise<boolean> {
+  if (!event.claim_token) return false;
+  const changed = await connection(OUTBOX_TABLE)
+    .where({ id: event.id, status: "processing", claim_token: event.claim_token })
+    .update({
+      status: "pending",
+      next_attempt_at: new Date(Date.now() + Math.max(0, delayMs)),
+      locked_at: null,
+      claim_token: null,
+      last_error: truncateError(error),
+      updated_at: connection.fn.now(),
+    });
+  return changed > 0;
 }

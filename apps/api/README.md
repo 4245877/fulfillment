@@ -28,7 +28,7 @@ health-пробы ходят без ретрая.
   `available: false` with `reason` (`not_configured` /
   `orchestrator_unavailable`) instead of fake zeroes — the Board renders "—".
 - The background printer monitor polls statuses, classifies transitions
-  (completed / cancelled / paused / error / filament runout) and enqueues
+  (started / progress / completed / cancelled / paused / error / filament runout) and enqueues
   Telegram notifications into the outbox. Snapshots come from
   `GET /api/printers/:id/camera.jpg?ensureLight=1` (the orchestrator turns the
   chamber light on for night captures).
@@ -38,23 +38,42 @@ health-пробы ходят без ретрая.
   cadence, cycle duration, consecutive failures, outage flag, per-printer data
   age, enqueue/dedupe counters).
 
+### Print notification events
+
+A fresh idle → printing transition or a changed known job announces the start.
+Progress is reported once when crossing 25%, 50% and 75%; a jump over multiple
+milestones reports the current percentage once. Initial observation of an
+already running print does not announce a false start or replay past milestones.
+Pause, filament runout, device error, explicit cancellation and successful end
+are separate events. Completion requires an explicit firmware or message
+success marker; idle at 100% alone is not proof of completion. An ambiguous idle
+observation retains the tracked job until a delayed terminal marker resolves it.
+
+Messages retain the last known job name when firmware clears it on completion,
+include the current progress and available remaining minutes, and never infer
+elapsed printing time from progress. Optional snapshots degrade to text if
+unavailable or explicitly rejected as an invalid photo. Telegram timeouts keep
+the normal retry path; they do not trigger a second immediate text send.
+
 ### False/duplicate notification protection
 
-- **Baseline on first observation** — after a (re)start the first poll only
-  records state; pre-existing conditions are never (re-)announced.
-- **Durable dedupe** — every printer event enters the Telegram outbox with a
-  deterministic `dedupe_key` (`printer + kind + job-hash + orchestrator
-  updatedAt`); the outbox's unique index collapses the same transition seen
-  twice (overlapping cycles, crash between enqueue and baseline update) into
-  one row, so one transition can never send two messages.
+- **Durable baseline** — the last meaningful fresh status and acknowledged
+  progress milestone live in `printer_monitor_state`. They survive an API
+  restart. Only a printer with no saved baseline uses a quiet first observation.
+- **Atomic event and baseline** — each printer is locked while its transition
+  is enqueued and its baseline saved in one PostgreSQL transaction. A failed
+  enqueue cannot advance the baseline and lose the event; a crash cannot commit
+  the event without the matching baseline. Monotonic event versions form the
+  unique outbox dedupe key, independent of changing poll timestamps.
 - **Stale guard** — a status whose orchestrator-side `updatedAt` is older than
   `PRINTER_STATUS_STALE_MS` is never classified and never replaces the fresh
   baseline; when fresh data returns, the real transition (if any) is computed
   against that baseline. A frozen upstream poll can therefore not fabricate
   events.
-- **Offline conservatism** — `online: false`, `unknown` and missing responses
-  are never read as cancellations/completions; after a reconnect only a real
-  fresh transition reports.
+- **Offline conservatism** — `online: false`, `unknown`, stale and missing
+  responses do not replace the last meaningful baseline. On reconnect, an
+  explicit fresh terminal status can therefore report the end of the tracked
+  job. Ambiguous idle is never invented as completion or cancellation.
 - **Outage anti-flapping** — 3 consecutive failed polls raise exactly one
   critical alert (stable message text, deduped in the outbox within
   `NOTIFICATIONS_CRITICAL_DEDUPE_WINDOW_MS` even across a restart); recovery
@@ -63,6 +82,30 @@ health-пробы ходят без ретрая.
 - **No cycle overlap** — a poll cycle that is still running makes the next
   tick skip (counted in `overlapsSkipped`); cycles longer than the poll
   interval log a warning.
+- **Delivery isolation** — events are leased individually immediately before
+  sending, with enough time for both photo rejection and text fallback. Each
+  claim has a unique token; an expired worker cannot overwrite a new claim or
+  requeue a delivered event. One database update failure does not abort
+  unrelated deliveries; after a confirmed Telegram send only its database
+  acknowledgement is retried. Shutdown waits for that acknowledgement and
+  stops claiming new events.
+- **Integration rejection** — Telegram 401 (credentials) and 403 (chat access)
+  temporarily defer the event without consuming its retry budget and pause
+  dispatch for 60 seconds. Restore the bot token or chat permissions; recreate
+  the API container when changing environment configuration. Pending messages
+  remain queued; old failed messages are not blindly replayed.
+- **Rate limits** — Telegram 429 defers the current event without consuming its
+  retry budget and pauses dispatch for `retry_after` (60 seconds if absent).
+  Queued events are not repeatedly sent or dead-lettered during the cooldown.
+- **Delivery guarantee** — event creation and normal delivery are deduplicated.
+  Telegram offers no idempotency key for sending: a process crash after Telegram
+  accepts a message, or an ambiguous network timeout, can still lead to a retry.
+  Such deliveries cannot honestly be guaranteed exactly once.
+- **Existing databases** — migration `006_outbox_failed_status` repairs the
+  historical CHECK constraint to allow `failed`; editing migration 003 cannot
+  repair installations that already applied it. Migration 007 adds durable
+  monitor state; migration 008 adds delivery claim tokens. These migrations do
+  not delete or replay outbox messages.
 - An orchestrator outage degrades ONLY printer features: orders, inventory,
   shipments, appeals and the rest of the shop keep working; `/health` and
   `/ready` (DB-only) stay green.

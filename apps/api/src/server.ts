@@ -24,6 +24,26 @@ async function main() {
   await app.listen({ port, host });
 }
 
+let shuttingDown = false;
+
+async function shutdown(signal: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  app.log.info({ signal }, "Stopping fulfillment API");
+  try {
+    // Workers finish their current event before PostgreSQL is disconnected.
+    // Otherwise a normal restart can lose an accepted-send acknowledgement.
+    await app.close();
+    await db.destroy();
+  } catch (error) {
+    app.log.error({ err: error }, "Fulfillment API shutdown failed");
+    process.exitCode = 1;
+  }
+}
+
+process.on("SIGINT", () => { void shutdown("SIGINT"); });
+process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
+
 main().catch((err: unknown) => {
   app.log.error(err);
   process.exit(1);

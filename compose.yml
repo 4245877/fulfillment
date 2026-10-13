@@ -1,8 +1,19 @@
+# Container log rotation. Docker's json-file driver is UNBOUNDED by default and
+# this host has no /etc/docker/daemon.json, so a chatty container could fill the
+# disk with a single log file. 10 MB x 3 files caps each container at 30 MB.
+# Applied per service via `logging: *default-logging`.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: fulfillment-postgres
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: fulfillment
       POSTGRES_USER: fulfillment
@@ -22,6 +33,9 @@ services:
     container_name: fulfillment-api
     working_dir: /app
     restart: unless-stopped
+    # Allow active Telegram requests and their outbox acknowledgements to drain.
+    stop_grace_period: 2m
+    logging: *default-logging
     env_file:
       - .env
       - apps/api/.env
@@ -97,6 +111,7 @@ services:
         VITE_ATELIER_DASHBOARD_URL: ${ATELIER_DASHBOARD_URL:-}
     container_name: fulfillment-dashboard
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "4173:80"
     volumes:

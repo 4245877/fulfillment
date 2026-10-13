@@ -3,6 +3,8 @@ export const NOTIFICATION_EVENT_TYPES = {
   ORDER_SYNCED: "notification.order.synced",
   ORDER_STATUS_CHANGED: "notification.order.status_changed",
   PRODUCT_REPORT_CREATED: "notification.product_report.created",
+  PRINTER_PRINT_STARTED: "notification.printer.print_started",
+  PRINTER_PRINT_PROGRESS: "notification.printer.print_progress",
   PRINTER_ERROR: "notification.printer.error",
   PRINTER_PAUSED: "notification.printer.paused",
   PRINTER_FILAMENT_RUNOUT: "notification.printer.filament_runout",
@@ -73,6 +75,8 @@ export type NotificationPhoto = {
 };
 
 export type PrinterNotificationKind =
+  | "started"
+  | "progress"
   | "error"
   | "paused"
   | "filament_runout"
@@ -90,6 +94,9 @@ export type PrinterNotificationPayload = {
   stateText?: string | null;
   currentFile?: string | null;
   progressPct?: number | null;
+  remainingMinutes?: number | null;
+  /** Device-reported duration only; never inferred from progress. */
+  elapsedSeconds?: number | null;
   errorMessage?: string | null;
   occurredAt: string;
   photo?: NotificationPhoto | null;

@@ -5,6 +5,7 @@ import type { Knex } from "knex";
 
 import {
   claimOutboxEvents,
+  deferOutboxEvent,
   enqueueOutboxEvent,
   markOutboxEventFailed,
   markOutboxEventSent,
@@ -15,7 +16,7 @@ import {
   getTelegramConfig,
   type TelegramConfig,
 } from "../../infra/integrations/telegram/config";
-import { TelegramClient } from "../../infra/integrations/telegram/client";
+import { TelegramApiError, TelegramClient } from "../../infra/integrations/telegram/client";
 import type { OrderRecord } from "../orders/types";
 import type { ProductReport } from "../productReports/types";
 import { routeNotificationToTopic, getTelegramMessageThreadId } from "./routing";
@@ -55,11 +56,37 @@ type LoggerLike = {
   error?: (obj: unknown, message?: string) => void;
 };
 
+type NotificationOutboxStore = {
+  claim: typeof claimOutboxEvents;
+  markSent: typeof markOutboxEventSent;
+  markFailed: typeof markOutboxEventFailed;
+  defer: typeof deferOutboxEvent;
+};
+
+const notificationOutbox: NotificationOutboxStore = {
+  claim: claimOutboxEvents,
+  markSent: markOutboxEventSent,
+  markFailed: markOutboxEventFailed,
+  defer: deferOutboxEvent,
+};
+
+const TELEGRAM_AUTH_COOLDOWN_MS = 60_000;
+const TELEGRAM_RATE_LIMIT_FALLBACK_MS = 60_000;
+type TelegramBlockedReason = "telegram_unauthorized" | "telegram_forbidden" | "telegram_rate_limited";
+let telegramCooldown: {
+  botToken: string;
+  until: number;
+  reason: TelegramBlockedReason;
+} | null = null;
+
 type DispatchOptions = {
   client?: TelegramClient;
   config?: TelegramConfig;
   limit?: number;
+  eventIds?: readonly string[];
   logger?: LoggerLike;
+  outbox?: NotificationOutboxStore;
+  shouldStop?: () => boolean;
 };
 
 type DispatchResult = {
@@ -67,6 +94,7 @@ type DispatchResult = {
   claimed: number;
   sent: number;
   failed: number;
+  blockedReason?: TelegramBlockedReason;
 };
 
 function nowIso() {
@@ -174,6 +202,8 @@ export async function enqueueProductReportNotification(
 }
 
 function printerEventType(kind: PrinterNotificationKind): NotificationEventType {
+  if (kind === "started") return NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_STARTED;
+  if (kind === "progress") return NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_PROGRESS;
   if (kind === "error") {
     return NOTIFICATION_EVENT_TYPES.PRINTER_ERROR;
   }
@@ -319,19 +349,29 @@ async function sendNotificationEvent(
   const photo = getNotificationPhoto(payload);
 
   if (photo) {
-    await client.sendPhoto({
-      chatId: config.chatId,
-      messageThreadId,
-      // Defensive net on top of the per-field clamps in the templates: a media
-      // caption tops out at 1024 chars, beyond which Telegram returns a
-      // non-retryable 400.
-      caption: clampTelegramText(text, TELEGRAM_CAPTION_LIMIT),
-      parseMode: "HTML",
-      photo: Buffer.from(photo.base64, "base64"),
-      mimeType: photo.mime,
-      filename: photo.filename || undefined,
-    });
-    return;
+    try {
+      await client.sendPhoto({
+        chatId: config.chatId,
+        messageThreadId,
+        caption: clampTelegramText(text, TELEGRAM_CAPTION_LIMIT),
+        parseMode: "HTML",
+        photo: Buffer.from(photo.base64, "base64"),
+        mimeType: photo.mime,
+        filename: photo.filename || undefined,
+      });
+      return;
+    } catch (error) {
+      // A rejected camera image must not discard the print event. Only fall
+      // back after a definitive media rejection: on a timeout the photo may
+      // already have been delivered, so sending text would create a duplicate.
+      if (
+        !(error instanceof TelegramApiError) ||
+        (error.statusCode !== 400 && error.telegramErrorCode !== 400) ||
+        !/(?:PHOTO_INVALID_DIMENSIONS|IMAGE_PROCESS_FAILED|wrong (?:type|file)|invalid (?:photo|image)|photo (?:is|must)|file (?:is too big|must be non-empty)|failed to (?:process|decode) (?:photo|image))/i.test(error.message)
+      ) {
+        throw error;
+      }
+    }
   }
 
   await client.sendMessage({
@@ -352,6 +392,13 @@ export async function dispatchPendingNotifications(
     return { enabled: false, claimed: 0, sent: 0, failed: 0 };
   }
 
+  if (
+    telegramCooldown?.botToken === config.botToken &&
+    Date.now() < telegramCooldown.until
+  ) {
+    return { enabled: true, claimed: 0, sent: 0, failed: 0, blockedReason: telegramCooldown.reason };
+  }
+
   const client =
     options.client ??
     new TelegramClient({
@@ -359,34 +406,120 @@ export async function dispatchPendingNotifications(
       timeoutMs: config.requestTimeoutMs,
     });
 
-  const events = await claimOutboxEvents({
-    eventTypes: NOTIFICATION_EVENT_TYPE_VALUES,
-    limit: options.limit ?? env.NOTIFICATIONS_BATCH_SIZE,
-  });
-
+  const outbox = options.outbox ?? notificationOutbox;
+  const limit = Math.max(1, Math.min(options.limit ?? env.NOTIFICATIONS_BATCH_SIZE, 100));
   const result: DispatchResult = {
     enabled: true,
-    claimed: events.length,
+    claimed: 0,
     sent: 0,
     failed: 0,
   };
 
-  for (const event of events) {
+  for (let index = 0; index < limit; index += 1) {
+    if (options.shouldStop?.()) break;
+    if (telegramCooldown?.botToken === config.botToken && Date.now() < telegramCooldown.until) {
+      result.blockedReason = telegramCooldown.reason;
+      break;
+    }
+    // Claim immediately before sending. Locking an entire slow batch up front
+    // lets its later rows expire and be sent concurrently by another worker.
+    const [event] = await outbox.claim({
+      eventTypes: NOTIFICATION_EVENT_TYPE_VALUES,
+      eventIds: options.eventIds,
+      limit: 1,
+      // A definitive media rejection may require a second text request.
+      lockTimeoutMs: Math.max(120_000, 2 * config.requestTimeoutMs + 30_000),
+    });
+    if (!event) break;
+    result.claimed += 1;
+    if (options.shouldStop?.()) {
+      await outbox.defer(event, new Error("Notification worker is shutting down"), 0);
+      break;
+    }
+    // A concurrent manual dispatch can discover a bot cooldown while this
+    // claim is in flight. Release it rather than making another rejected send.
+    if (telegramCooldown?.botToken === config.botToken && Date.now() < telegramCooldown.until) {
+      result.blockedReason = telegramCooldown.reason;
+      await outbox.defer(event, new Error("Telegram delivery cooldown is active"),
+        telegramCooldown.until - Date.now());
+      break;
+    }
+
     try {
       await sendNotificationEvent(event, client, config);
-      await markOutboxEventSent(event.id);
-      result.sent += 1;
     } catch (error) {
-      await markOutboxEventFailed(event, error, {
-        retryAfterMs: getNotificationRetryAfterMs(error),
-        retryable: isRetryableNotificationError(error),
-        maxAttempts: env.NOTIFICATIONS_MAX_ATTEMPTS,
-      });
       result.failed += 1;
-
       options.logger?.error?.(
         { eventId: event.id, error: getErrorMessage(error) },
         "Failed to dispatch Telegram notification"
+      );
+      const unauthorized = error instanceof TelegramApiError &&
+        (error.statusCode === 401 || error.telegramErrorCode === 401);
+      const forbidden = error instanceof TelegramApiError &&
+        (error.statusCode === 403 || error.telegramErrorCode === 403);
+      const rateLimited = error instanceof TelegramApiError &&
+        (error.statusCode === 429 || error.telegramErrorCode === 429);
+      if (unauthorized || forbidden || rateLimited) {
+        // Integration rejection affects subsequent deliveries. Preserve retry budgets and
+        // honour Telegram's cooldown before claiming another queued event.
+        const delayMs = unauthorized || forbidden ? TELEGRAM_AUTH_COOLDOWN_MS :
+          getNotificationRetryAfterMs(error) ?? TELEGRAM_RATE_LIMIT_FALLBACK_MS;
+        result.blockedReason = unauthorized ? "telegram_unauthorized" :
+          forbidden ? "telegram_forbidden" : "telegram_rate_limited";
+        telegramCooldown = {
+          botToken: config.botToken,
+          until: Date.now() + delayMs,
+          reason: result.blockedReason,
+        };
+        try {
+          await outbox.defer(event, error, delayMs);
+        } catch (persistError) {
+          options.logger?.error?.(
+            { eventId: event.id, error: getErrorMessage(persistError) },
+            "Failed to defer Telegram notification after integration rejection"
+          );
+        }
+        break;
+      }
+      try {
+        await outbox.markFailed(event, error, {
+          retryAfterMs: getNotificationRetryAfterMs(error),
+          retryable: isRetryableNotificationError(error),
+          maxAttempts: env.NOTIFICATIONS_MAX_ATTEMPTS,
+        });
+      } catch (persistError) {
+        // Keep the row leased for crash recovery, but don't let one failed
+        // database update strand every other event in the batch.
+        options.logger?.error?.(
+          { eventId: event.id, error: getErrorMessage(persistError) },
+          "Failed to persist Telegram notification failure"
+        );
+      }
+      continue;
+    }
+
+    // Telegram has confirmed delivery. Retry the database acknowledgement,
+    // never the send, if persisting that result fails.
+    let acknowledged = false;
+    let acknowledgementError: unknown;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        acknowledged = await outbox.markSent(event);
+        if (!acknowledged) {
+          acknowledgementError = new Error("Outbox delivery lease is no longer owned by this worker");
+        }
+        break;
+      } catch (error) {
+        acknowledgementError = error;
+      }
+    }
+    if (acknowledged) {
+      result.sent += 1;
+    } else {
+      result.failed += 1;
+      options.logger?.error?.(
+        { eventId: event.id, error: getErrorMessage(acknowledgementError) },
+        "Telegram delivery confirmed but outbox acknowledgement failed; delivery may repeat after lease recovery"
       );
     }
   }
@@ -411,28 +544,30 @@ function criticalPayloadFromError(
   };
 }
 
-export function registerNotificationOutboxWorker(app: FastifyInstance) {
+export function registerNotificationOutboxWorker(
+  app: FastifyInstance,
+  options: { dispatch?: typeof dispatchPendingNotifications; config?: TelegramConfig } = {}
+) {
   let timer: ReturnType<typeof setInterval> | null = null;
-  let running = false;
+  let activeRun: Promise<void> | null = null;
+  let closing = false;
 
-  const run = async () => {
-    if (running) {
-      return;
-    }
-
-    running = true;
-
-    try {
-      const result = await dispatchPendingNotifications({ logger: app.log });
-
-      if (result.enabled && result.claimed > 0) {
-        app.log.info(result, "Telegram notification dispatch completed");
+  const run = () => {
+    if (closing || activeRun) return;
+    activeRun = (async () => {
+      try {
+        const result = await (options.dispatch ?? dispatchPendingNotifications)({
+          logger: app.log,
+          config: options.config,
+          shouldStop: () => closing,
+        });
+        if (result.enabled && result.claimed > 0) {
+          app.log.info(result, "Telegram notification dispatch completed");
+        }
+      } catch (error) {
+        app.log.error({ error: getErrorMessage(error) }, "Notification worker failed");
       }
-    } catch (error) {
-      app.log.error({ error: getErrorMessage(error) }, "Notification worker failed");
-    } finally {
-      running = false;
-    }
+    })().finally(() => { activeRun = null; });
   };
 
   app.setErrorHandler(async (error, req, reply) => {
@@ -473,7 +608,7 @@ export function registerNotificationOutboxWorker(app: FastifyInstance) {
   });
 
   app.addHook("onReady", async () => {
-    const config = getTelegramConfig();
+    const config = options.config ?? getTelegramConfig();
 
     if (!config.enabled) {
       app.log.info("Telegram notifications are disabled");
@@ -488,9 +623,11 @@ export function registerNotificationOutboxWorker(app: FastifyInstance) {
   });
 
   app.addHook("onClose", async () => {
+    closing = true;
     if (timer) {
       clearInterval(timer);
       timer = null;
     }
+    await activeRun;
   });
 }

@@ -50,6 +50,8 @@ export type OrchestratorPrinterStatus = {
   online: boolean;
   status: OrchestratorPrinterState;
   currentFile: string | null;
+  activeRunId?: string | null;
+  elapsedSeconds?: number | null;
   progressPct: number | null;
   remainingMinutes: number | null;
   nozzleTemp: number | null;
@@ -184,8 +186,19 @@ function toText(value: unknown): string | null {
 }
 
 function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "string" && !value.trim()) return null;
   const parsed = typeof value === "string" ? Number(value.trim()) : value;
   return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
+}
+
+function nonNegativeNumber(value: unknown): number | null {
+  const number = toFiniteNumber(value);
+  return number !== null && number >= 0 ? number : null;
+}
+
+function normalizeProgress(value: unknown): number | null {
+  const number = nonNegativeNumber(value);
+  return number !== null && number <= 100 ? number : null;
 }
 
 function toState(value: unknown): OrchestratorPrinterState {
@@ -226,8 +239,10 @@ export function normalizeOrchestratorPrinter(
         : status !== "offline" && status !== "unknown",
     status,
     currentFile: toText(value.job) ?? toText(value.currentFile),
-    progressPct: toFiniteNumber(value.progress ?? value.progressPct),
-    remainingMinutes: toFiniteNumber(value.minutesLeft ?? value.remainingMinutes),
+    activeRunId: toText(value.activeRunId),
+    elapsedSeconds: nonNegativeNumber(value.elapsedSeconds),
+    progressPct: normalizeProgress(value.progress ?? value.progressPct),
+    remainingMinutes: nonNegativeNumber(value.minutesLeft ?? value.remainingMinutes),
     nozzleTemp: toCurrentTemp(value.nozzle ?? value.nozzleTemp),
     bedTemp: toCurrentTemp(value.bed ?? value.bedTemp),
     material: toText(value.liveMaterial) ?? toText(value.material),

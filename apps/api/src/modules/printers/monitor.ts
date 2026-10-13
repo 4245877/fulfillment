@@ -1,9 +1,13 @@
-import { createHash } from "node:crypto";
-
 import type { FastifyInstance } from "fastify";
+import type { Knex } from "knex";
 
 import { env } from "../../shared/env";
 import { isStaleStatus } from "./staleness";
+import {
+  createMemoryPrinterMonitorStateStore,
+  printerMonitorStateStore,
+  type PrinterMonitorStateStore,
+} from "./monitorState";
 import { getTelegramConfig } from "../../infra/integrations/telegram/config";
 import {
   createOrchestratorClientFromEnv,
@@ -25,6 +29,8 @@ import type {
 export type PrinterStatus = OrchestratorPrinterStatus;
 
 export type PrinterTransitionKind =
+  | "started"
+  | "progress"
   | "error"
   | "paused"
   | "filament_runout"
@@ -37,8 +43,10 @@ type LoggerLike = {
   error?: (obj: unknown, message?: string) => void;
 };
 
-const COMPLETE_RE = /complete|finish|done/i;
-const CANCEL_RE = /cancel|abort|stop/i;
+const COMPLETE_STATE_RE = /^(?:complete(?:d)?|finish(?:ed)?|done|success(?:ful(?:ly)?)?)[.!]?$/i;
+const COMPLETE_MESSAGE_RE = /^(?:print(?:ing)?|job)\s+(?:(?:is|has|was)\s+)?(?:successfully\s+)?(?:complete(?:d)?|finish(?:ed)?|done)(?:\s+successfully)?[.!]?$/i;
+const CANCEL_STATE_RE = /^(?:cancel(?:led|ed)?|abort(?:ed)?|stop(?:ped)?)(?:\s+by\s+(?:the\s+)?(?:user|operator))?[.!]?$/i;
+const CANCEL_MESSAGE_RE = /^(?:print(?:ing)?|job)\s+(?:(?:is|has|was)\s+)?(?:cancel(?:led|ed)?|abort(?:ed)?|stop(?:ped)?)(?:\s+by\s+(?:the\s+)?(?:user|operator))?[.!]?$/i;
 // Firmware-reported pause/error reasons that mean the spool ran out. Covers
 // Moonraker (`print_stats.message`), Klipper macros, Creality and common
 // localisations so a runout is surfaced distinctly from a manual pause.
@@ -66,72 +74,79 @@ function looksFilamentRunout(status: PrinterStatus): boolean {
 /**
  * True when an idle/stopped print was aborted rather than finished. Relies on
  * the device reporting a cancel/abort/stop state (Moonraker "cancelled",
- * Creality "stop"); a purely numeric idle state with no marker is
- * indistinguishable from completion and is left to `looksComplete`.
+ * Creality "stop"). A numeric idle state without a terminal marker stays
+ * ambiguous even when its previous job percentage lingers at 100.
  */
 function looksCancelled(status: PrinterStatus): boolean {
-  return Boolean(status.stateText && CANCEL_RE.test(status.stateText));
+  return [status.stateText, status.stateMessage].some((text) =>
+    text != null && (CANCEL_STATE_RE.test(text.trim()) || CANCEL_MESSAGE_RE.test(text.trim()))
+  );
 }
 
-function looksComplete(status: PrinterStatus): boolean {
-  if (looksCancelled(status)) {
-    return false;
-  }
-
-  if (status.stateText && COMPLETE_RE.test(status.stateText)) {
-    return true;
-  }
-
-  return status.progressPct != null && status.progressPct >= 99;
+function hasExplicitCompletion(status: PrinterStatus): boolean {
+  // Error text and arbitrary prose such as "failed to complete" cannot prove
+  // success. Accept firmware state markers or a complete success message.
+  return [status.stateText, status.stateMessage].some((text) =>
+    text != null && (COMPLETE_STATE_RE.test(text.trim()) || COMPLETE_MESSAGE_RE.test(text.trim()))
+  );
 }
 
-/**
- * Decides whether the change from `prev` to `next` is worth a Telegram
- * notification. Returns `null` for the first observation, offline blips, and
- * any non-notable change so the monitor stays quiet between real events.
- *
- * Deliberate conservatism around connectivity gaps: while a printer is offline
- * its baseline becomes the offline status, and an idle→(anything) edge after a
- * reconnect matches no completion/cancel branch — a print that ended while the
- * link was down is reported late by a real fresh transition or not at all,
- * never invented from the gap.
- */
+function sameRun(prev: PrinterStatus, next: PrinterStatus): boolean {
+  return Boolean(prev.activeRunId && next.activeRunId && prev.activeRunId === next.activeRunId);
+}
+
+function changedJob(prev: PrinterStatus, next: PrinterStatus): boolean {
+  // Canonical run identity outranks display metadata: devices can enrich the
+  // filename with a task title while the same print is already running.
+  if (prev.activeRunId && next.activeRunId) return prev.activeRunId !== next.activeRunId;
+  return Boolean(prev.currentFile && next.currentFile && prev.currentFile !== next.currentFile);
+}
+
+function resetPrintMetrics(prev: PrinterStatus, next: PrinterStatus): boolean {
+  // Elapsed print time is monotonic; a percentage may recalculate downward
+  // while the same job continues, so prefer the timer when both are known.
+  if (prev.elapsedSeconds != null && next.elapsedSeconds != null) {
+    return next.elapsedSeconds < prev.elapsedSeconds;
+  }
+  return prev.progressPct != null && next.progressPct != null && next.progressPct < prev.progressPct;
+}
+
+function progressMilestone(status: PrinterStatus): number {
+  const progress = status.progressPct ?? 0;
+  return progress >= 75 ? 75 : progress >= 50 ? 50 : progress >= 25 ? 25 : 0;
+}
+
+/** Classify fresh device transitions; a first observation establishes a baseline. */
 export function classifyTransition(
   prev: PrinterStatus | undefined,
   next: PrinterStatus
 ): PrinterTransitionKind | null {
-  // First time we see this printer: record a baseline, never alert. This also
-  // avoids spurious alerts after an API restart for a pre-existing condition.
-  if (!prev) {
-    return null;
-  }
+  if (!prev || !next.online || next.status === "unknown" || next.status === "offline") return null;
 
-  if (!next.online) {
-    return null;
+  if (next.status === "printing" && (prev.status === "idle" || changedJob(prev, next))) {
+    return "started";
   }
 
   if (next.status === "error" && prev.status !== "error") {
-    // Some firmwares surface a filament runout as an "error" rather than a
-    // pause; classify it as a runout so the operator gets the actionable
-    // message instead of a generic printer error.
-    return looksFilamentRunout(next) ? "filament_runout" : "error";
-  }
-
-  if (next.status === "paused" && prev.status === "printing") {
-    return looksFilamentRunout(next) ? "filament_runout" : "paused";
+    if (looksFilamentRunout(next)) return looksFilamentRunout(prev) ? null : "filament_runout";
+    return "error";
   }
 
   if (
-    next.status === "idle" &&
-    (prev.status === "printing" || prev.status === "paused")
-  ) {
-    if (looksCancelled(next)) {
-      return "cancelled";
-    }
+    (next.status === "paused" || next.status === "error") &&
+    looksFilamentRunout(next) && !looksFilamentRunout(prev)
+  ) return "filament_runout";
 
-    if (looksComplete(next)) {
-      return "completed";
-    }
+  if (next.status === "paused" && prev.status === "printing") return "paused";
+
+  if (
+    next.status === "idle" &&
+    (prev.status === "printing" || prev.status === "paused" || prev.status === "error")
+  ) {
+    if (looksCancelled(next)) return "cancelled";
+    // Match the orchestrator's outcome policy: a lingering percentage is
+    // context, while only an explicit success marker can prove completion.
+    if (hasExplicitCompletion(next)) return "completed";
   }
 
   return null;
@@ -139,27 +154,13 @@ export function classifyTransition(
 
 export { isStaleStatus } from "./staleness";
 
-/**
- * Deterministic outbox dedupe key for one detected transition. Encodes the
- * printer, the event kind, the job and the orchestrator's own status timestamp
- * — so re-processing the same orchestrator snapshot (overlapping cycles, a
- * crash between enqueue and baseline update) cannot enqueue twice, while a
- * genuine re-print of the same file later produces a different key. Statuses
- * without updatedAt fall back to a one-minute wall-clock bucket.
- */
+/** A committed monotonic version identifies the event independently of device timestamps. */
 export function buildPrinterEventDedupeKey(
   status: PrinterStatus,
   kind: PrinterTransitionKind,
-  nowMs: number = Date.now()
+  eventVersion: number
 ): string {
-  const jobHash = createHash("sha1")
-    .update(status.currentFile ?? "")
-    .digest("hex")
-    .slice(0, 12);
-
-  const stamp = status.updatedAt ?? `bucket:${Math.floor(nowMs / 60_000)}`;
-
-  return `notification:printer:${status.id}:${kind}:${jobHash}:${stamp}`;
+  return `notification:printer:${status.id}:${kind}:v${eventVersion}`;
 }
 
 export function buildPrinterNotificationPayload(
@@ -177,7 +178,11 @@ export function buildPrinterNotificationPayload(
     status: status.status,
     stateText: status.stateText ?? null,
     currentFile: status.currentFile ?? null,
-    progressPct: status.progressPct ?? null,
+    progressPct: kind === "completed" ? 100
+      : status.progressPct != null && status.progressPct < 100 ? status.progressPct : null,
+    remainingMinutes: kind === "completed" || kind === "cancelled"
+      ? null : status.remainingMinutes ?? null,
+    elapsedSeconds: status.elapsedSeconds ?? null,
     errorMessage:
       kind === "completed" || kind === "cancelled"
         ? null
@@ -199,8 +204,11 @@ export type PollPrintersOptions = {
   /** Injectable for tests; defaults to the real Telegram outbox enqueue. */
   enqueue?: (
     payload: PrinterNotificationPayload,
-    dedupeKey?: string | null
+    dedupeKey?: string | null,
+    transaction?: Knex.Transaction
   ) => Promise<unknown>;
+  /** Injectable durable store; custom enqueue handlers default to an in-memory store. */
+  store?: PrinterMonitorStateStore;
   /** Injectable for tests; defaults to the critical-errors outbox enqueue. */
   enqueueCritical?: (
     payload: CriticalErrorNotificationPayload
@@ -250,7 +258,7 @@ export type PrinterMonitorStats = {
 };
 
 type MonitorState = {
-  lastStatusByPrinter: Map<string, PrinterStatus>;
+  memoryStore: PrinterMonitorStateStore;
   /** Printer ids currently skipped as stale, to log the edge once. */
   staleIds: Set<string>;
   consecutiveFailures: number;
@@ -278,7 +286,7 @@ function freshStats(): PrinterMonitorStats {
 }
 
 const state: MonitorState = {
-  lastStatusByPrinter: new Map(),
+  memoryStore: createMemoryPrinterMonitorStateStore(),
   staleIds: new Set(),
   consecutiveFailures: 0,
   consecutiveSuccesses: 0,
@@ -288,7 +296,7 @@ const state: MonitorState = {
 };
 
 export function resetPrinterMonitorState() {
-  state.lastStatusByPrinter.clear();
+  state.memoryStore = createMemoryPrinterMonitorStateStore();
   state.staleIds.clear();
   state.consecutiveFailures = 0;
   state.consecutiveSuccesses = 0;
@@ -354,6 +362,20 @@ async function trackOrchestratorAvailability(
 ): Promise<void> {
   const enqueueCritical =
     options.enqueueCritical ?? enqueueCriticalErrorNotification;
+  const enqueueSafely = async (payload: CriticalErrorNotificationPayload): Promise<boolean> => {
+    try {
+      await enqueueCritical(payload);
+      return true;
+    } catch (error) {
+      // Keep this alert armed for retry, but still classify every printer in
+      // a successful poll: a terminal marker may disappear by the next one.
+      options.logger?.error?.(
+        { operation: "printer_monitor_availability_enqueue", alert: payload.name, error: getErrorMessage(error) },
+        "Failed to enqueue orchestrator availability notification"
+      );
+      return false;
+    }
+  };
 
   if (outcome === "failed") {
     state.consecutiveFailures += 1;
@@ -363,7 +385,6 @@ async function trackOrchestratorAvailability(
       state.consecutiveFailures >= ORCHESTRATOR_DOWN_AFTER_FAILURES &&
       !state.outageNotified
     ) {
-      state.outageNotified = true;
       options.logger?.error?.(
         {
           operation: "printer_monitor_outage",
@@ -372,7 +393,7 @@ async function trackOrchestratorAvailability(
         },
         "Print orchestrator outage confirmed"
       );
-      await enqueueCritical({
+      state.outageNotified = await enqueueSafely({
         message:
           "Оркестратор печати недоступен — мониторинг принтеров не получает статусы.",
         name: "PrinterOrchestratorUnavailable",
@@ -389,17 +410,16 @@ async function trackOrchestratorAvailability(
     state.outageNotified &&
     state.consecutiveSuccesses >= ORCHESTRATOR_RECOVERED_AFTER_SUCCESSES
   ) {
-    state.outageNotified = false;
     options.logger?.info?.(
       { operation: "printer_monitor_recovery" },
       "Print orchestrator recovered"
     );
-    await enqueueCritical({
+    if (await enqueueSafely({
       message:
         "Оркестратор печати снова доступен — мониторинг принтеров восстановлен.",
       name: "PrinterOrchestratorRecovered",
       occurredAt: new Date().toISOString(),
-    });
+    })) state.outageNotified = false;
   }
 }
 
@@ -481,16 +501,9 @@ async function pollPrintersCycle(options: PollPrintersOptions): Promise<number> 
   state.stats.lastSuccessAt = new Date().toISOString();
   await trackOrchestratorAvailability("ok", null, options);
 
-  // Drop baselines for printers no longer reported so the map can't grow
-  // without bound as printers come and go. A printer re-added later is then
-  // treated as a fresh first observation (no spurious alert).
-  const activeIds = new Set(statuses.map((printer) => printer.id));
-  for (const knownId of state.lastStatusByPrinter.keys()) {
-    if (!activeIds.has(knownId)) {
-      state.lastStatusByPrinter.delete(knownId);
-      state.staleIds.delete(knownId);
-    }
-  }
+  // Keep baselines for temporarily missing printers. Removal from a poll is
+  // a connectivity gap, not evidence that the active job disappeared.
+  const store = options.store ?? (options.enqueue ? state.memoryStore : printerMonitorStateStore);
 
   const nowMs = Date.now();
   state.stats.printers = statuses.map((status) => ({
@@ -529,61 +542,84 @@ async function pollPrintersCycle(options: PollPrintersOptions): Promise<number> 
       }
       state.staleIds.delete(status.id);
 
-      const prev = state.lastStatusByPrinter.get(status.id);
-      state.lastStatusByPrinter.set(status.id, status);
+      // Offline and unknown reports cannot replace a known active job.
+      if (!status.online || status.status === "unknown" || status.status === "offline") continue;
 
-      const kind = classifyTransition(prev, status);
-      if (!kind) {
-        continue;
-      }
+      const result = await store.withPrinter(status.id, async (record, save, transaction) => {
+        const prev = record?.lastStatus;
+        const previousTimestamp = Date.parse((record?.lastObservation ?? prev)?.updatedAt ?? "");
+        const currentTimestamp = Date.parse(status.updatedAt ?? "");
+        // A second worker may have obtained this snapshot before a newer one
+        // was committed. Never let its delayed poll regress the baseline.
+        if (Number.isFinite(previousTimestamp) && Number.isFinite(currentTimestamp) &&
+          currentTimestamp < previousTimestamp) return null;
 
-      const payload = buildPrinterNotificationPayload(
-        status,
-        kind,
-        new Date().toISOString()
-      );
-
-      if (options.snapshotEnabled ?? true) {
-        try {
-          payload.photo = await capturePhoto(client, status.id, options);
-        } catch (error) {
-          options.logger?.warn?.(
-            { printerId: status.id, error: getErrorMessage(error) },
-            "Printer snapshot capture failed"
-          );
+        let kind = classifyTransition(prev, status);
+        if (!kind && prev && status.status === "printing" &&
+          record?.lastObservation?.status === "idle" && !sameRun(prev, status) &&
+          resetPrintMetrics(prev, status)) kind = "started";
+        let milestone = record?.progressMilestone ?? 0;
+        if (!prev || kind === "started") {
+          // Existing runs seen for the first time stay quiet. A start includes
+          // its actual progress, so passed milestones need no second message.
+          milestone = progressMilestone(status);
+        } else if (!kind && status.status === "printing" && (status.progressPct ?? 0) < 100 && progressMilestone(status) > milestone) {
+          kind = "progress";
+          milestone = progressMilestone(status);
         }
-      }
 
-      const dedupeKey = buildPrinterEventDedupeKey(status, kind, nowMs);
-      const event = (await enqueue(payload, dedupeKey)) as
-        | { payload?: unknown }
-        | undefined;
+        // Keep the active job for a delayed terminal marker, and durably keep
+        // the idle observation for timestamp ordering and same-file restarts.
+        if (!kind && status.status === "idle" && prev && prev.status !== "idle") {
+          await save({ lastStatus: prev, lastObservation: status,
+            eventVersion: record?.eventVersion ?? 0, progressMilestone: milestone });
+          return null;
+        }
 
-      // The outbox collapses duplicate dedupe keys into the existing row; the
-      // returned row then carries the FIRST payload, not ours. Detect that to
-      // count dedupes (diagnostics only — either way exactly one Telegram
-      // message will leave the outbox).
+        const effectiveStatus: PrinterStatus = {
+          ...status,
+          currentFile: status.currentFile ?? (kind === "started" ? null : prev?.currentFile ?? null),
+          activeRunId: status.activeRunId ?? (kind === "started" ? null : prev?.activeRunId ?? null),
+        };
+        const nextVersion = (record?.eventVersion ?? 0) + (kind ? 1 : 0);
+        let payload: PrinterNotificationPayload | null = null;
+        let event: { payload?: unknown } | undefined;
+        if (kind) {
+          const occurredAt = Number.isFinite(currentTimestamp)
+            ? new Date(currentTimestamp).toISOString() : new Date().toISOString();
+          payload = buildPrinterNotificationPayload(effectiveStatus, kind, occurredAt);
+          if (options.snapshotEnabled ?? true) {
+            try {
+              payload.photo = await capturePhoto(client, status.id, options);
+            } catch (error) {
+              options.logger?.warn?.(
+                { printerId: status.id, error: getErrorMessage(error) },
+                "Printer snapshot capture failed"
+              );
+            }
+          }
+          event = (await enqueue(
+            payload, buildPrinterEventDedupeKey(effectiveStatus, kind, nextVersion), transaction
+          )) as { payload?: unknown } | undefined;
+        }
+
+        // In production this write and the outbox insert share one SQL
+        // transaction. Failed enqueues leave the last good baseline intact.
+        await save({ lastStatus: effectiveStatus, eventVersion: nextVersion, progressMilestone: milestone });
+        return kind && payload ? { kind, payload, event } : null;
+      });
+
+      if (!result) continue;
+      const { kind, payload, event } = result;
       const returnedOccurredAt =
-        event &&
-        typeof event.payload === "object" &&
-        event.payload !== null &&
-        "occurredAt" in event.payload
+        event && typeof event.payload === "object" && event.payload !== null && "occurredAt" in event.payload
           ? String((event.payload as { occurredAt?: unknown }).occurredAt)
           : null;
-
-      if (returnedOccurredAt !== null && returnedOccurredAt !== payload.occurredAt) {
-        state.stats.notificationsDeduped += 1;
-      } else {
-        state.stats.notificationsEnqueued += 1;
-      }
-
+      const deduped = returnedOccurredAt !== null && returnedOccurredAt !== payload.occurredAt;
+      if (deduped) state.stats.notificationsDeduped += 1;
+      else state.stats.notificationsEnqueued += 1;
       options.logger?.info?.(
-        {
-          operation: "printer_monitor_event",
-          printerId: status.id,
-          eventKind: kind,
-          deduped: returnedOccurredAt !== null && returnedOccurredAt !== payload.occurredAt,
-        },
+        { operation: "printer_monitor_event", printerId: status.id, eventKind: kind, deduped },
         "Printer transition enqueued"
       );
       enqueued += 1;
@@ -598,54 +634,48 @@ async function pollPrintersCycle(options: PollPrintersOptions): Promise<number> 
   return enqueued;
 }
 
-export function registerPrinterMonitorWorker(app: FastifyInstance) {
+export function registerPrinterMonitorWorker(app: FastifyInstance, options: {
+  client?: OrchestratorClient | null;
+  poll?: typeof pollPrintersOnce;
+} = {}) {
   let timer: ReturnType<typeof setInterval> | null = null;
-  let running = false;
+  let inFlight: Promise<void> | null = null;
   let stopped = false;
   // One long-lived client for the worker so shutdown can abort its in-flight
   // requests instead of waiting out their timeouts.
   let client: OrchestratorClient | null = null;
 
-  const run = async () => {
-    if (running || stopped) {
-      return;
-    }
+  const run = (): Promise<void> => {
+    if (inFlight || stopped) return Promise.resolve();
+    inFlight = (async () => {
+      try {
+        const startedAt = Date.now();
+        const enqueued = await (options.poll ?? pollPrintersOnce)({
+          snapshotEnabled: env.PRINTER_SNAPSHOT_ENABLED,
+          snapshotTimeoutMs: env.PRINTER_SNAPSHOT_TIMEOUT_MS,
+          snapshotMaxBytes: env.PRINTER_SNAPSHOT_MAX_BYTES,
+          logger: app.log,
+          client,
+        });
+        const durationMs = Date.now() - startedAt;
 
-    running = true;
+        if (durationMs > env.PRINTER_MONITOR_POLL_INTERVAL_MS) {
+          app.log.warn(
+            {
+              operation: "printer_monitor_poll",
+              durationMs,
+              intervalMs: env.PRINTER_MONITOR_POLL_INTERVAL_MS,
+            },
+            "Printer poll cycle took longer than the poll interval"
+          );
+        }
 
-    try {
-      const startedAt = Date.now();
-      const enqueued = await pollPrintersOnce({
-        snapshotEnabled: env.PRINTER_SNAPSHOT_ENABLED,
-        snapshotTimeoutMs: env.PRINTER_SNAPSHOT_TIMEOUT_MS,
-        snapshotMaxBytes: env.PRINTER_SNAPSHOT_MAX_BYTES,
-        logger: app.log,
-        client,
-      });
-      const durationMs = Date.now() - startedAt;
-
-      if (durationMs > env.PRINTER_MONITOR_POLL_INTERVAL_MS) {
-        app.log.warn(
-          {
-            operation: "printer_monitor_poll",
-            durationMs,
-            intervalMs: env.PRINTER_MONITOR_POLL_INTERVAL_MS,
-          },
-          "Printer poll cycle took longer than the poll interval"
-        );
+        if (enqueued > 0) app.log.info({ enqueued }, "Printer monitor enqueued notifications");
+      } catch (error) {
+        app.log.error({ error: getErrorMessage(error) }, "Printer monitor failed");
       }
-
-      if (enqueued > 0) {
-        app.log.info({ enqueued }, "Printer monitor enqueued notifications");
-      }
-    } catch (error) {
-      app.log.error(
-        { error: getErrorMessage(error) },
-        "Printer monitor failed"
-      );
-    } finally {
-      running = false;
-    }
+    })().finally(() => { inFlight = null; });
+    return inFlight;
   };
 
   app.addHook("onReady", async () => {
@@ -668,7 +698,7 @@ export function registerPrinterMonitorWorker(app: FastifyInstance) {
       return;
     }
 
-    client = createOrchestratorClientFromEnv();
+    client = options.client !== undefined ? options.client : createOrchestratorClientFromEnv();
 
     timer = setInterval(() => {
       void run();
@@ -686,6 +716,7 @@ export function registerPrinterMonitorWorker(app: FastifyInstance) {
     // Abort any in-flight orchestrator request so shutdown never hangs on a
     // dead upstream.
     client?.close();
+    await inFlight;
     client = null;
   });
 }

@@ -18,12 +18,22 @@ import type {
 export const TELEGRAM_MESSAGE_LIMIT = 4096;
 export const TELEGRAM_CAPTION_LIMIT = 1024;
 
+/** Truncate rendered HTML without cutting tags, entities or Unicode pairs. */
 export function clampTelegramText(value: string, max: number): string {
-  if (value.length <= max) {
-    return value;
-  }
+  if (max <= 0) return "";
+  if (value.length <= max) return value;
 
-  return `${value.slice(0, Math.max(0, max - 1))}…`;
+  let result = "";
+  let openBold = 0;
+  const tokens = value.match(/<\/?b>|&(?:amp|lt|gt|quot);|[\s\S]/gu) ?? [];
+  for (const token of tokens) {
+    const nextOpen = openBold + (token === "<b>" ? 1 : token === "</b>" ? -1 : 0);
+    const closingLength = Math.max(0, nextOpen) * 4;
+    if (result.length + token.length + closingLength + 1 > max) break;
+    result += token;
+    openBold = Math.max(0, nextOpen);
+  }
+  return `${result}…${"</b>".repeat(openBold)}`;
 }
 
 const clamp = clampTelegramText;
@@ -112,6 +122,8 @@ function renderProductReport(payload: ProductReportNotificationPayload): string 
 }
 
 function printerTitle(payload: PrinterNotificationPayload): string {
+  if (payload.kind === "started") return "▶️ Печать началась";
+  if (payload.kind === "progress") return "🖨 Ход печати";
   if (payload.kind === "error") {
     return "❌ Ошибка принтера";
   }
@@ -131,6 +143,12 @@ function printerTitle(payload: PrinterNotificationPayload): string {
   return "✅ Печать завершена";
 }
 
+function durationMinutes(value: number): string {
+  const minutes = Math.max(0, Math.round(value));
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours} ч ${minutes % 60} мин` : `${minutes} мин`;
+}
+
 function renderPrinter(payload: PrinterNotificationPayload): string {
   const lines = [
     `<b>${printerTitle(payload)}</b>`,
@@ -145,11 +163,15 @@ function renderPrinter(payload: PrinterNotificationPayload): string {
     lines.push(line("Файл", clamp(payload.currentFile, 200)));
   }
 
-  if (
-    (payload.kind === "completed" || payload.kind === "cancelled") &&
-    payload.progressPct != null
-  ) {
+  if (payload.progressPct != null) {
     lines.push(line("Прогресс", `${payload.progressPct}%`));
+  }
+
+  if (payload.remainingMinutes != null && (payload.kind === "started" || payload.kind === "progress")) {
+    lines.push(line("Осталось примерно", durationMinutes(payload.remainingMinutes)));
+  }
+  if (payload.elapsedSeconds != null) {
+    lines.push(line("Время печати", durationMinutes(payload.elapsedSeconds / 60)));
   }
 
   // Description carries the human-readable reason for errors, pauses and
@@ -225,6 +247,8 @@ export function renderNotificationMessage(
     case NOTIFICATION_EVENT_TYPES.PRODUCT_REPORT_CREATED:
       return renderProductReport(payload as ProductReportNotificationPayload);
 
+    case NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_STARTED:
+    case NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_PROGRESS:
     case NOTIFICATION_EVENT_TYPES.PRINTER_ERROR:
     case NOTIFICATION_EVENT_TYPES.PRINTER_PAUSED:
     case NOTIFICATION_EVENT_TYPES.PRINTER_FILAMENT_RUNOUT:

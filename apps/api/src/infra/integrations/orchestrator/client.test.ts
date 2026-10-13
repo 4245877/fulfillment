@@ -564,3 +564,19 @@ test("an unknown protocol or type passes through instead of failing the fleet", 
   assert.equal(printer.type, "SLS");
   assert.equal(printer.enabled, true);
 });
+
+
+test("printer normalization rejects invalid progress and time instead of inventing zero", async () => {
+  const { normalizeOrchestratorPrinter } = await import("./client");
+  for (const progress of ["", " ", -1, 101, Infinity, "oops"]) {
+    assert.equal(normalizeOrchestratorPrinter({ id: "p1", progress })?.progressPct, null);
+  }
+  for (const minutesLeft of ["", -5, Infinity, "oops"]) {
+    assert.equal(normalizeOrchestratorPrinter({ id: "p1", minutesLeft })?.remainingMinutes, null);
+  }
+  const printer = normalizeOrchestratorPrinter({ id: "p1", progress: "0", minutesLeft: "87", elapsedSeconds: 3600, activeRunId: "run_1" });
+  assert.equal(printer?.progressPct, 0);
+  assert.equal(printer?.remainingMinutes, 87);
+  assert.equal(printer?.elapsedSeconds, 3600);
+  assert.equal(printer?.activeRunId, "run_1");
+});

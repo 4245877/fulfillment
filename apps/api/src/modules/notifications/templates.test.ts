@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  clampTelegramText,
+  TELEGRAM_CAPTION_LIMIT,
   renderNotificationMessage,
   TELEGRAM_MESSAGE_LIMIT,
 } from "./templates";
@@ -184,4 +186,36 @@ test("renders print completion without an error line", () => {
   assert.equal(html.includes("✅ Печать завершена"), true);
   assert.equal(html.includes("100%"), true);
   assert.equal(html.includes("Описание"), false);
+});
+
+
+test("renders start and progress with current percent and remaining minutes", () => {
+  for (const [kind, eventType, title] of [
+    ["started", NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_STARTED, "Печать началась"],
+    ["progress", NOTIFICATION_EVENT_TYPES.PRINTER_PRINT_PROGRESS, "Ход печати"],
+  ] as const) {
+    const html = renderNotificationMessage(eventType, {
+      kind, printer: { id: "p1", name: "Printer" }, status: "printing",
+      currentFile: "part.gcode", progressPct: 51, remainingMinutes: 87,
+      occurredAt: "2026-10-03T21:00:00.000Z",
+    });
+    assert.ok(html.includes(title));
+    assert.ok(html.includes("51%"));
+    assert.ok(html.includes("1 ч 27 мин"));
+    assert.ok(!html.includes("Время печати"), "unknown duration must not be invented");
+  }
+});
+
+test("caption truncation preserves HTML entities, balanced tags and Unicode", () => {
+  for (const value of [
+    `<b>${"&amp;".repeat(600)}</b>`,
+    `<b>Принтер:</b> ${"😀&lt;".repeat(400)}`,
+    `<b>${"a".repeat(1100)}</b>`,
+  ]) {
+    const truncated = clampTelegramText(value, TELEGRAM_CAPTION_LIMIT);
+    assert.ok(truncated.length <= TELEGRAM_CAPTION_LIMIT);
+    assert.equal((truncated.match(/<b>/g) ?? []).length, (truncated.match(/<\/b>/g) ?? []).length);
+    assert.ok(!/&[^;\s]*…/.test(truncated));
+    assert.ok(!/[\uD800-\uDBFF]…/.test(truncated));
+  }
 });

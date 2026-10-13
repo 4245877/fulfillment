@@ -204,3 +204,63 @@ test("TelegramClient top-level network errors do not include bot token", async (
     }
   );
 });
+
+
+test("TelegramClient retries a non-JSON rate-limit response", async () => {
+  globalThis.fetch = async () => new Response("Too Many Requests", { status: 429 });
+  const client = new TelegramClient({ botToken: "test-token", apiBaseUrl: "https://telegram.test" });
+  await assert.rejects(() => client.sendMessage({ chatId: "test-chat", text: "hello" }), (error) => {
+    assert.equal(error instanceof TelegramApiError, true);
+    assert.equal((error as TelegramApiError).retryable, true);
+    assert.equal((error as TelegramApiError).statusCode, 429);
+    return true;
+  });
+});
+
+test("TelegramClient aborts a stalled request and classifies it as retryable", async () => {
+  globalThis.fetch = async (_input, init) => new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+  });
+  const client = new TelegramClient({ botToken: "test-token", apiBaseUrl: "https://telegram.test", timeoutMs: 20 });
+  await assert.rejects(() => client.sendMessage({ chatId: "test-chat", text: "hello" }), (error) => {
+    assert.equal(error instanceof TelegramApiError, true);
+    assert.equal((error as TelegramApiError).retryable, true);
+    assert.match((error as Error).message, /timed out after 20ms/);
+    return true;
+  });
+});
+
+
+test("TelegramClient keeps malformed successful responses retryable instead of confirming or discarding delivery", async () => {
+  const client = new TelegramClient({ botToken: "test-token", apiBaseUrl: "https://telegram.test" });
+  const responses = [
+    "<html>proxy response</html>", "", "{}", "[]",
+    JSON.stringify({ ok: false }),
+    JSON.stringify({ ok: "true", result: { message_id: 1 } }),
+    JSON.stringify({ ok: true }), JSON.stringify({ ok: true, result: null }),
+    JSON.stringify({ ok: true, result: { message_id: "1" } }),
+    JSON.stringify({ ok: true, result: { message_id: -1 } }),
+  ];
+  for (const body of responses) {
+    globalThis.fetch = async () => new Response(body, { status: 200 });
+    await assert.rejects(() => client.sendMessage({ chatId: "test-chat", text: "hello" }), (error) => {
+      assert.ok(error instanceof TelegramApiError);
+      assert.equal(error.retryable, true, `malformed response ${body}`);
+      assert.equal(error.statusCode, 200);
+      return true;
+    });
+  }
+});
+
+test("TelegramClient preserves definitive API errors inside HTTP 200 responses", async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    ok: false, error_code: 400, description: "Bad Request: PHOTO_INVALID_DIMENSIONS",
+  }), { status: 200 });
+  const client = new TelegramClient({ botToken: "test-token", apiBaseUrl: "https://telegram.test" });
+  await assert.rejects(() => client.sendPhoto({ chatId: "test-chat", photo: new Uint8Array([1]) }), (error) => {
+    assert.ok(error instanceof TelegramApiError);
+    assert.equal(error.telegramErrorCode, 400);
+    assert.equal(error.retryable, false);
+    return true;
+  });
+});
